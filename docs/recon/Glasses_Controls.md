@@ -51,9 +51,36 @@ Pure voice questions to JARVIS (no image) use the **wake word** (already built),
 
 The point: the glasses already do the *capture*; we add the *cloud brain + memory* by syncing what they captured.
 
-## 4. How we capture them (implementation)
-- Front/back button presses arrive as **BLE notifications** on the glasses' control channel. We subscribe to the notify characteristics (candidates from the GATT map: oudmon `0000ae02`/`0000ae04`, `de5bf729`, NUS `6e400003`, `0000fee3`) and log the bytes per gesture.
-- **NEXT STEP:** extend `GlassesBleManager` to enable notifications on every notify characteristic, have the director perform each front/back gesture, capture the byte pattern → build a gesture→bytes map → route each to its feature (§3).
+## 4. The decoded event protocol (recon DONE on device, 2026-06-12)
+
+We subscribed to all 9 notify/indicate characteristics and pressed every gesture. **Everything
+arrives on `de5bf729`** (the same char as the Wi-Fi IP notify), framed as
+`BC 73 <len:2LE> <CRC16-MODBUS:2LE> <payload>` (note opcode `73` for events vs `41` for commands):
+
+| payload | event | observed |
+|---|---|---|
+| `01 <photos:u16LE> <videos:u16LE> <audio:u16LE> 01` | **capture saved** + current file inventory | fires on photo taken, audio-rec stop, video-rec stop. Counted 1→2 photos, then +1 audio, then +1 video across the test presses. |
+| `02 00 0C 02 00` | **AI gesture** (double-click BACK) | pure button signal — **no file is saved** (inventory unchanged). The app must trigger its own capture to get a frame. |
+| `0B <counter>` | **activity heartbeat** | every ~3 s during a recording AND during a Wi-Fi transfer session. Counter drifted 0x26→0x32, non-monotonic — meaning unknown, safe to ignore. |
+| `08 <ip:4>` | glasses' Wi-Fi IP | known from Phase 2. |
+| `09 FF 02` / `09 FF 03` | unknown status | seen around Wi-Fi-session transitions (start/teardown). Ignored. |
+
+**Hard-won integration gotchas (verified live, 2026-06-12):**
+1. **`BC 41` frames on the same char are command-ACK echoes**, payload mirroring the sent command
+   (capture cmd `02 01 01` → ack `02 01 01 FF 01`; first attempt acks `… FF FF`). An ACK parsed
+   naively as an event reads `02…` = AiGesture → triggers a capture → whose ACK triggers another:
+   a self-sustaining ~60 ms storm we hit in testing. **Events are strictly `BC 73` — check byte 1.**
+2. **The glasses DELETE their stored files after a successful transfer** and then emit a
+   zero-inventory event `01 00 00 00 00 00 00 01`. Treating that as "new capture" causes an
+   infinite sync loop (also hit in testing). Only an inventory **increase** means a new capture.
+3. The **Wi-Fi-start ACK carries the P2P group credentials in cleartext**:
+   `BC 41 25 00 <crc> 02 01 04 01 14 00 09 00 "AIMB-G2_6393E18AA034" "123456789"`
+   (SSID len-prefixed 0x14, passphrase len 0x09). Useful if we ever join the group manually
+   instead of via Wi-Fi Direct negotiation.
+
+Parser: `GlassesEvent.kt` in `:device:ble` (enforces the `BC 73` rule). Reactions (inventory-gated
+auto-sync + route by file type) live in `HomeViewModel` (`onCaptureSaved`/`onAiGesture`/`routeNewFile`).
+
 - Trackpad/music keys, *if* ever repurposed, go through the already-built `GlassesButtonController` (`MediaSession`). For now that session can stay inactive so we don't disturb music/volume.
 
 ## 5. Status

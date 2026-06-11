@@ -64,16 +64,22 @@ class EchoBackend(
     }
 
     /**
-     * Upload a media file to the private `media` bucket, namespaced by user id (RLS requires
-     * the first path segment = uid). Returns the storage object key for `memories.media_path`.
+     * Upload a media file to a private bucket (`media` or `audio`), namespaced by user id
+     * (RLS requires the first path segment = uid). Returns the storage object key for
+     * `memories.media_path`.
      */
-    suspend fun uploadMedia(bytes: ByteArray, fileName: String, mimeType: String = mimeFor(fileName)): String =
+    suspend fun uploadMedia(
+        bytes: ByteArray,
+        fileName: String,
+        mimeType: String = mimeFor(fileName),
+        bucket: String = "media",
+    ): String =
         withContext(Dispatchers.IO) {
             val uid = session.userId ?: error("not signed in")
             val month = java.time.YearMonth.now() // e.g. 2026-06
             val key = "$uid/$month/$fileName"
             val req = Request.Builder()
-                .url("${session.baseUrl}/storage/v1/object/media/$key")
+                .url("${session.baseUrl}/storage/v1/object/$bucket/$key")
                 .addHeader("apikey", session.anonKey)
                 .addHeader("Authorization", "Bearer ${session.accessToken}")
                 .addHeader("x-upsert", "true") // idempotent retries
@@ -103,10 +109,10 @@ class EchoBackend(
             json.decodeFromString(RecallResponse.serializer(), txt).matches.map { it.toMemory() }
         }
 
-    /** Transcribe a WAV clip (from the glasses mic) via the Gemini-backed transcribe function. */
-    suspend fun transcribe(wav: ByteArray): String = withContext(Dispatchers.IO) {
-        val b64 = android.util.Base64.encodeToString(wav, android.util.Base64.NO_WRAP)
-        val body = json.encodeToString(TranscribeRequest.serializer(), TranscribeRequest(b64))
+    /** Transcribe an audio clip via the Gemini-backed transcribe function. */
+    suspend fun transcribe(audio: ByteArray, mimeType: String = "audio/wav"): String = withContext(Dispatchers.IO) {
+        val b64 = android.util.Base64.encodeToString(audio, android.util.Base64.NO_WRAP)
+        val body = json.encodeToString(TranscribeRequest.serializer(), TranscribeRequest(b64, mimeType))
         val txt = post("/functions/v1/transcribe", body)
         json.decodeFromString(TranscribeResponse.serializer(), txt).text
     }
@@ -139,12 +145,17 @@ class EchoBackend(
         }
     }
 
-    private companion object {
+    companion object {
         fun mimeFor(fileName: String): String = when (fileName.substringAfterLast('.').lowercase()) {
             "jpg", "jpeg" -> "image/jpeg"
             "png" -> "image/png"
             "webp" -> "image/webp"
             "mp4" -> "video/mp4"
+            "wav" -> "audio/wav"
+            "mp3" -> "audio/mpeg"
+            "aac" -> "audio/aac"
+            "m4a" -> "audio/mp4"
+            "ogg", "opus" -> "audio/ogg" // Opus ships in an Ogg container; bucket+Gemini accept audio/ogg
             else -> "application/octet-stream"
         }
     }

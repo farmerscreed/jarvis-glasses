@@ -30,7 +30,7 @@ A personal AI companion that lives in your ear and sees through your eyes, built
 | **Wake word ("Jarvis")** | ✅ | On-device **Vosk** (offline, no key), phone mic. "Hands-free" toggle. |
 | **Phase 2: media sync (BLE→Wi-Fi Direct→HTTP)** | ✅ | "Sync from glasses" pulled all 10 captures (9 jpg + 1 mp4) into the app. |
 | **Phase 2: Look & Ask (Claude vision)** | ✅ | Describes the latest synced photo, speaks it, stores a memory. Verified live. |
-| **Glasses physical button trigger** | ⬜ DEFERRED | Buttons capture in firmware (kept native); instant button-notification reactions deferred — see §6. |
+| **Phase B: glasses-button reactions** | ✅ (in-app) | Button-event protocol decoded (`docs/recon/Glasses_Controls.md` §4). Press → BLE event → auto-sync → route: photo→caption+memory, audio→transcribe+voice-note, video→upload (V2), AI-gesture→Look&Ask. Verified on device 2026-06-12 (capture→"Done — 1 new capture(s) processed", no loops). Foreground service (works with app killed) still pending. |
 
 **AI providers wired:** embeddings = Google **Gemini** `gemini-embedding-001` (free, 1536-dim); chat/vision = **Claude** `claude-sonnet-4-6`; STT = Gemini `gemini-2.5-flash` (multimodal); TTS = Android on-device; wake word = Vosk. All keys live server-side in `supabase/functions/.env` (gitignored).
 
@@ -69,7 +69,7 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
 
 ## 8. Next steps (priority order)
 *Full start-to-finish production plan (incl. offline-first architecture + UI/UX design workflow): `docs/PRODUCTION_ROADMAP.md`.*
-1. **Glasses-button reactions (§6):** subscribe to button BLE notifications → on a press, auto-sync that capture + run the matching feature (photo→remember, AI-frame→Look&Ask). Makes it hands-free.
+1. ~~**Glasses-button reactions**~~ **DONE in-app (2026-06-12):** protocol decoded + reactions live (see §3 row). Remaining for Phase B: (a) live-press verification of the AI gesture + audio route by the director (BLE-cmd capture path verified end-to-end), (b) `ConnectedCompanionService` foreground service so reactions work with the app backgrounded/killed. **Gotchas discovered (documented in `Glasses_Controls.md` §4):** glasses delete their files + emit a zero-inventory event after each sync (only an inventory *increase* = new capture); `BC 41` frames are command-ACK echoes, never events (parsing them as events causes a capture storm); audio records as `.opus` (route as `audio/ogg`); Wi-Fi-start ACK leaks SSID+passphrase.
 2. ~~**Persist images**~~ **DONE (2026-06-11, server-verified):** private `media`/`audio` buckets + owner RLS (migration); `EchoBackend.uploadMedia()`/`signedMediaUrl()`; `media_path` now actually sent by `IngestRequest` (was silently dropped); Look&Ask uploads the photo and stores its storage key. **Verified on device (2026-06-12):** glasses capture → sync → Look & Ask → memory row carries the storage key → signed URL serves the real JPEG (695 KB) → anon read blocked. Gallery/timeline UI deferred to the design-integration phase (`docs/PRODUCTION_ROADMAP.md` §11).
 3. **Auto-sync on capture** + dedup (don't re-pull already-imported files); P2P reliability (retries/timeouts like the stock app).
 4. Streaming STT/TTS for latency; real auth UI; **cloud Supabase migration** (`supabase db push`); productionize (no cleartext, no hardcoded login).

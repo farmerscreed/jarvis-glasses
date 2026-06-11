@@ -15,9 +15,14 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.UUID
+
+/** A raw BLE notification from the glasses (e.g. a physical-button press, the Wi-Fi IP). */
+data class GlassesNotification(val char: UUID, val bytes: ByteArray)
 
 /**
  * BLE control of the AIMB-G2 glasses. Two roles:
@@ -78,6 +83,13 @@ class GlassesBleManager(private val context: Context) {
     private val _glassesWifiIp = MutableStateFlow<String?>(null)
     val glassesWifiIp: StateFlow<String?> = _glassesWifiIp
 
+    /** Every notification from any subscribed characteristic (button presses, IP, …). */
+    private val _notifications = MutableSharedFlow<GlassesNotification>(extraBufferCapacity = 32)
+    val notifications: SharedFlow<GlassesNotification> = _notifications
+
+    /** CCCD writes must be serialized — Android silently drops concurrent descriptor writes. */
+    private val cccdQueue = ArrayDeque<BluetoothGattCharacteristic>()
+
     // ---- Control: connect to the glasses, subscribe to notifications ----
 
     fun connectGlasses() {
@@ -102,31 +114,33 @@ class GlassesBleManager(private val context: Context) {
         override fun onMtuChanged(g: BluetoothGatt, mtu: Int, status: Int) { g.discoverServices() }
 
         override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-            val notify = g.getService(SVC)?.getCharacteristic(NOTIFY_CHAR)
-            if (notify != null) {
-                g.setCharacteristicNotification(notify, true)
-                notify.getDescriptor(CCCD)?.let { d ->
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        g.writeDescriptor(d, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-                    } else {
-                        @Suppress("DEPRECATION") d.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                        @Suppress("DEPRECATION") g.writeDescriptor(d)
+            // Subscribe to EVERY notify/indicate characteristic: button presses may arrive on any
+            // of the candidate channels (de5bf729, ae02/ae04, NUS 6e400003, fee3 — see Glasses_Controls.md §4).
+            cccdQueue.clear()
+            g.services.forEach { svc ->
+                svc.characteristics.forEach { ch ->
+                    val p = ch.properties
+                    if (p and (BluetoothGattCharacteristic.PROPERTY_NOTIFY or BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) {
+                        cccdQueue.add(ch)
                     }
                 }
-                _status.value = "BLE: connected, listening"
-                Log.i(TAG, "subscribed to $NOTIFY_CHAR")
-            } else {
-                _status.value = "BLE: notify char not found"
             }
+            if (cccdQueue.isEmpty()) { _status.value = "BLE: no notify chars found"; return }
+            Log.i(TAG, "subscribing to ${cccdQueue.size} notify/indicate chars")
+            subscribeNext(g)
+        }
+
+        override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, status: Int) {
+            subscribeNext(g)
         }
 
         override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic, value: ByteArray) {
-            handleNotify(value)
+            handleNotify(ch.uuid, value)
         }
 
         @Deprecated("API <33")
         override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
-            @Suppress("DEPRECATION") handleNotify(ch.value ?: return)
+            @Suppress("DEPRECATION") handleNotify(ch.uuid, ch.value ?: return)
         }
 
         override fun onCharacteristicWrite(g: BluetoothGatt, ch: BluetoothGattCharacteristic, status: Int) {
@@ -134,9 +148,34 @@ class GlassesBleManager(private val context: Context) {
         }
     }
 
-    private fun handleNotify(value: ByteArray) {
+    /** Serialized CCCD-enable: writes one descriptor, continues from onDescriptorWrite. */
+    private fun subscribeNext(g: BluetoothGatt) {
+        val ch = cccdQueue.removeFirstOrNull()
+        if (ch == null) {
+            _status.value = "BLE: connected, listening"
+            Log.i(TAG, "all notify subscriptions done")
+            return
+        }
+        g.setCharacteristicNotification(ch, true)
+        val d = ch.getDescriptor(CCCD) ?: return subscribeNext(g)
+        val value = if (ch.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0) {
+            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+        } else {
+            BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+        }
+        Log.i(TAG, "enable notify ${ch.uuid} inst=0x%04X".format(ch.instanceId))
+        if (Build.VERSION.SDK_INT >= 33) {
+            g.writeDescriptor(d, value)
+        } else {
+            @Suppress("DEPRECATION") d.value = value
+            @Suppress("DEPRECATION") g.writeDescriptor(d)
+        }
+    }
+
+    private fun handleNotify(char: UUID, value: ByteArray) {
         val hex = value.joinToString(" ") { "%02X".format(it) }
-        Log.i(TAG, "notify: $hex")
+        Log.i(TAG, "notify ${char}: $hex")
+        _notifications.tryEmit(GlassesNotification(char, value))
         // Frame: BC 41 len crc payload; payload[0] = value[6]. 0x08 => Wi-Fi IP in value[7..10].
         if (value.size >= 11 && value[6].toInt() and 0xFF == 0x08) {
             val ip = (7..10).joinToString(".") { (value[it].toInt() and 0xFF).toString() }

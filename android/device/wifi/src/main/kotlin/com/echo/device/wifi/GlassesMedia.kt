@@ -24,7 +24,10 @@ class MediaTransferClient(
     private val http: OkHttpClient,
     private val outDir: File,
 ) {
-    /** Returns (manifest filenames, locally saved files). */
+    /**
+     * Pull files named in the manifest that we don't already have (dedup by name; downloads go
+     * to a .part temp first so partial files never count as imported). Returns only NEW files.
+     */
     suspend fun pull(ip: String, onProgress: (Int, Int) -> Unit = { _, _ -> }): List<File> =
         withContext(Dispatchers.IO) {
             outDir.mkdirs()
@@ -34,21 +37,24 @@ class MediaTransferClient(
                     resp.body?.string().orEmpty()
                 }
             val names = manifest.lines().map { it.trim() }.filter { it.isNotEmpty() }
+            val fresh = names.filter { !File(outDir, it).let { f -> f.exists() && f.length() > 0 } }
             val saved = mutableListOf<File>()
-            names.forEachIndexed { i, name ->
-                onProgress(i + 1, names.size)
+            fresh.forEachIndexed { i, name ->
+                onProgress(i + 1, fresh.size)
                 val out = File(outDir, name)
+                val tmp = File(outDir, "$name.part")
                 runCatching {
                     http.newCall(Request.Builder().url(MediaProtocol.fileUrl(ip, name)).build())
                         .execute().use { resp ->
                             if (resp.isSuccessful) {
                                 resp.body?.byteStream()?.use { input ->
-                                    out.outputStream().use { input.copyTo(it) }
+                                    tmp.outputStream().use { input.copyTo(it) }
                                 }
-                                saved += out
+                                if (tmp.renameTo(out)) saved += out
                             }
                         }
                 }
+                tmp.delete()
             }
             saved
         }

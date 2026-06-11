@@ -12,8 +12,10 @@ import com.echo.device.audio.TtsEngine
 import com.echo.device.audio.WakeWordEngine
 import com.echo.device.audio.WavUtil
 import com.echo.device.ble.GlassesBleManager
+import com.echo.device.ble.GlassesEvent
 import com.echo.device.wifi.GlassesP2pManager
 import com.echo.device.wifi.MediaTransferClient
+import java.io.File
 import com.echo.memory.EchoBackend
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -49,12 +51,92 @@ class HomeViewModel @Inject constructor(
     var syncStatus by mutableStateOf("Pull captured media off the glasses"); private set
     var handsFree by mutableStateOf(false); private set
 
+    /** Set by the AI gesture (double-click BACK): the next synced photo gets full Look & Ask. */
+    private var aiAskPending = false
+
+    /** A capture event arrived while we were busy — sync as soon as the current job ends. */
+    private var pendingAutoSync = false
+
     init {
         // Mirror the BLE manager's status into Compose state (declared after the state it sets).
         viewModelScope.launch { ble.status.collect { bleStatus = it } }
         // Glasses physical button -> start a voice turn (hands-free, no phone).
         buttons.onTrigger = { onGlassesButton() }
         buttons.activate()
+        // Phase B: react to glasses button presses (firmware captures; we listen + enrich).
+        viewModelScope.launch {
+            ble.notifications.collect { n ->
+                when (val e = GlassesEvent.parse(n.bytes)) {
+                    is GlassesEvent.CaptureSaved -> onCaptureSaved(e.photos + e.videos + e.audio)
+                    is GlassesEvent.AiGesture -> onAiGesture()
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    /** Last known total file count on the glasses. They clear storage after a successful sync
+     *  and emit a zero-inventory event — only an INCREASE means a new capture. */
+    private var lastInventoryTotal = 0
+
+    /** The glasses just saved a capture (photo / audio / video) — pull it and enrich it. */
+    private fun onCaptureSaved(total: Int) {
+        val prev = lastInventoryTotal
+        lastInventoryTotal = total
+        if (total == 0 || total <= prev) return // post-sync clear or duplicate echo, not a capture
+        if (!loggedIn) { status = "Glasses captured — sign in to auto-sync"; return }
+        if (busy) { pendingAutoSync = true; return }
+        startAutoSync()
+    }
+
+    private fun startAutoSync() = run("Glasses captured — syncing…") {
+        val files = doSync()
+        if (files.isEmpty()) { status = "Nothing new on the glasses"; return@run }
+        files.forEach { routeNewFile(it) }
+        status = "Done — ${files.size} new capture(s) processed"
+    }
+
+    /** Double-click BACK: capture a frame ourselves, then Look & Ask on it when it syncs. */
+    private fun onAiGesture() {
+        if (busy || !loggedIn) return
+        aiAskPending = true
+        status = "AI button — capturing…"
+        ble.capturePhoto() // its CaptureSaved event then drives the sync + Look & Ask
+    }
+
+    /** Apply the right AI/memory treatment to a freshly synced capture. */
+    private suspend fun routeNewFile(f: File) {
+        when (f.extension.lowercase()) {
+            "jpg", "jpeg", "png" -> {
+                val bytes = f.readBytes()
+                val ask = aiAskPending; aiAskPending = false
+                status = "Claude is looking at ${f.name}…"
+                val desc = backend.describeImage(
+                    bytes,
+                    if (ask) "You are JARVIS. The wearer pressed the AI button on their glasses. Say what you see in one or two natural spoken sentences."
+                    else "One short sentence: caption this photo for a personal memory index.",
+                )
+                val key = runCatching { backend.uploadMedia(bytes, f.name) }.getOrNull()
+                runCatching { backend.remember(Memory(type = MemoryType.PHOTO, text = desc, mediaPath = key)) }
+                if (ask) { answer = desc; status = "Speaking…"; tts.speak(desc) } else tts.speak("Saved")
+            }
+            "mp4" -> { // V2: preserve video — upload only, no processing yet
+                status = "Uploading video ${f.name}…"
+                runCatching { backend.uploadMedia(f.readBytes(), f.name) }
+            }
+            "wav", "mp3", "aac", "m4a", "amr", "ogg", "opus" -> { // glasses record .opus
+                status = "Transcribing ${f.name}…"
+                val bytes = f.readBytes()
+                val transcript = runCatching {
+                    backend.transcribe(bytes, com.echo.memory.EchoBackend.mimeFor(f.name))
+                }.getOrDefault("")
+                val key = runCatching { backend.uploadMedia(bytes, f.name, bucket = "audio") }.getOrNull()
+                if (transcript.isNotBlank()) {
+                    runCatching { backend.remember(Memory(type = MemoryType.VOICE_NOTE, text = transcript, mediaPath = key)) }
+                    tts.speak("Noted")
+                }
+            }
+        }
     }
 
     private fun onGlassesButton() {
@@ -147,6 +229,12 @@ class HomeViewModel @Inject constructor(
 
     /** Phase 2: pull the glasses' captured media into the app (BLE start → Wi-Fi Direct → HTTP /files/). */
     fun syncGlasses() = run("Connecting to glasses…") {
+        doSync()
+        status = "Sync done"
+    }
+
+    /** The transfer ceremony: BLE start cmd → Wi-Fi Direct → HTTP pull. Returns the NEW files. */
+    private suspend fun doSync(): List<File> {
         ble.connectGlasses()
         p2p.start()
         delay(1500) // let the BLE link come up
@@ -157,16 +245,16 @@ class HomeViewModel @Inject constructor(
         if (ip == null) {
             syncStatus = "Timed out waiting for glasses Wi-Fi IP"
             status = "Sync failed"
-            p2p.stop(); return@run
+            p2p.stop(); return emptyList()
         }
         // ensure the P2P link is up before HTTP
         withTimeoutOrNull(15_000) { p2p.connected.first { it } }
         syncStatus = "Downloading from $ip…"
         val files = transfer.pull(ip) { i, n -> syncStatus = "Downloading $i/$n…" }
-        syncStatus = "Synced ${files.size} file(s) from the glasses"
-        status = "Sync done"
+        syncStatus = "Synced ${files.size} new file(s) from the glasses"
         ble.resetP2p()
         p2p.stop()
+        return files
     }
 
     /** Look & Ask: send the most recently synced photo to Claude vision, speak + remember it. */
@@ -200,6 +288,8 @@ class HomeViewModel @Inject constructor(
                 status = "Error: ${e.message}"
             } finally {
                 busy = false
+                // A glasses capture landed while we were busy — catch up now (dedup makes this safe).
+                if (pendingAutoSync) { pendingAutoSync = false; if (loggedIn) startAutoSync() }
             }
         }
     }
