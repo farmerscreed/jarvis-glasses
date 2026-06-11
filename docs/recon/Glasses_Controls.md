@@ -26,24 +26,30 @@
 There are **two completely different transports**, and that determines what we can safely repurpose:
 
 - **Trackpad / music → AVRCP** (standard Bluetooth media keys). These route to whatever app holds the active `MediaSession`. **Volume is handled by the Android system** — our app never sees it and shouldn't try to.
-- **Front / back buttons → BLE control** (sent over the glasses' oudmon/Jieli BLE channel to the stock app). Confirmed empirically: with our `MediaSession` active, front/back presses produced **no media-key events** — they are not AVRCP. With the stock app gone, **these are free to repurpose**, and our app can receive them by subscribing to the glasses' BLE *notify* characteristic.
+- **Front / back buttons → on-device firmware capture + a BLE notification.** **IMPORTANT (corrected 2026-06-11):** pressing a button makes the glasses **capture the photo/video/audio themselves, in firmware, stored on the glasses' internal storage — no app required.** Any app (stock or ours) is only needed *later* to **sync** the file over Wi-Fi. Separately, the glasses also emit a **BLE notification** so a connected app knows a button was pressed. Confirmed empirically that these are NOT AVRCP (our active `MediaSession` saw nothing). So we **cannot and should not try to "take over" these buttons** — the capture always happens. Our app's job is to **listen to the notification and enrich** (sync + apply AI), not to override.
 
-## 3. Our plan: KEEP vs REPURPOSE
+> **V2 note:** video recording is a planned V2 feature — **do not erode it.** The video gestures must keep doing their native firmware recording; our app should only *sync/process* video, never block it.
 
-**KEEP NATIVE (do not intercept):**
-- **Volume** (slide) — stays system volume.
-- **Music** play/pause • prev • next (trackpad) — keep for music playback. *(Only repurpose these later if the director confirms glasses-music isn't used.)*
+## 3. Our plan: KEEP native captures, LISTEN + ENRICH
 
-**REPURPOSE (front/back buttons — native intent already matches our features):**
-| Glasses gesture | Native meaning | → Our app feature |
+Decided (director, 2026-06-11): **keep all native functions; never override the firmware capture.** Our app reacts to each button's BLE notification by **syncing the new file and applying AI/memory on top** — it does not take the gesture away.
+
+**KEEP NATIVE (untouched):**
+- **Volume** (slide) — system volume.
+- **Music** play/pause • prev • next (trackpad) — kept for music.
+- **All captures** — photo, video, audio recording stay firmware-driven and stored on the glasses.
+
+**LISTEN + ENRICH (our app reacts to the BLE notification of each press):**
+| Glasses gesture | Native (preserved) | Our app reacts by |
 |---|---|---|
-| **Press & hold BACK** | start recording | **Hold-to-talk** — start a voice question (ask JARVIS) |
-| **Double-click BACK** | AI image recognition | **Look & Ask** — capture a frame + "what am I looking at?" |
-| **Single-click FRONT** | take photo | **Capture to memory** — photo (firmware shoots it; we import + remember) |
-| **Double-click FRONT** | start video | TBD (e.g. start Meeting Capture) |
-| **Single-click BACK** | end recording | Stop / cancel current turn |
+| Single-click FRONT | take photo | auto-sync the photo → remember / describe it |
+| Double-click BACK | "AI image recognition" (captures a frame) | **Look & Ask** — sync the frame → Claude vision "what is this?" |
+| Hold BACK / single-click BACK | start / stop audio recording | sync the clip → transcribe → meeting note / voice memo |
+| Double-click FRONT / single-click FRONT (recording) | start / stop **video** | **V2: sync & process video — do NOT block.** Leave fully native for now. |
 
-The mapping is almost 1:1 with the glasses' own labels ("AI recognition", "record", "photo"), so muscle memory barely changes.
+Pure voice questions to JARVIS (no image) use the **wake word** (already built), not a capture button.
+
+The point: the glasses already do the *capture*; we add the *cloud brain + memory* by syncing what they captured.
 
 ## 4. How we capture them (implementation)
 - Front/back button presses arrive as **BLE notifications** on the glasses' control channel. We subscribe to the notify characteristics (candidates from the GATT map: oudmon `0000ae02`/`0000ae04`, `de5bf729`, NUS `6e400003`, `0000fee3`) and log the bytes per gesture.
