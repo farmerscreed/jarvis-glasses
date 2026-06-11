@@ -52,10 +52,10 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
 - Full schema/endpoint/build detail in the per-area READMEs.
 
 ## 6. IN PROGRESS — glasses physical-button trigger (where we paused)
-Goal: tap a glasses temple button to start a voice turn (no phone, no always-on mic).
-- **Finding:** the glasses' buttons are **not** raw input devices — they send **Bluetooth AVRCP media commands**. With no active media session they hit `handle=0x0` (undelivered).
-- **Built:** `app/GlassesButtonController.kt` — an active `MediaSessionCompat` (state PLAYING) so the glasses' AVRCP presses route to its callbacks; logs each to **`EchoBtn`** and fires `onTrigger` → `HomeViewModel.onGlassesButton()` → runs the voice loop. Wired via Hilt + VM init.
-- **NEXT STEP (resume here):** app is installed + signed in with the MediaSession active. Have the user perform each temple gesture (front tap/double, back tap/double, swipe fwd/back); read `adb logcat -s EchoBtn:*` to map gesture → keycode; pick one as the trigger (and ignore the rest). Then finalize so a press starts a conversation hands-free.
+Goal: use glasses temple gestures to drive the app (no phone, no always-on mic). **Native gesture map + our repurposing plan are documented in `docs/recon/Glasses_Controls.md`** (per the manual).
+- **Key finding:** the glasses have **two control transports**. Trackpad/music gestures → **Bluetooth AVRCP media keys** (volume is system-handled). Front/back camera/AI buttons → **BLE control commands** (NOT AVRCP — confirmed: with our MediaSession active, front/back presses produced no media-key events). With the stock app gone, the **front/back buttons are free to repurpose** and map almost 1:1 to our features (back-hold → hold-to-talk; back-double → Look&Ask; front-single → photo→memory).
+- **Built (for the AVRCP/music side, currently idle):** `app/GlassesButtonController.kt` — a `MediaSessionCompat` that can capture AVRCP keys + fires `onGlassesButton()`. Keep its session inactive for now so music/volume stay native.
+- **NEXT STEP (resume here):** extend `GlassesBleManager` to **enable notifications on every notify characteristic** (`0000ae02`/`0000ae04`, `de5bf729`, `6e400003`, `0000fee3`); have the director press each front/back gesture; capture the byte pattern per gesture (log to `EchoBle`); build the gesture→bytes map; route each to its feature per `Glasses_Controls.md` §3.
 
 ## 7. Known issues / honest caveats
 - **16 KB page warning:** Vosk's `libvosk.so`/`libjnidispatch.so` aren't 16 KB-aligned → Android 16 shows a dismissable "App Compatibility" warning on launch. Device runs 4 KB pages so libs load fine; would matter for a 16 KB device / Play release.
