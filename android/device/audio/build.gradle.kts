@@ -1,0 +1,21 @@
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+}
+
+android {
+    namespace = "com.echo.device.audio"
+    compileSdk = 36
+    buildToolsVersion = "35.0.0"
+    defaultConfig { minSdk = 29 }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = "17" }
+}
+
+dependencies {
+    api(project(":core"))
+    implementation(libs.vosk.android)
+}

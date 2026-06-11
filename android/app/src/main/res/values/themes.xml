@@ -1,0 +1,4 @@
+<resources>
+    <!-- Compose draws the UI; the Activity just needs a no-action-bar framework theme. -->
+    <style name="Theme.Jarvis" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

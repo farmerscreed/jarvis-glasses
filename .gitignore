@@ -1,0 +1,29 @@
+# ---- Secrets — NEVER commit ----
+**/.env
+.env
+*.keystore
+*.jks
+
+# ---- Android / Gradle ----
+**/build/
+.gradle/
+android/local.properties
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# ---- Supabase local ----
+supabase/.branches/
+supabase/.temp/
+
+# ---- Scratch / OS ----
+.tmp/
+*.bak
+.DS_Store
+Thumbs.db
+
+# root-level adb dump scratch
+/*.xml
