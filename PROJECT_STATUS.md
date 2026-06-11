@@ -68,8 +68,9 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
 - **Local dev only:** hardcoded test login, local Supabase, cleartext to 127.0.0.1, provider quotas hit and routed around (OpenAI no credit → Gemini; Gemini 2.0-flash STT quota 0 → 2.5-flash).
 
 ## 8. Next steps (priority order)
+*Full start-to-finish production plan (incl. offline-first architecture + UI/UX design workflow): `docs/PRODUCTION_ROADMAP.md`.*
 1. **Glasses-button reactions (§6):** subscribe to button BLE notifications → on a press, auto-sync that capture + run the matching feature (photo→remember, AI-frame→Look&Ask). Makes it hands-free.
-2. **Persist images:** currently Look&Ask stores only the *description* as a memory; upload the synced image to Supabase Storage and set `media_path`, and build a simple gallery/timeline UI.
+2. ~~**Persist images**~~ **DONE (2026-06-11, server-verified):** private `media`/`audio` buckets + owner RLS (migration); `EchoBackend.uploadMedia()`/`signedMediaUrl()`; `media_path` now actually sent by `IngestRequest` (was silently dropped); Look&Ask uploads the photo and stores its storage key. Verified against the local stack (upload → signed-URL read → anon blocked → ingest row carries key); on-device re-test pending next session with glasses. Gallery/timeline UI deferred to the design-integration phase (`docs/PRODUCTION_ROADMAP.md` §11).
 3. **Auto-sync on capture** + dedup (don't re-pull already-imported files); P2P reliability (retries/timeouts like the stock app).
 4. Streaming STT/TTS for latency; real auth UI; **cloud Supabase migration** (`supabase db push`); productionize (no cleartext, no hardcoded login).
 5. Polish: 16 KB-aligned native libs (Vosk); V2 video processing.
