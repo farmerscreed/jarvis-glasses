@@ -27,3 +27,5 @@ Thumbs.db
 
 # root-level adb dump scratch
 /*.xml
+
+.tmp*
