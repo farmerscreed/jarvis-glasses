@@ -8,5 +8,9 @@ class SupabaseSession(
     @Volatile
     var accessToken: String? = null
 
+    /** Signed-in user's id; storage object keys are namespaced by it (RLS). */
+    @Volatile
+    var userId: String? = null
+
     val isLoggedIn: Boolean get() = accessToken != null
 }

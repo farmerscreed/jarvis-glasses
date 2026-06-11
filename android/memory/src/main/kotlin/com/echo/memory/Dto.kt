@@ -8,10 +8,26 @@ import kotlinx.serialization.Serializable
 data class AuthRequest(val email: String, val password: String)
 
 @Serializable
-data class AuthResponse(val access_token: String? = null)
+data class AuthResponse(val access_token: String? = null, val user: AuthUser? = null)
 
 @Serializable
-data class IngestRequest(val text: String, val type: String = "note")
+data class AuthUser(val id: String? = null)
+
+@Serializable
+data class IngestRequest(
+    val text: String,
+    val type: String = "note",
+    val media_path: String? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
+    val tags: List<String> = emptyList(),
+)
+
+@Serializable
+data class SignUrlRequest(val expiresIn: Int)
+
+@Serializable
+data class SignUrlResponse(val signedURL: String = "")
 
 @Serializable
 data class IngestResponse(val memory: MemoryDto)

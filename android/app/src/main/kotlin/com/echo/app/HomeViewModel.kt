@@ -175,16 +175,19 @@ class HomeViewModel @Inject constructor(
         val photo = transfer.latestPhoto()
         if (photo == null) { status = "No synced photo — Sync from glasses first"; return@run }
         status = "Claude is looking at ${photo.name}…"
+        val bytes = photo.readBytes()
         val desc = backend.describeImage(
-            photo.readBytes(),
+            bytes,
             "You are JARVIS. Say what's in this photo in one or two natural spoken sentences.",
         )
         answer = desc
         recalled = emptyList()
-        runCatching { backend.remember(Memory(type = MemoryType.PHOTO, text = desc, mediaPath = photo.name)) }
+        status = "Saving photo + memory…"
+        val mediaKey = runCatching { backend.uploadMedia(bytes, photo.name) }.getOrNull()
+        runCatching { backend.remember(Memory(type = MemoryType.PHOTO, text = desc, mediaPath = mediaKey)) }
         status = "Speaking…"
         tts.speak(desc)
-        status = "Look & Ask done"
+        status = if (mediaKey != null) "Look & Ask done" else "Look & Ask done (photo not uploaded)"
     }
 
     private fun run(busyMsg: String, block: suspend () -> Unit) {

@@ -26,13 +26,14 @@ class EchoBackend(
     /** Sign in (password grant); if the user doesn't exist locally, sign them up. */
     suspend fun signIn(email: String, password: String): Unit = withContext(Dispatchers.IO) {
         val body = json.encodeToString(AuthRequest.serializer(), AuthRequest(email, password))
-        val token = tryAuth("/auth/v1/token?grant_type=password", body)
+        val auth = tryAuth("/auth/v1/token?grant_type=password", body)
             ?: tryAuth("/auth/v1/signup", body)
             ?: error("sign-in failed")
-        session.accessToken = token
+        session.accessToken = auth.access_token
+        session.userId = auth.user?.id
     }
 
-    private fun tryAuth(path: String, body: String): String? {
+    private fun tryAuth(path: String, body: String): AuthResponse? {
         val req = Request.Builder()
             .url(session.baseUrl + path)
             .addHeader("apikey", session.anonKey)
@@ -41,17 +42,55 @@ class EchoBackend(
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) return null
             val txt = resp.body?.string() ?: return null
-            return json.decodeFromString(AuthResponse.serializer(), txt).access_token
+            val auth = json.decodeFromString(AuthResponse.serializer(), txt)
+            return if (auth.access_token != null) auth else null
         }
     }
 
     override suspend fun remember(memory: Memory): Memory = withContext(Dispatchers.IO) {
         val body = json.encodeToString(
             IngestRequest.serializer(),
-            IngestRequest(text = memory.text.orEmpty(), type = memory.type.wire),
+            IngestRequest(
+                text = memory.text.orEmpty(),
+                type = memory.type.wire,
+                media_path = memory.mediaPath,
+                lat = memory.lat,
+                lng = memory.lng,
+                tags = memory.tags,
+            ),
         )
         val txt = post("/functions/v1/ingest", body)
         json.decodeFromString(IngestResponse.serializer(), txt).memory.toMemory()
+    }
+
+    /**
+     * Upload a media file to the private `media` bucket, namespaced by user id (RLS requires
+     * the first path segment = uid). Returns the storage object key for `memories.media_path`.
+     */
+    suspend fun uploadMedia(bytes: ByteArray, fileName: String, mimeType: String = mimeFor(fileName)): String =
+        withContext(Dispatchers.IO) {
+            val uid = session.userId ?: error("not signed in")
+            val month = java.time.YearMonth.now() // e.g. 2026-06
+            val key = "$uid/$month/$fileName"
+            val req = Request.Builder()
+                .url("${session.baseUrl}/storage/v1/object/media/$key")
+                .addHeader("apikey", session.anonKey)
+                .addHeader("Authorization", "Bearer ${session.accessToken}")
+                .addHeader("x-upsert", "true") // idempotent retries
+                .post(bytes.toRequestBody(mimeType.toMediaType()))
+                .build()
+            http.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) error("upload failed: HTTP ${resp.code}: ${resp.body?.string().orEmpty()}")
+            }
+            key
+        }
+
+    /** Short-lived signed URL for a private storage object (the read path for `media_path`). */
+    suspend fun signedMediaUrl(path: String, expiresInSec: Int = 3600): String = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(SignUrlRequest.serializer(), SignUrlRequest(expiresInSec))
+        val txt = post("/storage/v1/object/sign/media/$path", body)
+        val signed = json.decodeFromString(SignUrlResponse.serializer(), txt).signedURL
+        "${session.baseUrl}/storage/v1$signed"
     }
 
     override suspend fun recall(query: String, limit: Int, type: MemoryType?): List<Memory> =
@@ -97,6 +136,16 @@ class EchoBackend(
             val txt = resp.body?.string().orEmpty()
             if (!resp.isSuccessful) error("HTTP ${resp.code}: $txt")
             return txt
+        }
+    }
+
+    private companion object {
+        fun mimeFor(fileName: String): String = when (fileName.substringAfterLast('.').lowercase()) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "mp4" -> "video/mp4"
+            else -> "application/octet-stream"
         }
     }
 }
