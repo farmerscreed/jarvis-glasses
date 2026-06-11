@@ -58,4 +58,7 @@ The point: the glasses already do the *capture*; we add the *cloud brain + memor
 
 ## 5. Status
 - ✅ Native mapping documented (this file).
-- 🟡 Capturing the front/back button BLE notifications is the immediate next task (replaces the MediaSession approach for the camera/AI buttons).
+- ✅ **Firmware-autonomous capture VERIFIED on device (2026-06-11):** with both our app AND the stock app force-stopped (zero PIDs), single-tapping the front button still captured photos. The stock app then showed "10 media resources can be imported" — captures the glasses made entirely on their own, with no app running. Confirms: buttons capture in firmware → stored on glasses → synced later.
+- 🟡 **Next tasks:**
+  1. **Sync pipeline** (the substance): pull captured media off the glasses into our app via the reverse-engineered path (BLE start cmd → Wi-Fi Direct → `GET /files/media.config` → `GET /files/<file>`), then apply AI/memory.
+  2. **BLE notification capture**: subscribe to the notify characteristics, press each gesture, record the bytes → so the app can react *instantly* to a press (auto-sync that capture + run the matching feature).
