@@ -72,6 +72,14 @@ class EchoBackend(
         json.decodeFromString(TranscribeResponse.serializer(), txt).text
     }
 
+    /** Send a synced photo to Claude vision; returns its description/answer. */
+    suspend fun describeImage(jpeg: ByteArray, prompt: String? = null): String = withContext(Dispatchers.IO) {
+        val b64 = android.util.Base64.encodeToString(jpeg, android.util.Base64.NO_WRAP)
+        val body = json.encodeToString(VisionRequest.serializer(), VisionRequest(b64, prompt = prompt))
+        val txt = post("/functions/v1/vision", body)
+        json.decodeFromString(VisionResponse.serializer(), txt).text
+    }
+
     suspend fun chat(message: String): ChatResult = withContext(Dispatchers.IO) {
         val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(message))
         val txt = post("/functions/v1/chat", body)

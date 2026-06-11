@@ -12,10 +12,15 @@ import com.echo.device.audio.TtsEngine
 import com.echo.device.audio.WakeWordEngine
 import com.echo.device.audio.WavUtil
 import com.echo.device.ble.GlassesBleManager
+import com.echo.device.wifi.GlassesP2pManager
+import com.echo.device.wifi.MediaTransferClient
 import com.echo.memory.EchoBackend
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
@@ -26,6 +31,8 @@ class HomeViewModel @Inject constructor(
     private val tts: TtsEngine,
     private val wake: WakeWordEngine,
     private val buttons: GlassesButtonController,
+    private val p2p: GlassesP2pManager,
+    private val transfer: MediaTransferClient,
 ) : ViewModel() {
 
     var loggedIn by mutableStateOf(false); private set
@@ -39,6 +46,7 @@ class HomeViewModel @Inject constructor(
 
     var audioStatus by mutableStateOf("Tap to test the glasses mic + speaker"); private set
     var bleStatus by mutableStateOf("BLE idle"); private set
+    var syncStatus by mutableStateOf("Pull captured media off the glasses"); private set
     var handsFree by mutableStateOf(false); private set
 
     init {
@@ -136,6 +144,48 @@ class HomeViewModel @Inject constructor(
 
     /** Phase 0D: write the reverse-engineered capture command to the resolved characteristic. */
     fun capturePhoto() = ble.capturePhoto()
+
+    /** Phase 2: pull the glasses' captured media into the app (BLE start → Wi-Fi Direct → HTTP /files/). */
+    fun syncGlasses() = run("Connecting to glasses…") {
+        ble.connectGlasses()
+        p2p.start()
+        delay(1500) // let the BLE link come up
+        p2p.discoverAndConnect()
+        ble.startWifiTransfer() // glasses bring up Wi-Fi; IP arrives via BLE notify
+        syncStatus = "Waiting for glasses Wi-Fi…"
+        val ip = withTimeoutOrNull(30_000) { ble.glassesWifiIp.filterNotNull().first() }
+        if (ip == null) {
+            syncStatus = "Timed out waiting for glasses Wi-Fi IP"
+            status = "Sync failed"
+            p2p.stop(); return@run
+        }
+        // ensure the P2P link is up before HTTP
+        withTimeoutOrNull(15_000) { p2p.connected.first { it } }
+        syncStatus = "Downloading from $ip…"
+        val files = transfer.pull(ip) { i, n -> syncStatus = "Downloading $i/$n…" }
+        syncStatus = "Synced ${files.size} file(s) from the glasses"
+        status = "Sync done"
+        ble.resetP2p()
+        p2p.stop()
+    }
+
+    /** Look & Ask: send the most recently synced photo to Claude vision, speak + remember it. */
+    fun lookAndAsk() = run("Looking…") {
+        if (!loggedIn) { status = "Sign in first"; return@run }
+        val photo = transfer.latestPhoto()
+        if (photo == null) { status = "No synced photo — Sync from glasses first"; return@run }
+        status = "Claude is looking at ${photo.name}…"
+        val desc = backend.describeImage(
+            photo.readBytes(),
+            "You are JARVIS. Say what's in this photo in one or two natural spoken sentences.",
+        )
+        answer = desc
+        recalled = emptyList()
+        runCatching { backend.remember(Memory(type = MemoryType.PHOTO, text = desc, mediaPath = photo.name)) }
+        status = "Speaking…"
+        tts.speak(desc)
+        status = "Look & Ask done"
+    }
 
     private fun run(busyMsg: String, block: suspend () -> Unit) {
         viewModelScope.launch {

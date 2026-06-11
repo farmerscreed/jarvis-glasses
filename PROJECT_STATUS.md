@@ -28,7 +28,9 @@ A personal AI companion that lives in your ear and sees through your eyes, built
 | **Camera trigger over BLE** | ✅ | App wrote capture cmd ×3 → stock album showed "3 media to import". |
 | **Voice assistant loop** | ✅ | "Talk" → glasses mic → Gemini STT → Claude RAG → Android TTS in your ear. Verified: "Where did I park?" → correct spoken answer. |
 | **Wake word ("Jarvis")** | ✅ | On-device **Vosk** (offline, no key), phone mic. "Hands-free" toggle. |
-| **Glasses physical button trigger** | 🟡 IN PROGRESS | See §6. |
+| **Phase 2: media sync (BLE→Wi-Fi Direct→HTTP)** | ✅ | "Sync from glasses" pulled all 10 captures (9 jpg + 1 mp4) into the app. |
+| **Phase 2: Look & Ask (Claude vision)** | ✅ | Describes the latest synced photo, speaks it, stores a memory. Verified live. |
+| **Glasses physical button trigger** | ⬜ DEFERRED | Buttons capture in firmware (kept native); instant button-notification reactions deferred — see §6. |
 
 **AI providers wired:** embeddings = Google **Gemini** `gemini-embedding-001` (free, 1536-dim); chat/vision = **Claude** `claude-sonnet-4-6`; STT = Gemini `gemini-2.5-flash` (multimodal); TTS = Android on-device; wake word = Vosk. All keys live server-side in `supabase/functions/.env` (gitignored).
 
@@ -51,12 +53,12 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
 4. **App:** `android\gradlew.bat -p android :app:installDebug` (or open `android/` in Android Studio). Sign in (dev) uses a test account; `DevConfig` points at `127.0.0.1:54421`.
 - Full schema/endpoint/build detail in the per-area READMEs.
 
-## 6. IN PROGRESS — glasses physical-button trigger (where we paused)
-Goal: use glasses temple gestures to drive the app (no phone, no always-on mic). **Native gesture map + our repurposing plan are documented in `docs/recon/Glasses_Controls.md`** (per the manual).
-- **Two transports.** Trackpad/music → **AVRCP media keys** (volume system-handled). Front/back buttons → **on-device firmware capture + a BLE notification** (NOT AVRCP — our MediaSession saw nothing).
-- **CORRECTED model (director, 2026-06-11):** the buttons capture photo/video/audio **in firmware, app-independent** (stored on the glasses, synced later). So we **don't "take over" buttons** — we **LISTEN to the notification and ENRICH** (sync the file + apply AI/memory). **Keep all native captures; do NOT erode video (planned V2 feature).** Pure voice trigger = the wake word (built). See `docs/recon/Glasses_Controls.md` §3 for the per-gesture plan.
-- **Built (idle for now):** `app/GlassesButtonController.kt` (MediaSession, only relevant to the AVRCP/music side; keep inactive so music/volume stay native).
-- **NEXT STEP (resume here):** extend `GlassesBleManager` to **subscribe to notifications on the notify characteristics** (`0000ae02`/`0000ae04`, `de5bf729`, `6e400003`, `0000fee3`); press each front/back gesture; capture the notification bytes per gesture (log to `EchoBle`); then on each, auto-sync the capture (Wi-Fi Direct → HTTP `/files/`) + apply AI (photo→remember, AI-frame→Look&Ask, audio→transcribe). Also pending: live-confirm firmware-autonomous capture (press front button with no app open → photo still appears).
+## 6. Recently completed + what's deferred
+**Phase 2 (vision) — DONE & verified on device (2026-06-11):**
+- **Transfer protocol fully decoded** (`docs/recon/Transfer_Protocol.md`): oudmon BLE frame `BC 41 <len:2LE> <CRC16-MODBUS:2LE> <payload>` → char `de5bf72a`; Wi-Fi-start payload `02 01 04`; glasses' IP arrives on notify `de5bf729` (type `0x08`); then Wi-Fi Direct + `GET http://<ip>/files/media.config` → each file. CRC reversed from the known camera-trigger bytes.
+- **Implemented & working:** `:device:ble` `GlassesBleManager` (CRC framer, `startWifiTransfer()`, IP-notify parse), `:device:wifi` `GlassesP2pManager` (Wi-Fi Direct) + `MediaTransferClient` (HTTP pull), `vision` Edge Function (Claude multimodal), VM `syncGlasses()` + `lookAndAsk()`, UI "Sync from glasses" / "Look & Ask". **Verified:** synced 10 items; Look & Ask described a synced photo aloud + stored a memory.
+
+**Glasses physical-button trigger — DEFERRED (design decided, not built):** Per `docs/recon/Glasses_Controls.md`: buttons capture photo/video/audio **in firmware, app-independent** (verified: 10 items captured with no app running). Keep all native captures (esp. video for V2); the app should **listen to each button's BLE notification and react** (auto-sync + AI). To build later: subscribe to notify chars, press each front/back gesture, record the notification bytes (log `EchoBle`), then route each press to a feature. `GlassesButtonController` (MediaSession) exists but stays idle (music/volume stay native).
 
 ## 7. Known issues / honest caveats
 - **16 KB page warning:** Vosk's `libvosk.so`/`libjnidispatch.so` aren't 16 KB-aligned → Android 16 shows a dismissable "App Compatibility" warning on launch. Device runs 4 KB pages so libs load fine; would matter for a 16 KB device / Play release.
@@ -66,10 +68,21 @@ Goal: use glasses temple gestures to drive the app (no phone, no always-on mic).
 - **Local dev only:** hardcoded test login, local Supabase, cleartext to 127.0.0.1, provider quotas hit and routed around (OpenAI no credit → Gemini; Gemini 2.0-flash STT quota 0 → 2.5-flash).
 
 ## 8. Next steps (priority order)
-1. Finish the glasses-button trigger (§6).
-2. **Vision pipeline (Phase 2):** capture → Wi-Fi Direct → HTTP import → Claude vision ("what am I looking at?").
-3. Streaming STT/TTS for low latency; real auth UI; cloud Supabase migration (`supabase db push`).
-4. Polish: wake-word on glasses-button instead of phone; 16 KB-aligned native libs; error handling.
+1. **Glasses-button reactions (§6):** subscribe to button BLE notifications → on a press, auto-sync that capture + run the matching feature (photo→remember, AI-frame→Look&Ask). Makes it hands-free.
+2. **Persist images:** currently Look&Ask stores only the *description* as a memory; upload the synced image to Supabase Storage and set `media_path`, and build a simple gallery/timeline UI.
+3. **Auto-sync on capture** + dedup (don't re-pull already-imported files); P2P reliability (retries/timeouts like the stock app).
+4. Streaming STT/TTS for latency; real auth UI; **cloud Supabase migration** (`supabase db push`); productionize (no cleartext, no hardcoded login).
+5. Polish: 16 KB-aligned native libs (Vosk); V2 video processing.
 
 ## 9. Environment (this machine)
 Windows 11. Android SDK at `%LOCALAPPDATA%\Android\Sdk` (platforms 36), JDK 17 (Adoptium), Docker Desktop, Supabase CLI, Node 24, adb. Test device: Pixel 8 (Android 16). Full recon tooling (decompiled stock app, APKs, evidence) lives locally in `..\Jarvis Glasses\` (not committed — too large).
+
+## 10. The product plan (5 core features, one shared Memory Index)
+Full detail in `docs/recon/01_IMPLEMENTATION_PLAN.md` + `…Project_Brief.md`. Summary of plan vs. status:
+1. **Visual Second-Brain** (keystone) — capture (photo+note+time) → memory; recall by NL. → memory loop ✅, photo capture+sync+vision ✅; *next: auto-capture-to-memory on button press*.
+2. **Look & Ask** — frame → Claude vision in your ear. → **✅ working** on synced photos (glasses-button trigger pending).
+3. **Read-it-to-me (OCR)** — point at text → hear it. → not built (same pipeline as Look&Ask + OCR prompt).
+4. **Meeting Capture** — record audio → transcribe → summarize → recall. → STT exists + glasses record audio in firmware; *not wired as a feature yet*.
+5. **Translation** — sign/menu (OCR→translate→speak) + live conversation. → not built (Claude can translate; needs OCR/audio paths).
+
+**Phasing:** Phase 0 (foundation) ✅ · Phase 1 (audio loop / voice assistant) ✅ · **Phase 2 (vision: capture→sync→Claude vision→memory) ✅** · Phase 3 (polish: button-trigger, streaming low-latency, translation/OCR, cloud Supabase, productionize) — partially started. See §8 for the prioritized next steps.

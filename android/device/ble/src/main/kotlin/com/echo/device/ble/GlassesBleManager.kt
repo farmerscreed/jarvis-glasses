@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
@@ -19,111 +20,152 @@ import kotlinx.coroutines.flow.StateFlow
 import java.util.UUID
 
 /**
- * Real BLE control of the AIMB-G2 glasses (Phase 0D). Two jobs:
- *  1) DISCOVER — enumerate bonded devices, scan, connect + dump every service/characteristic
- *     (UUID, properties, instanceId) so we can resolve the camera endpoint that serves ATT
- *     handle 0x008E (its UUID was never captured — see handoff "Open Items").
- *  2) CAPTURE — write [GlassesProtocol.CAMERA_CAPTURE] to that characteristic to shoot a photo.
- * Everything is logged to Logcat tag "EchoBle" (read with: adb logcat -s EchoBle).
+ * BLE control of the AIMB-G2 glasses. Two roles:
+ *  - Diagnostics (scan + dump GATT) — used to resolve characteristics.
+ *  - Control: send framed oudmon `glassesControl` commands (capture photo, start Wi-Fi transfer)
+ *    and receive notifications (the glasses' Wi-Fi IP). See docs/recon/Transfer_Protocol.md.
+ * Logs to "EchoBle".
  */
 @SuppressLint("MissingPermission")
 class GlassesBleManager(private val context: Context) {
 
     companion object {
         const val TAG = "EchoBle"
-        /** The camera trigger's ATT value handle, confirmed in Session 02. */
-        const val CAPTURE_HANDLE = 0x008E
+        const val GLASSES_ADDR = "63:93:E1:8A:A0:34"
+        val SVC: UUID = UUID.fromString("de5bf728-d711-4e47-af26-65e3012a5dc7")
+        val WRITE_CHAR: UUID = UUID.fromString("de5bf72a-d711-4e47-af26-65e3012a5dc7") // handle 0x008E
+        val NOTIFY_CHAR: UUID = UUID.fromString("de5bf729-d711-4e47-af26-65e3012a5dc7")
+        val CCCD: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
+        /** oudmon frame: BC 41 <len:2 LE> <CRC16-MODBUS(payload):2 LE> <payload>. */
+        fun frame(payload: ByteArray): ByteArray {
+            val crc = crc16Modbus(payload)
+            val len = payload.size
+            return byteArrayOf(
+                0xBC.toByte(), 0x41,
+                (len and 0xFF).toByte(), ((len shr 8) and 0xFF).toByte(),
+                (crc and 0xFF).toByte(), ((crc shr 8) and 0xFF).toByte(),
+            ) + payload
+        }
+
+        private fun crc16Modbus(data: ByteArray): Int {
+            var crc = 0xFFFF
+            for (b in data) {
+                crc = crc xor (b.toInt() and 0xFF)
+                repeat(8) {
+                    crc = if (crc and 1 != 0) (crc ushr 1) xor 0xA001 else crc ushr 1
+                }
+            }
+            return crc and 0xFFFF
+        }
+
+        val CMD_CAPTURE_PHOTO = byteArrayOf(0x02, 0x01, 0x01)
+        val CMD_START_WIFI = byteArrayOf(0x02, 0x01, 0x04)
+        val CMD_RESET_P2P = byteArrayOf(0x02, 0x01, 0x0F)
     }
 
     private val manager get() = context.getSystemService(BluetoothManager::class.java)
     private val adapter get() = manager.adapter
     private val handler = Handler(Looper.getMainLooper())
-    private val gatts = mutableMapOf<String, BluetoothGatt>()
-    /** address -> (serviceUuid, charUuid) of the characteristic whose instanceId == CAPTURE_HANDLE. */
-    private val captureTargets = mutableMapOf<String, Pair<UUID, UUID>>()
+
+    private var glassesGatt: BluetoothGatt? = null
+    private val gatts = mutableMapOf<String, BluetoothGatt>() // diagnostic connections
 
     private val _status = MutableStateFlow("BLE idle")
     val status: StateFlow<String> = _status
 
-    /** Enumerate bonded devices, scan ~8s, then connect to every bonded device and dump its GATT. */
-    fun runDiagnostic() {
-        _status.value = "BLE: listing bonded + scanning…"
-        val bonded = adapter.bondedDevices.orEmpty()
-        Log.i(TAG, "==== BONDED (${bonded.size}) ====")
-        bonded.forEach { Log.i(TAG, "BONDED name=${it.name} addr=${it.address} type=${it.type}") }
+    /** Set when the glasses report their Wi-Fi IP over BLE (notify type 0x08). Cleared on new transfer. */
+    private val _glassesWifiIp = MutableStateFlow<String?>(null)
+    val glassesWifiIp: StateFlow<String?> = _glassesWifiIp
 
-        val scanner = adapter.bluetoothLeScanner
-        val seen = HashSet<String>()
-        val scanCb = object : ScanCallback() {
-            override fun onScanResult(callbackType: Int, result: ScanResult) {
-                val d = result.device
-                if (seen.add(d.address)) {
-                    Log.i(TAG, "SCAN name=${d.name ?: result.scanRecord?.deviceName} addr=${d.address} rssi=${result.rssi} uuids=${result.scanRecord?.serviceUuids}")
-                }
-            }
-        }
-        runCatching { scanner?.startScan(scanCb) }
-        handler.postDelayed({
-            runCatching { scanner?.stopScan(scanCb) }
-            Log.i(TAG, "==== SCAN done; connecting to bonded devices ====")
-            bonded.forEach { connectAndDump(it) }
-            _status.value = "BLE: discovering GATT (see logcat)…"
-        }, 8000)
+    // ---- Control: connect to the glasses, subscribe to notifications ----
+
+    fun connectGlasses() {
+        if (glassesGatt != null) { _status.value = "BLE: already connected"; return }
+        _status.value = "BLE: connecting…"
+        val device = adapter.getRemoteDevice(GLASSES_ADDR)
+        device.connectGatt(context, false, controlCallback)
     }
 
-    private fun connectAndDump(device: BluetoothDevice) {
-        val cb = object : BluetoothGattCallback() {
-            override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
-                Log.i(TAG, "conn ${device.address} status=$status newState=$newState")
-                if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    gatts[device.address] = g
-                    g.requestMtu(517)
-                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    gatts.remove(device.address)
-                }
+    private val controlCallback = object : BluetoothGattCallback() {
+        override fun onConnectionStateChange(g: BluetoothGatt, status: Int, newState: Int) {
+            Log.i(TAG, "glasses conn status=$status newState=$newState")
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                glassesGatt = g
+                g.requestMtu(517)
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                glassesGatt = null
+                _status.value = "BLE: disconnected"
             }
+        }
 
-            override fun onMtuChanged(g: BluetoothGatt, mtu: Int, status: Int) {
-                Log.i(TAG, "mtu ${device.address} = $mtu; discovering…")
-                g.discoverServices()
-            }
+        override fun onMtuChanged(g: BluetoothGatt, mtu: Int, status: Int) { g.discoverServices() }
 
-            override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
-                Log.i(TAG, "==== GATT ${device.address} (${device.name}) status=$status ====")
-                g.services.forEach { svc ->
-                    Log.i(TAG, "SVC ${svc.uuid}")
-                    svc.characteristics.forEach { ch ->
-                        val handleHex = "0x%04X".format(ch.instanceId)
-                        val mark = if (ch.instanceId == CAPTURE_HANDLE) "  <== CAPTURE HANDLE 0x008E" else ""
-                        Log.i(TAG, "  CHR ${ch.uuid} props=${ch.properties} inst=$handleHex$mark")
-                        if (ch.instanceId == CAPTURE_HANDLE) {
-                            captureTargets[device.address] = svc.uuid to ch.uuid
-                            _status.value = "Found capture char on ${device.address}: ${ch.uuid}"
-                            Log.i(TAG, "RESOLVED capture target: addr=${device.address} svc=${svc.uuid} chr=${ch.uuid}")
-                        }
+        override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
+            val notify = g.getService(SVC)?.getCharacteristic(NOTIFY_CHAR)
+            if (notify != null) {
+                g.setCharacteristicNotification(notify, true)
+                notify.getDescriptor(CCCD)?.let { d ->
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        g.writeDescriptor(d, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                    } else {
+                        @Suppress("DEPRECATION") d.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        @Suppress("DEPRECATION") g.writeDescriptor(d)
                     }
                 }
-            }
-
-            override fun onCharacteristicWrite(g: BluetoothGatt, ch: BluetoothGattCharacteristic, status: Int) {
-                Log.i(TAG, "WRITE ${ch.uuid} status=$status (0=success)")
-                _status.value = if (status == 0) "Capture command written OK" else "Capture write failed ($status)"
+                _status.value = "BLE: connected, listening"
+                Log.i(TAG, "subscribed to $NOTIFY_CHAR")
+            } else {
+                _status.value = "BLE: notify char not found"
             }
         }
-        device.connectGatt(context, false, cb)
+
+        override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic, value: ByteArray) {
+            handleNotify(value)
+        }
+
+        @Deprecated("API <33")
+        override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
+            @Suppress("DEPRECATION") handleNotify(ch.value ?: return)
+        }
+
+        override fun onCharacteristicWrite(g: BluetoothGatt, ch: BluetoothGattCharacteristic, status: Int) {
+            Log.i(TAG, "control write ${ch.uuid} status=$status")
+        }
     }
 
-    /** Write the capture trigger to the resolved characteristic (instanceId 0x008E). */
-    fun capturePhoto(): Boolean {
-        val (addr, target) = captureTargets.entries.firstOrNull()?.let { it.key to it.value }
-            ?: run { _status.value = "No capture target resolved yet — run diagnostic first"; return false }
-        val g = gatts[addr] ?: run { _status.value = "Not connected to $addr"; return false }
-        val ch = g.getService(target.first)?.getCharacteristic(target.second)
-            ?: run { _status.value = "Capture characteristic missing"; return false }
-        _status.value = "Writing CAMERA_CAPTURE to ${ch.uuid}…"
-        writeNoResponse(g, ch, GlassesProtocol.CAMERA_CAPTURE)
+    private fun handleNotify(value: ByteArray) {
+        val hex = value.joinToString(" ") { "%02X".format(it) }
+        Log.i(TAG, "notify: $hex")
+        // Frame: BC 41 len crc payload; payload[0] = value[6]. 0x08 => Wi-Fi IP in value[7..10].
+        if (value.size >= 11 && value[6].toInt() and 0xFF == 0x08) {
+            val ip = (7..10).joinToString(".") { (value[it].toInt() and 0xFF).toString() }
+            Log.i(TAG, "glasses Wi-Fi IP = $ip")
+            _glassesWifiIp.value = ip
+            _status.value = "BLE: glasses IP $ip"
+        }
+    }
+
+    private fun sendGlassesControl(payload: ByteArray): Boolean {
+        val g = glassesGatt ?: run { _status.value = "BLE: not connected"; return false }
+        val ch = g.getService(SVC)?.getCharacteristic(WRITE_CHAR) ?: run { _status.value = "BLE: write char missing"; return false }
+        writeNoResponse(g, ch, frame(payload))
         return true
     }
+
+    /** Trigger an on-demand photo capture. */
+    fun capturePhoto(): Boolean {
+        if (glassesGatt == null) connectGlasses()
+        return sendGlassesControl(CMD_CAPTURE_PHOTO)
+    }
+
+    /** Tell the glasses to bring up Wi-Fi for transfer. IP then arrives via [glassesWifiIp]. */
+    fun startWifiTransfer(): Boolean {
+        _glassesWifiIp.value = null
+        return sendGlassesControl(CMD_START_WIFI)
+    }
+
+    fun resetP2p() = sendGlassesControl(CMD_RESET_P2P)
 
     @Suppress("DEPRECATION")
     private fun writeNoResponse(g: BluetoothGatt, ch: BluetoothGattCharacteristic, data: ByteArray) {
@@ -136,8 +178,47 @@ class GlassesBleManager(private val context: Context) {
         }
     }
 
+    // ---- Diagnostics (scan + dump GATT) ----
+
+    fun runDiagnostic() {
+        _status.value = "BLE: listing bonded + scanning…"
+        val bonded = adapter.bondedDevices.orEmpty()
+        Log.i(TAG, "==== BONDED (${bonded.size}) ====")
+        bonded.forEach { Log.i(TAG, "BONDED name=${it.name} addr=${it.address}") }
+        val scanner = adapter.bluetoothLeScanner
+        val seen = HashSet<String>()
+        val cb = object : ScanCallback() {
+            override fun onScanResult(t: Int, r: ScanResult) {
+                if (seen.add(r.device.address)) Log.i(TAG, "SCAN ${r.device.name} ${r.device.address} rssi=${r.rssi}")
+            }
+        }
+        runCatching { scanner?.startScan(cb) }
+        handler.postDelayed({
+            runCatching { scanner?.stopScan(cb) }
+            bonded.forEach { dumpGatt(it) }
+        }, 8000)
+    }
+
+    private fun dumpGatt(device: BluetoothDevice) {
+        device.connectGatt(context, false, object : BluetoothGattCallback() {
+            override fun onConnectionStateChange(g: BluetoothGatt, s: Int, n: Int) {
+                if (n == BluetoothProfile.STATE_CONNECTED) { gatts[device.address] = g; g.requestMtu(517) }
+                else if (n == BluetoothProfile.STATE_DISCONNECTED) gatts.remove(device.address)
+            }
+            override fun onMtuChanged(g: BluetoothGatt, m: Int, s: Int) { g.discoverServices() }
+            override fun onServicesDiscovered(g: BluetoothGatt, s: Int) {
+                Log.i(TAG, "==== GATT ${device.address} (${device.name}) ====")
+                g.services.forEach { svc ->
+                    svc.characteristics.forEach { ch ->
+                        Log.i(TAG, "  CHR ${ch.uuid} props=${ch.properties} inst=0x%04X".format(ch.instanceId))
+                    }
+                }
+            }
+        })
+    }
+
     fun close() {
-        gatts.values.forEach { runCatching { it.close() } }
-        gatts.clear()
+        runCatching { glassesGatt?.close() }; glassesGatt = null
+        gatts.values.forEach { runCatching { it.close() } }; gatts.clear()
     }
 }

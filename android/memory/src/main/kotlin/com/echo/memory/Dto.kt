@@ -29,6 +29,12 @@ data class TranscribeRequest(val audioBase64: String, val mimeType: String = "au
 data class TranscribeResponse(val text: String = "")
 
 @Serializable
+data class VisionRequest(val imageBase64: String, val mediaType: String = "image/jpeg", val prompt: String? = null)
+
+@Serializable
+data class VisionResponse(val text: String = "")
+
+@Serializable
 data class ChatRequest(val message: String)
 
 @Serializable

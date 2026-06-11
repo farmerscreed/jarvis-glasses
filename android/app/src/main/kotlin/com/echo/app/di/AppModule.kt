@@ -7,6 +7,9 @@ import com.echo.device.audio.BtAudioEngine
 import com.echo.device.audio.TtsEngine
 import com.echo.device.audio.WakeWordEngine
 import com.echo.device.ble.GlassesBleManager
+import com.echo.device.wifi.GlassesP2pManager
+import com.echo.device.wifi.MediaTransferClient
+import java.io.File
 import com.echo.memory.EchoBackend
 import com.echo.memory.MemoryRepository
 import com.echo.memory.SupabaseSession
@@ -69,4 +72,13 @@ object AppModule {
     @Singleton
     fun provideGlassesButtons(@ApplicationContext ctx: Context): GlassesButtonController =
         GlassesButtonController(ctx)
+
+    @Provides
+    @Singleton
+    fun provideP2p(@ApplicationContext ctx: Context): GlassesP2pManager = GlassesP2pManager(ctx)
+
+    @Provides
+    @Singleton
+    fun provideTransfer(@ApplicationContext ctx: Context, http: OkHttpClient): MediaTransferClient =
+        MediaTransferClient(http, File(ctx.filesDir, "glasses_media"))
 }
