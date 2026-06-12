@@ -26,14 +26,53 @@ class EchoBackend(
     /** True if a (persisted) session token is present — lets the UI skip re-sign-in across launches. */
     val isLoggedIn: Boolean get() = session.isLoggedIn
 
-    /** Sign in (password grant); if the user doesn't exist locally, sign them up. */
+    /** Sign in (password grant); if the user doesn't exist locally, sign them up. DEV ONLY. */
     suspend fun signIn(email: String, password: String): Unit = withContext(Dispatchers.IO) {
         val body = json.encodeToString(AuthRequest.serializer(), AuthRequest(email, password))
         val auth = tryAuth("/auth/v1/token?grant_type=password", body)
             ?: tryAuth("/auth/v1/signup", body)
             ?: error("sign-in failed")
+        adopt(auth)
+    }
+
+    /** Step 1 of email sign-in: Supabase emails a 6-digit code (creates the user on first use). */
+    suspend fun requestEmailOtp(email: String): Unit = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(OtpRequest.serializer(), OtpRequest(email))
+        val req = Request.Builder()
+            .url(session.baseUrl + "/auth/v1/otp")
+            .addHeader("apikey", session.anonKey)
+            .post(body.toRequestBody(jsonMedia))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) error("couldn't send code: HTTP ${resp.code}: ${resp.body?.string().orEmpty()}")
+        }
+    }
+
+    /** Step 2 of email sign-in: exchange the emailed code for a session. */
+    suspend fun verifyEmailOtp(email: String, code: String): Unit = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(VerifyOtpRequest.serializer(), VerifyOtpRequest(email, code))
+        val auth = tryAuth("/auth/v1/verify", body) ?: error("wrong or expired code")
+        adopt(auth)
+    }
+
+    /**
+     * Rotate an expired access token with the stored refresh token. Returns false when there is
+     * nothing to refresh with or the server rejected it — the caller must re-authenticate.
+     * Synchronized so concurrent 401s (UI + SyncWorker) don't race the rotation.
+     */
+    @Synchronized
+    fun refreshSession(): Boolean {
+        val rt = session.refreshToken ?: return false
+        val body = json.encodeToString(RefreshRequest.serializer(), RefreshRequest(rt))
+        val auth = tryAuth("/auth/v1/token?grant_type=refresh_token", body) ?: return false
+        adopt(auth, fallbackRefreshToken = rt)
+        return true
+    }
+
+    private fun adopt(auth: AuthResponse, fallbackRefreshToken: String? = null) {
         session.accessToken = auth.access_token
-        session.userId = auth.user?.id
+        session.refreshToken = auth.refresh_token ?: fallbackRefreshToken
+        auth.user?.id?.let { session.userId = it }
     }
 
     private fun tryAuth(path: String, body: String): AuthResponse? {
@@ -82,16 +121,24 @@ class EchoBackend(
             val uid = session.userId ?: error("not signed in")
             val month = java.time.YearMonth.now() // e.g. 2026-06
             val key = "$uid/$month/$fileName"
-            val req = Request.Builder()
-                .url("${session.baseUrl}/storage/v1/object/$bucket/$key")
-                .addHeader("apikey", session.anonKey)
-                .addHeader("Authorization", "Bearer ${session.accessToken}")
-                .addHeader("x-upsert", "true") // idempotent retries
-                .post(bytes.toRequestBody(mimeType.toMediaType()))
-                .build()
-            http.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) error("upload failed: HTTP ${resp.code}: ${resp.body?.string().orEmpty()}")
+            fun attempt(): Pair<Int, String> {
+                val req = Request.Builder()
+                    .url("${session.baseUrl}/storage/v1/object/$bucket/$key")
+                    .addHeader("apikey", session.anonKey)
+                    .addHeader("Authorization", "Bearer ${session.accessToken}")
+                    .addHeader("x-upsert", "true") // idempotent retries
+                    .post(bytes.toRequestBody(mimeType.toMediaType()))
+                    .build()
+                http.newCall(req).execute().use { resp ->
+                    return resp.code to resp.body?.string().orEmpty()
+                }
             }
+            var (code, err) = attempt()
+            if (code == 401 && refreshSession()) {
+                val retry = attempt()
+                code = retry.first; err = retry.second
+            }
+            if (code !in 200..299) error("upload failed: HTTP $code: $err")
             key
         }
 
@@ -142,13 +189,21 @@ class EchoBackend(
      */
     suspend fun chatStream(message: String, onDelta: (String) -> Unit): ChatResult = withContext(Dispatchers.IO) {
         val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(message))
-        val builder = Request.Builder()
-            .url(session.baseUrl + "/functions/v1/chat-stream")
-            .addHeader("apikey", session.anonKey)
-            .addHeader("Accept", "text/event-stream")
-        session.accessToken?.let { builder.addHeader("Authorization", "Bearer $it") }
-        builder.post(body.toRequestBody(jsonMedia))
-        http.newCall(builder.build()).execute().use { resp ->
+        fun call(): okhttp3.Response {
+            val builder = Request.Builder()
+                .url(session.baseUrl + "/functions/v1/chat-stream")
+                .addHeader("apikey", session.anonKey)
+                .addHeader("Accept", "text/event-stream")
+            session.accessToken?.let { builder.addHeader("Authorization", "Bearer $it") }
+            builder.post(body.toRequestBody(jsonMedia))
+            return http.newCall(builder.build()).execute()
+        }
+        var first = call()
+        if (first.code == 401 && refreshSession()) {
+            first.close()
+            first = call()
+        }
+        first.use { resp ->
             if (!resp.isSuccessful) error("HTTP ${resp.code}: ${resp.body?.string().orEmpty()}")
             val source = resp.body?.source() ?: error("no stream body")
             var event = "message"
@@ -178,15 +233,24 @@ class EchoBackend(
     }
 
     private fun post(path: String, body: String): String {
+        var (code, txt) = postOnce(path, body)
+        // Expired access token: rotate via the refresh token and retry once.
+        if (code == 401 && refreshSession()) {
+            val retry = postOnce(path, body)
+            code = retry.first; txt = retry.second
+        }
+        if (code !in 200..299) error("HTTP $code: $txt")
+        return txt
+    }
+
+    private fun postOnce(path: String, body: String): Pair<Int, String> {
         val builder = Request.Builder()
             .url(session.baseUrl + path)
             .addHeader("apikey", session.anonKey)
         session.accessToken?.let { builder.addHeader("Authorization", "Bearer $it") }
         builder.post(body.toRequestBody(jsonMedia))
         http.newCall(builder.build()).execute().use { resp ->
-            val txt = resp.body?.string().orEmpty()
-            if (!resp.isSuccessful) error("HTTP ${resp.code}: $txt")
-            return txt
+            return resp.code to resp.body?.string().orEmpty()
         }
     }
 

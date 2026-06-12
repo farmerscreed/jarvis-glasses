@@ -17,6 +17,7 @@ import com.echo.device.ble.GlassesEvent
 import com.echo.device.wifi.GlassesP2pManager
 import com.echo.device.wifi.MediaTransferClient
 import java.io.File
+import com.echo.memory.ChatResult
 import com.echo.memory.ConnectivityGovernor
 import com.echo.memory.EchoBackend
 import com.echo.memory.MemoryStore
@@ -45,6 +46,12 @@ class HomeViewModel @Inject constructor(
     var loggedIn by mutableStateOf(false); private set
     var busy by mutableStateOf(false); private set
     var status by mutableStateOf("Not signed in"); private set
+
+    /** Email-OTP sign-in state. The dev password login only exists in the dev flavor. */
+    val devLoginEnabled = BuildConfig.DEV_LOGIN
+    var email by mutableStateOf("")
+    var otpCode by mutableStateOf("")
+    var otpSent by mutableStateOf(false); private set
 
     var memoryText by mutableStateOf("I parked on level 3 near the blue elevator.")
     var question by mutableStateOf("what did Sam say about the budget?")
@@ -167,10 +174,30 @@ class HomeViewModel @Inject constructor(
         run("Glasses button — listening…") { doTalk() }
     }
 
+    /** Dev-flavor shortcut against the local stack; the button is absent in prod builds. */
     fun signIn() = run("Signing in…") {
+        check(devLoginEnabled) { "dev login is disabled in this build" }
         backend.signIn("tester@local.dev", "password123")
         loggedIn = true
         status = "Signed in as tester@local.dev"
+    }
+
+    fun sendOtp() = run("Sending code…") {
+        val addr = email.trim()
+        if (addr.isBlank() || '@' !in addr) { status = "Enter your email address"; return@run }
+        backend.requestEmailOtp(addr)
+        otpSent = true
+        status = "Code sent — check $addr"
+    }
+
+    fun verifyOtp() = run("Verifying…") {
+        val code = otpCode.trim()
+        if (code.isBlank()) { status = "Enter the 6-digit code from the email"; return@run }
+        backend.verifyEmailOtp(email.trim(), code)
+        loggedIn = true
+        otpSent = false
+        otpCode = ""
+        status = "Signed in as ${email.trim()}"
     }
 
     fun remember() = run("Saving memory…") {
@@ -178,12 +205,31 @@ class HomeViewModel @Inject constructor(
         status = if (online) "Remembered" else "Saved on phone — will sync when back online"
     }
 
+    /**
+     * D2 streaming turn: speak each sentence as Claude generates it instead of waiting for the
+     * full answer. Returns null when the stream fails (caller falls back to non-streaming [EchoBackend.chat]).
+     */
+    private suspend fun streamedChat(message: String, onFirstSentence: () -> Unit = {}): ChatResult? {
+        if (!tts.beginStream()) return null
+        var spoke = false
+        val chunker = SentenceChunker { s ->
+            if (!spoke) { spoke = true; onFirstSentence(); status = "Speaking…" }
+            tts.enqueue(s)
+        }
+        val result = runCatching {
+            backend.chatStream(message) { chunker.add(it) }.also { chunker.flush() }
+        }.getOrNull() ?: return null
+        if (spoke) tts.finishStream() // wait out the queued speech before the turn ends
+        return result
+    }
+
     fun ask() = run("Thinking…") {
         if (online) {
-            // Adaptive timeout (§4.4): on a slow/LEAN link, fail fast to the on-device answer.
-            // (Streaming chat is built — backend.chatStream + chat-stream fn — but kept out of the
-            // live loop until the SSE-over-Kong path is verified; see Phase D notes.)
-            val result = withTimeoutOrNull(12_000) { backend.chat(question) }
+            // FULL tier: stream the answer, speaking sentence-by-sentence (D2). On a slow/LEAN
+            // link — or if the stream fails — fall back to one-shot chat with the adaptive
+            // timeout (§4.4) that fails fast to the on-device answer.
+            val streamed = if (tier == "full") streamedChat(question) else null
+            val result = streamed ?: withTimeoutOrNull(12_000) { backend.chat(question) }
             if (result != null) {
                 answer = result.answer
                 recalled = result.memoriesUsed
@@ -246,18 +292,27 @@ class HomeViewModel @Inject constructor(
             audio.earcon(EarconKind.THINKING)
             status = "Thinking…"
             val llmStart = System.currentTimeMillis()
-            val result = backend.chat(heard)
+            // D2: stream — first sentence is spoken while Claude writes the rest.
+            var toSpeak = 0L
+            val streamed = if (tier == "full") {
+                streamedChat(heard) { toSpeak = System.currentTimeMillis() - t0 }
+            } else null
+            val result = streamed ?: backend.chat(heard)
             val tLlm = System.currentTimeMillis() - llmStart
             answer = result.answer
             recalled = result.memoriesUsed
-            val toSpeak = System.currentTimeMillis() - t0
-            lastLatencyMs = toSpeak
+            if (streamed == null) {
+                toSpeak = System.currentTimeMillis() - t0
+                lastLatencyMs = toSpeak
+                status = "Speaking…"
+                tts.speak(result.answer)
+            } else {
+                lastLatencyMs = toSpeak
+            }
             android.util.Log.i(
                 "EchoLatency",
-                "record=${tRecord}ms (%.1fs audio) stt=${tStt}ms llm=${tLlm}ms time-to-speak=${toSpeak}ms".format(rec.seconds),
+                "record=${tRecord}ms (%.1fs audio) stt=${tStt}ms llm=${tLlm}ms streamed=${streamed != null} time-to-speak=${toSpeak}ms".format(rec.seconds),
             )
-            status = "Speaking…"
-            tts.speak(result.answer)
             status = "Done · ${toSpeak}ms to first word"
         } else {
             status = "Didn't catch that — try again"

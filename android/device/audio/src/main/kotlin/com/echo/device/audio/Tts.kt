@@ -58,6 +58,32 @@ class TtsEngine(context: Context) {
         tts.speak(text, TextToSpeech.QUEUE_ADD, null, "echo-stream-${System.identityHashCode(text)}")
     }
 
+    /**
+     * Suspend until everything queued via [enqueue] has been spoken — a silent sentinel utterance
+     * is appended and we resume when it completes. Keeps streamed turns sequential (hands-free
+     * mustn't re-open the mic while the answer is still playing).
+     */
+    suspend fun finishStream() {
+        if (!ready.await()) return
+        suspendCancellableCoroutine { cont ->
+            val id = "echo-stream-end-${cont.hashCode()}"
+            tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) {
+                    if (utteranceId == id && cont.isActive) cont.resume(Unit)
+                }
+                @Deprecated("deprecated in API level 21")
+                override fun onError(utteranceId: String?) {
+                    if (utteranceId == id && cont.isActive) cont.resume(Unit)
+                }
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    if (utteranceId == id && cont.isActive) cont.resume(Unit)
+                }
+            })
+            tts.playSilentUtterance(1, TextToSpeech.QUEUE_ADD, id)
+        }
+    }
+
     fun shutdown() {
         runCatching { tts.stop() }
         runCatching { tts.shutdown() }

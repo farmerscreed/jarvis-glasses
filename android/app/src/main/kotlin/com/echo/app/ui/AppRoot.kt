@@ -113,7 +113,30 @@ fun HomeScreen(vm: HomeViewModel) {
                     "Personal Memory Index — dev console",
                     style = MaterialTheme.typography.titleMedium,
                 )
-                Button(onClick = vm::signIn, enabled = !vm.busy) { Text("Sign in (dev)") }
+                OutlinedTextField(
+                    value = vm.email,
+                    onValueChange = { vm.email = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Email") },
+                    enabled = !vm.otpSent,
+                )
+                if (!vm.otpSent) {
+                    Button(onClick = vm::sendOtp, enabled = !vm.busy) { Text("Email me a code") }
+                } else {
+                    OutlinedTextField(
+                        value = vm.otpCode,
+                        onValueChange = { vm.otpCode = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("6-digit code") },
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = vm::verifyOtp, enabled = !vm.busy) { Text("Sign in") }
+                        Button(onClick = vm::sendOtp, enabled = !vm.busy) { Text("Resend code") }
+                    }
+                }
+                if (vm.devLoginEnabled) {
+                    Button(onClick = vm::signIn, enabled = !vm.busy) { Text("Sign in (dev)") }
+                }
             } else {
                 Button(
                     onClick = vm::talk,

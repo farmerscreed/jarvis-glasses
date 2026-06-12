@@ -8,7 +8,20 @@ import kotlinx.serialization.Serializable
 data class AuthRequest(val email: String, val password: String)
 
 @Serializable
-data class AuthResponse(val access_token: String? = null, val user: AuthUser? = null)
+data class AuthResponse(
+    val access_token: String? = null,
+    val refresh_token: String? = null,
+    val user: AuthUser? = null,
+)
+
+@Serializable
+data class OtpRequest(val email: String, val create_user: Boolean = true)
+
+@Serializable
+data class VerifyOtpRequest(val email: String, val token: String, val type: String = "email")
+
+@Serializable
+data class RefreshRequest(val refresh_token: String)
 
 @Serializable
 data class AuthUser(val id: String? = null)
