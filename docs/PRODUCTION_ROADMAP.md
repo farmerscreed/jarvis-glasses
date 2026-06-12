@@ -397,8 +397,11 @@ glance at, not a destination you live in. Three design laws:
 
 1. **State over chrome.** The hero of the home screen is a single animated **presence orb** that
    *is* Jarvis: idle (slow breathing glow) → listening (ripple toward you) → thinking (orbiting
-   particles) → speaking (waveform pulse) → off-grid (amber ember, still alive). Connection truth
-   lives in two quiet chips under it: `Glasses · connected` and `Cloud · full / lean / off-grid`.
+   particles) → speaking (waveform pulse) → **deliberating** (the slow, deep "working on something
+   real" state for the deliberate lane — researching/counting, may run 10–30 s) → off-grid (amber
+   ember, still alive). Connection truth lives in two quiet chips under it: `Glasses · connected`
+   and `Cloud · full / lean / off-grid`. The orb's state IS the Two-Speed Brain made visible (§1):
+   a quick pulse for the fast lane, the deep deliberating state for the patient lane.
 2. **Memory is a river.** The second surface is the **Timeline** — a reverse-chronological river of
    memory cards (photo, voice note, Q&A exchange, place) grouped by day, with one natural-language
    search field at the top ("the bookshop with the green door") that *talks to the same recall
@@ -412,11 +415,13 @@ glance at, not a destination you live in. Three design laws:
    a transcript card (speech is the enhancement), and a small chip shows the live mic source
    (glasses / phone / keyboard). If audio dies entirely, the app remains a complete product.
 
-**Screens (8):** ① Home/Live (orb, chips, Talk, last exchange transcript) · ② Timeline + NL search ·
-③ Memory detail (photo hero, description, map chip, related memories, play button for audio) ·
-④ Gallery grid · ⑤ Sync/Captures queue (what's on the glasses vs. imported, auto-sync toggle) ·
-⑥ Glasses device page (battery, buttons map, connection doctor) · ⑦ Settings (account, offline
-pack download, hands-free presets, privacy: export/delete) · ⑧ Onboarding/pairing wizard (6 steps).
+**Core screens (8):** ① Home/Live (orb, chips, Talk, last exchange transcript) · ② Timeline + NL
+search · ③ Memory detail (photo hero, description, map chip, related memories, play button for
+audio) · ④ Gallery grid · ⑤ Sync/Captures queue (what's on the glasses vs. imported, auto-sync
+toggle) · ⑥ Glasses device page (battery, buttons map, connection doctor) · ⑦ Settings (account,
+offline pack download, hands-free presets, privacy: export/delete) · ⑧ Onboarding/pairing wizard.
+**Future-feature surfaces (§11.5) + Help & Learn center (§11.6)** extend the same system; design
+them now so the visual language scales. Full screen list is in the design prompt (§11.3).
 
 **Visual language:** dark-first. Ink `#0B0F14` base, deep navy elevation, **electric cyan**
 `#3DDCFF` as the single accent (the Jarvis arc), **amber** `#FFB454` exclusively for
@@ -455,9 +460,11 @@ pending sync" semantics. Red only for true errors. Generous spacing, large round
 extra-large shapes), subtle glass/blur on elevated sheets. Display font: Space Grotesk (or similar
 geometric); body: Inter; live transcripts in a mono font.
 
-THE HERO ELEMENT: an animated "presence orb" representing Jarvis on the Home screen — design 5
+THE HERO ELEMENT: an animated "presence orb" representing Jarvis on the Home screen — design 6
 visual states: idle (slow breathing cyan glow), listening (ripples), thinking (orbiting particles),
-speaking (waveform pulse), off-grid (amber ember, calm, still alive). Show all 5 as variants.
+speaking (waveform pulse), deliberating (a deeper, slower, richer "working on something hard"
+state — for research/counting tasks that take 10-30s), off-grid (amber ember, calm, still alive).
+Show all 6 as variants.
 
 SCREENS (design every one, phone portrait, plus the listed states):
 1. HOME / LIVE — presence orb center; two status chips beneath it: "Glasses · Connected" and
@@ -488,13 +495,57 @@ SCREENS (design every one, phone portrait, plus the listed states):
    "Export all my data" and a destructive "Delete everything"; about.
 8. ONBOARDING / PAIRING WIZARD — 6 steps: welcome (orb intro) → sign in (Google + email code) →
    permissions explainer (mic, nearby devices — friendly copy on WHY) → finding glasses (radar
-   animation) → test capture & sound (checklist that ticks live) → "Say 'Jarvis'" finale. Design
-   step 4 also in a failure state with a help path.
+   animation) → test capture & sound (checklist that ticks live) → "Say 'Jarvis'" finale that
+   offers "Take the 60-second tour" (links to the Help & Learn center, screen 16). Design step 4
+   also in a failure state with a help path.
+
+FUTURE-FEATURE SURFACES (design these too — same visual system):
+9.  MEMORY DETAIL — VIDEO variant: video player with scrubber + poster frame, "Ask about this",
+    share, delete. Plus a VOICE-NOTE variant (waveform player + full transcript).
+10. MEETING / LONG-RECORDING detail — a recording's player, scrollable timestamped transcript, an
+    AI summary card, and an "action items / decisions" list; share + delete. Include a live
+    "Recording…" state (elapsed time, levels, stop button) and a "Transcribing… / Summarizing…"
+    processing state.
+11. READ-IT-TO-ME / OCR result — the captured scene thumbnail + the extracted text in a clean
+    readable block; a "Reading aloud…" playing state with progress; actions: copy, translate,
+    save as memory.
+12. TRANSLATION — a result card showing original text and translation stacked (with language
+    labels + swap); plus a LIVE CONVERSATION mode: two-language back-and-forth bubbles, a big
+    "listening" affordance, language picker for each side.
+13. ASK JARVIS (deliberate lane) — a conversation anchored to a capture: the photo pinned at the
+    top, a multi-turn thread below, and rich TOOL-RESULT cards — (a) price-check: a comparison list
+    of sources + prices with a "best" highlight; (b) research: a briefing card with bullet findings
+    + sources; (c) count: the photo shown with a detection grid/overlay and a LARGE count number the
+    user can correct (±, or type). Show a "deliberating" state (deep orb) while it works. NOTE: the
+    voice-only interaction model for this is still being designed — render the on-screen
+    representation; the hands-free flow is TBD.
+14. RECORDING / PRIVACY indicator (GLOBAL) — a calm but unmistakable persistent pill/banner whenever
+    the mic or camera is live ("Listening…" / "Recording…"), plus its lock-screen + notification
+    treatment. This is a consent/trust element, not decoration — design it to be honest and obvious.
+15. NOTIFICATIONS — (a) answer-as-notification when the app is backgrounded (the spoken answer also
+    arrives as readable text); (b) "Synced N memories"; (c) a future proactive nudge ("You parked on
+    level 3"). Design the expanded + collapsed forms.
+16. HELP & LEARN CENTER — a "How Jarvis works" hub so users learn the product (the glasses have no
+    screen, so this is essential, not optional):
+    - GESTURES & BUTTONS reference: an illustrated pair of glasses; each physical gesture labelled
+      with what it does — single-click front = photo, double-click back = AI ask (Look & Ask),
+      hold back = voice note, double-click front = video, trackpad = music/volume. Tapping a
+      gesture plays a short animation + a "what happens" explainer; a "Try it now" affordance that
+      confirms live when the press is detected.
+    - FEATURE HOW-TOS: a card per feature (Remember, Look & Ask, Read-it-to-me, Translate, Meeting,
+      Ask Jarvis) — each a short illustrated 3-step walkthrough.
+    - "THINGS YOU CAN SAY": a voice-command cheatsheet (wake word + example phrasings).
+    - INTERACTIVE TUTORIAL: a replayable guided tour with coach-marks over the real UI (also
+      offered at the end of onboarding).
+    - FAQ / TROUBLESHOOTING: pairing, audio routing, sync, offline. Design hub + one detail/article
+      screen + the coach-mark overlay style.
 
 GLOBAL: bottom navigation with 4 items (Live, Timeline, Gallery, Settings) using M3 nav bar with
-the cyan active indicator; status chips and amber offline semantics consistent everywhere; light
-haptic/motion notes welcome. Deliver cohesive components (cards, chips, buttons, search field) as
-a small design system page too. Everything must feel like ONE product: calm, dark, alive.
+the cyan active indicator; a persistent "?" Help entry (top app bar) reaching the Help & Learn
+center; status chips and amber offline semantics consistent everywhere; the recording/privacy
+indicator overlays everything when active; light haptic/motion notes welcome. Deliver cohesive
+components (cards, chips, buttons, search field, tool-result cards, transcript bubbles, the
+gesture-diagram) as a design system page too. Everything must feel like ONE product: calm, dark, alive.
 ```
 
 ### 11.4 Integration contract (so the design lands cleanly back in the engine)
@@ -502,9 +553,43 @@ a small design system page too. Everything must feel like ONE product: calm, dar
 When the design comes back, I will: extract a `JarvisTheme` (M3 `ColorScheme`, `Typography`,
 `Shapes` from the tokens) → rebuild screens as Compose composables wired to the existing
 ViewModels (`HomeViewModel.syncGlasses()`, `lookAndAsk()`, talk loop, tier state) → keep the orb as
-a custom `Canvas` composable with the 5 animated states driven by the real assistant state machine.
+a custom `Canvas` composable with the 6 animated states driven by the real assistant state machine.
 Nothing in the engine needs to change for the skin to land — that's why the engine phases (A–D)
 come first.
+
+### 11.5 Future-feature surfaces (design now so the system scales)
+
+These map to V2 features (§10) but should be designed alongside the core so the visual language is
+proven once, not retrofitted. Each reuses existing primitives (memory card, transcript, orb state):
+
+| Surface | Feature it serves | Key new design problem |
+|---|---|---|
+| Video memory detail + gallery video badge | Video (firmware already captures it) | player/scrubber in the dark theme; video vs photo affordance in the river |
+| Meeting / long-recording detail | Meeting Capture | long transcript readability; summary + action-items; live "Recording…" + processing states |
+| Read-it-to-me / OCR result | OCR | extracted-text legibility; "reading aloud" progress; copy/translate/save actions |
+| Translation card + live-conversation mode | Translation | bilingual stacking + swap; a two-sided live conversation with no screen-reading required |
+| **Ask Jarvis** thread + tool-result cards | Deliberate lane (§10a) | conversation anchored to a capture; price/research/count result cards; **voice model gated (§10a)** |
+| Recording / privacy indicator (global) | Privacy/consent (§7) | honest, unmissable "mic/camera live" treatment incl. lock screen |
+| Notifications | Modality fallback (§4.5) + noticer | answer-as-notification; sync-done; proactive nudge |
+
+### 11.6 Help & Learn center — teach users how to use Jarvis (director request, 2026-06-12)
+
+Because the glasses have **no screen**, users can't discover the gestures by poking at them — the
+app must *teach* the product. This is a first-class surface, not a buried FAQ. Contents:
+- **Gestures & buttons reference** — an illustrated pair of glasses; each physical gesture labelled
+  with what it does (single-click front = photo, double-click back = AI ask, hold back = voice
+  note, double-click front = video, trackpad = music/volume — the native map from
+  `docs/recon/Glasses_Controls.md`). Tap a gesture → short animation + plain-language explainer;
+  a **"Try it now"** that confirms live when the real BLE press is detected (we already receive
+  these events — `GlassesEvent`). This doubles as a button-discovery *and* a connection sanity check.
+- **Feature how-tos** — one short illustrated 3-step card per feature (Remember, Look & Ask,
+  Read-it-to-me, Translate, Meeting, Ask Jarvis).
+- **"Things you can say"** — a voice-command cheatsheet (wake word + example phrasings).
+- **Interactive tutorial** — a replayable guided tour with coach-marks over the real UI; also
+  offered at the end of onboarding ("Take the 60-second tour").
+- **FAQ / troubleshooting** — pairing, audio routing, sync, offline, battery.
+- **Entry points** — a persistent "?" in the top app bar, a card in Settings, and the onboarding
+  finale. Content is data-driven (a simple JSON/markdown bundle) so it can grow without app updates.
 
 ---
 
