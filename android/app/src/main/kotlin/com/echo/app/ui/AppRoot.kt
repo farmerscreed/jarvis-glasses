@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.echo.app.HomeViewModel
 import com.echo.app.ui.components.JarvisBottomBar
@@ -18,6 +19,8 @@ import com.echo.app.ui.components.JarvisTab
 import com.echo.app.ui.components.JarvisTopBar
 import com.echo.app.ui.dev.DevConsoleScreen
 import com.echo.app.ui.help.HelpScreen
+import com.echo.app.ui.onboarding.OnboardingPrefs
+import com.echo.app.ui.onboarding.OnboardingScreen
 import com.echo.app.ui.screens.GalleryScreen
 import com.echo.app.ui.screens.LiveConsoleScreen
 import com.echo.app.ui.screens.SettingsScreen
@@ -31,9 +34,16 @@ import com.echo.app.ui.screens.TimelineScreen
 @Composable
 fun AppRoot() {
     val vm: HomeViewModel = hiltViewModel()
+    val context = LocalContext.current
+    var onboarded by rememberSaveable { mutableStateOf(OnboardingPrefs.isDone(context)) }
     var tab by rememberSaveable { mutableStateOf(JarvisTab.Live) }
     var devConsole by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
+
+    if (!onboarded) {
+        OnboardingScreen(vm, onFinish = { onboarded = true })
+        return
+    }
 
     if (showHelp) {
         HelpScreen(onClose = { showHelp = false })
