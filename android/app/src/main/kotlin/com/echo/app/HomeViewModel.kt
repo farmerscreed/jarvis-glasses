@@ -16,7 +16,9 @@ import com.echo.device.ble.GlassesEvent
 import com.echo.device.wifi.GlassesP2pManager
 import com.echo.device.wifi.MediaTransferClient
 import java.io.File
+import com.echo.memory.ConnectivityGovernor
 import com.echo.memory.EchoBackend
+import com.echo.memory.MemoryStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
@@ -28,6 +30,8 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val backend: EchoBackend,
+    private val store: MemoryStore,
+    private val governor: ConnectivityGovernor,
     private val audio: BtAudioEngine,
     private val ble: GlassesBleManager,
     private val tts: TtsEngine,
@@ -51,6 +55,10 @@ class HomeViewModel @Inject constructor(
     var syncStatus by mutableStateOf("Pull captured media off the glasses"); private set
     var handsFree by mutableStateOf(false); private set
 
+    /** Offline-first surface: live online state + count of memories not yet pushed to the cloud. */
+    var online by mutableStateOf(true); private set
+    var pendingSync by mutableStateOf(0); private set
+
     /** Set by the AI gesture (double-click BACK): the next synced photo gets full Look & Ask. */
     private var aiAskPending = false
 
@@ -58,6 +66,9 @@ class HomeViewModel @Inject constructor(
     private var pendingAutoSync = false
 
     init {
+        // Offline-first: mirror connectivity + outbox depth into Compose state.
+        viewModelScope.launch { governor.online.collect { online = it } }
+        viewModelScope.launch { store.pendingCount().collect { pendingSync = it } }
         // Mirror the BLE manager's status into Compose state (declared after the state it sets).
         viewModelScope.launch { ble.status.collect { bleStatus = it } }
         // Glasses physical button -> start a voice turn (hands-free, no phone).
@@ -108,33 +119,36 @@ class HomeViewModel @Inject constructor(
     private suspend fun routeNewFile(f: File) {
         when (f.extension.lowercase()) {
             "jpg", "jpeg", "png" -> {
-                val bytes = f.readBytes()
                 val ask = aiAskPending; aiAskPending = false
-                status = "Claude is looking at ${f.name}…"
-                val desc = backend.describeImage(
-                    bytes,
-                    if (ask) "You are JARVIS. The wearer pressed the AI button on their glasses. Say what you see in one or two natural spoken sentences."
-                    else "One short sentence: caption this photo for a personal memory index.",
-                )
-                val key = runCatching { backend.uploadMedia(bytes, f.name) }.getOrNull()
-                runCatching { backend.remember(Memory(type = MemoryType.PHOTO, text = desc, mediaPath = key)) }
-                if (ask) { answer = desc; status = "Speaking…"; tts.speak(desc) } else tts.speak("Saved")
+                // Vision needs the cloud; if it fails (offline), still save the photo locally with a
+                // placeholder so it's never lost — a later increment re-describes "needs_vision" rows.
+                val visioned = runCatching {
+                    status = "Claude is looking at ${f.name}…"
+                    backend.describeImage(
+                        f.readBytes(),
+                        if (ask) "You are JARVIS. The wearer pressed the AI button on their glasses. Say what you see in one or two natural spoken sentences."
+                        else "One short sentence: caption this photo for a personal memory index.",
+                    )
+                }.getOrNull()
+                val desc = visioned ?: "(photo captured — description pending)"
+                val tags = if (visioned == null) listOf("needs_vision") else emptyList()
+                store.rememberLocal(Memory(type = MemoryType.PHOTO, text = desc, tags = tags), f, "media")
+                if (ask && visioned != null) { answer = desc; status = "Speaking…"; tts.speak(desc) }
+                else tts.speak("Saved")
             }
-            "mp4" -> { // V2: preserve video — upload only, no processing yet
-                status = "Uploading video ${f.name}…"
-                runCatching { backend.uploadMedia(f.readBytes(), f.name) }
+            "mp4" -> { // V2: preserve video — keep the file as a memory; uploads on drain
+                status = "Saving video ${f.name}…"
+                store.rememberLocal(Memory(type = MemoryType.PHOTO, text = "(video — ${f.name})", tags = listOf("video")), f, "media")
             }
             "wav", "mp3", "aac", "m4a", "amr", "ogg", "opus" -> { // glasses record .opus
                 status = "Transcribing ${f.name}…"
-                val bytes = f.readBytes()
                 val transcript = runCatching {
-                    backend.transcribe(bytes, com.echo.memory.EchoBackend.mimeFor(f.name))
-                }.getOrDefault("")
-                val key = runCatching { backend.uploadMedia(bytes, f.name, bucket = "audio") }.getOrNull()
-                if (transcript.isNotBlank()) {
-                    runCatching { backend.remember(Memory(type = MemoryType.VOICE_NOTE, text = transcript, mediaPath = key)) }
-                    tts.speak("Noted")
-                }
+                    backend.transcribe(f.readBytes(), com.echo.memory.EchoBackend.mimeFor(f.name))
+                }.getOrNull()
+                val text = transcript?.takeIf { it.isNotBlank() } ?: "(voice clip — transcript pending)"
+                val tags = if (transcript.isNullOrBlank()) listOf("needs_transcribe") else emptyList()
+                store.rememberLocal(Memory(type = MemoryType.VOICE_NOTE, text = text, tags = tags), f, "audio")
+                tts.speak("Noted")
             }
         }
     }
@@ -152,8 +166,8 @@ class HomeViewModel @Inject constructor(
     }
 
     fun remember() = run("Saving memory…") {
-        val m = backend.remember(Memory(type = MemoryType.NOTE, text = memoryText))
-        status = "Remembered (${m.id?.take(8) ?: "ok"})"
+        store.remember(Memory(type = MemoryType.NOTE, text = memoryText))
+        status = if (online) "Remembered" else "Saved on phone — will sync when back online"
     }
 
     fun ask() = run("Thinking…") {
@@ -271,11 +285,11 @@ class HomeViewModel @Inject constructor(
         answer = desc
         recalled = emptyList()
         status = "Saving photo + memory…"
-        val mediaKey = runCatching { backend.uploadMedia(bytes, photo.name) }.getOrNull()
-        runCatching { backend.remember(Memory(type = MemoryType.PHOTO, text = desc, mediaPath = mediaKey)) }
+        // Local-first: store the photo + description now (durable); the outbox uploads + ingests.
+        store.rememberLocal(Memory(type = MemoryType.PHOTO, text = desc), photo, "media")
         status = "Speaking…"
         tts.speak(desc)
-        status = if (mediaKey != null) "Look & Ask done" else "Look & Ask done (photo not uploaded)"
+        status = "Look & Ask done"
     }
 
     private fun run(busyMsg: String, block: suspend () -> Unit) {

@@ -1,0 +1,129 @@
+package com.echo.memory
+
+import com.echo.core.model.Memory
+import com.echo.core.model.MemoryType
+import com.echo.memory.local.LocalMemory
+import com.echo.memory.local.MemoryDao
+import com.echo.memory.local.SyncState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.UUID
+
+/**
+ * The offline-first memory core (Phase C §4.2). Implements [MemoryRepository] but writes the phone
+ * FIRST — a capture is durable the instant it happens, internet or not — then drains an outbox to
+ * the cloud via [EchoBackend] when connectivity allows. The server dedupes on `client_id`, so the
+ * drain can retry freely without ever creating a duplicate.
+ */
+class MemoryStore(
+    private val dao: MemoryDao,
+    private val backend: EchoBackend,
+    private val governor: ConnectivityGovernor,
+) : MemoryRepository {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val drainMutex = Mutex() // one drain at a time
+
+    init {
+        // Drain on reconnect, and once at startup in case we were offline when memories were saved.
+        governor.onConnected = { scope.launch { drain() } }
+        scope.launch { drain() }
+    }
+
+    /** Text-only memory (note / Q&A). */
+    override suspend fun remember(memory: Memory): Memory = rememberLocal(memory, null, "media")
+
+    /**
+     * Persist a memory locally (durable immediately), optionally with a not-yet-uploaded media file,
+     * then attempt to sync now if we're online. Returns the memory tagged with its clientId; the
+     * server id is filled in asynchronously once the drain confirms it.
+     */
+    suspend fun rememberLocal(memory: Memory, localFile: File?, bucket: String): Memory =
+        withContext(Dispatchers.IO) {
+            val clientId = memory.clientId ?: UUID.randomUUID().toString()
+            val now = System.currentTimeMillis()
+            dao.upsert(
+                LocalMemory(
+                    clientId = clientId,
+                    type = memory.type.wire,
+                    text = memory.text,
+                    mediaPath = memory.mediaPath,
+                    localMediaPath = localFile?.absolutePath,
+                    bucket = bucket,
+                    lat = memory.lat,
+                    lng = memory.lng,
+                    tags = memory.tags.joinToString("\n"),
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+            if (governor.online.value) drain() // keep online behaviour immediate (upload + ingest now)
+            memory.copy(clientId = clientId)
+        }
+
+    /** Push every pending memory to the cloud, oldest first. Safe to call repeatedly. */
+    suspend fun drain(): Unit = drainMutex.withLock {
+        if (!governor.online.value) return
+        for (row in dao.pending()) {
+            runCatching { syncOne(row) }
+                .onFailure { dao.markFailed(row.clientId, it.message ?: "sync error", System.currentTimeMillis()) }
+        }
+    }
+
+    private suspend fun syncOne(row: LocalMemory) {
+        // 1. Upload media first if it hasn't been (so the row carries a valid storage key).
+        var mediaPath = row.mediaPath
+        if (mediaPath == null && row.localMediaPath != null) {
+            val file = File(row.localMediaPath)
+            if (file.exists()) {
+                mediaPath = backend.uploadMedia(file.readBytes(), file.name, bucket = row.bucket)
+                dao.setMediaPath(row.clientId, mediaPath, System.currentTimeMillis())
+            }
+        }
+        // 2. Ingest with the idempotency key — a retry of an already-landed row just re-confirms it.
+        val saved = backend.remember(
+            Memory(
+                type = runCatching { MemoryType.fromWire(row.type) }.getOrDefault(MemoryType.NOTE),
+                text = row.text,
+                mediaPath = mediaPath,
+                lat = row.lat,
+                lng = row.lng,
+                tags = if (row.tags.isBlank()) emptyList() else row.tags.split("\n"),
+                clientId = row.clientId,
+            ),
+        )
+        dao.markSynced(row.clientId, saved.id ?: row.clientId, System.currentTimeMillis())
+    }
+
+    /** Number of memories still owed to the cloud — for a UI "N to sync" chip. */
+    fun pendingCount() = dao.pendingCount()
+
+    /**
+     * Recall: cloud semantic search when online; a naive local keyword search as the OFF_GRID
+     * fallback (no embeddings yet — that's a later C increment). Never throws on no-network.
+     */
+    override suspend fun recall(query: String, limit: Int, type: MemoryType?): List<Memory> =
+        withContext(Dispatchers.IO) {
+            if (governor.online.value) {
+                runCatching { backend.recall(query, limit, type) }.getOrNull()?.let { return@withContext it }
+            }
+            dao.search(query, limit).map { it.toMemory() }
+        }
+
+    private fun LocalMemory.toMemory(): Memory = Memory(
+        id = serverId ?: clientId,
+        type = runCatching { MemoryType.fromWire(type) }.getOrDefault(MemoryType.NOTE),
+        text = text,
+        mediaPath = mediaPath,
+        lat = lat,
+        lng = lng,
+        tags = if (tags.isBlank()) emptyList() else tags.split("\n"),
+        clientId = clientId,
+    )
+}

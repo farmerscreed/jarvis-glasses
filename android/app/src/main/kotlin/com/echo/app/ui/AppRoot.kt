@@ -56,6 +56,12 @@ fun HomeScreen(vm: HomeViewModel) {
                 Text(vm.status, style = MaterialTheme.typography.bodyMedium)
             }
 
+            Text(
+                "Cloud: ${if (vm.online) "online" else "OFF-GRID"}" +
+                    if (vm.pendingSync > 0) " · ${vm.pendingSync} to sync" else " · all synced",
+                style = MaterialTheme.typography.bodySmall,
+            )
+
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp),

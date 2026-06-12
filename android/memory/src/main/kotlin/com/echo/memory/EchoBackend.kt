@@ -57,6 +57,7 @@ class EchoBackend(
                 lat = memory.lat,
                 lng = memory.lng,
                 tags = memory.tags,
+                client_id = memory.clientId,
             ),
         )
         val txt = post("/functions/v1/ingest", body)

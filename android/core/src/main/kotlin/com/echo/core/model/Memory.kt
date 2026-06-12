@@ -31,6 +31,8 @@ data class Memory(
     val tags: List<String> = emptyList(),
     val metadata: Map<String, String> = emptyMap(),
     val createdAt: Instant? = null,
+    /** Client-generated idempotency key for offline-first sync (null for server-only reads). */
+    val clientId: String? = null,
     /** Cosine similarity in [0,1]; populated only on recall results. */
     val similarity: Double? = null,
 )

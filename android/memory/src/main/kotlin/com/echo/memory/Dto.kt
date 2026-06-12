@@ -21,6 +21,7 @@ data class IngestRequest(
     val lat: Double? = null,
     val lng: Double? = null,
     val tags: List<String> = emptyList(),
+    val client_id: String? = null,
 )
 
 @Serializable

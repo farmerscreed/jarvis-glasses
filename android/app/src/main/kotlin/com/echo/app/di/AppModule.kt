@@ -10,8 +10,11 @@ import com.echo.device.ble.GlassesBleManager
 import com.echo.device.wifi.GlassesP2pManager
 import com.echo.device.wifi.MediaTransferClient
 import java.io.File
+import com.echo.memory.ConnectivityGovernor
 import com.echo.memory.EchoBackend
 import com.echo.memory.MemoryRepository
+import com.echo.memory.MemoryStore
+import com.echo.memory.MemoryStoreFactory
 import com.echo.memory.SupabaseSession
 import dagger.Module
 import dagger.Provides
@@ -50,7 +53,20 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMemoryRepository(backend: EchoBackend): MemoryRepository = backend
+    fun provideConnectivityGovernor(@ApplicationContext ctx: Context): ConnectivityGovernor =
+        ConnectivityGovernor(ctx)
+
+    @Provides
+    @Singleton
+    fun provideMemoryStore(
+        @ApplicationContext ctx: Context,
+        backend: EchoBackend,
+        governor: ConnectivityGovernor,
+    ): MemoryStore = MemoryStoreFactory.create(ctx, backend, governor)
+
+    @Provides
+    @Singleton
+    fun provideMemoryRepository(store: MemoryStore): MemoryRepository = store
 
     @Provides
     @Singleton
