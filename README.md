@@ -1,8 +1,12 @@
 # jarvis — AI Companion build repo (AIMB-G2 glasses)
 
-Build repo for the JARVIS/ECHO AI companion. The product brief, device recon, and the
-full implementation plan live in `..\Jarvis Glasses\` (read `00_HANDOFF_START_HERE.md`
-and `01_IMPLEMENTATION_PLAN.md` there first).
+Build repo for the JARVIS/ECHO AI companion.
+
+> **👉 Start with `docs/SESSION_HANDOFF.md`** — the holistic, current handover (state, run/verify,
+> gotchas, decisions, next steps). Then `PROJECT_STATUS.md` and `docs/PRODUCTION_ROADMAP.md` for depth.
+
+The original product brief, device recon, and implementation plan live in `..\Jarvis Glasses\`
+(`00_HANDOFF_START_HERE.md`, `01_IMPLEMENTATION_PLAN.md`).
 
 ## Status
 - **Phase 0A (backend) — DONE (local).** Local Supabase on Docker with the `memories` Personal

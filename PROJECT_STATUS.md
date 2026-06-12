@@ -1,7 +1,11 @@
-# JARVIS / ECHO — Project Status (single source of truth)
+# JARVIS / ECHO — Project Status
 
-*AI companion for AIMB-G2 smart glasses. Last updated: 2026-06-11.*
-*New session? Read this top to bottom. Deeper detail: `docs/recon/00_HANDOFF_START_HERE.md`, `docs/recon/Device_Recon_Record.md`, and the per-area READMEs (`README.md`, `android/README.md`, `supabase/functions/README.md`).*
+> **🟢 NEW SESSION? READ `docs/SESSION_HANDOFF.md` FIRST** — it's the holistic session-to-session
+> handover (current state, how to run/verify, gotchas, settled decisions, and exactly what's next).
+> This file is the detailed feature-status companion to it.
+
+*AI companion for AIMB-G2 smart glasses. Last updated: 2026-06-12.*
+*Deeper detail: `docs/PRODUCTION_ROADMAP.md` (full plan + UI/UX), `docs/recon/*` (decoded device protocol).*
 
 ---
 
