@@ -31,7 +31,8 @@ pgvector) every feature reads/writes. Built offline-first: it must work in a tun
 | **B** glasses-button reactions | ✅ (in-app) | Button event protocol decoded; press → auto-sync → route (photo→caption, audio→transcribe, AI-gesture→Look&Ask). |
 | **C** offline-first | ✅ **complete** | Local-first core + outbox + idempotency, background drain (survives app kill), on-device embeddings (offline semantic recall), Jarvis Lite floor, deferred AI re-run, LEAN tier. |
 | **D** latency | 🟡 **partial** | D1 done (VAD endpointing, earcons, instrumentation). **D2 streaming VERIFIED on device vs cloud (2026-06-12):** text Ask spoke the answer streamed sentence-by-sentence. Voice-path `EchoLatency` numbers still to capture (needs a glasses voice turn). |
-| **E** real users | 🟢 **core done (2026-06-12)** | Cloud `jarvis-prod` fully deployed (migrations/secrets/6 functions); dev/prod flavors; **director signed in on device via emailed 6-digit code (Resend)** and got a streamed spoken answer. Remaining: Google One-Tap, function rate limits, foreground service; onboarding UI parked with the design pass. |
+| **E** real users | 🟢 **core done (2026-06-12)** | Cloud `jarvis-prod` fully deployed (migrations/secrets/6 functions); dev/prod flavors; **director signed in on device via emailed 6-digit code (Resend)** and got a streamed spoken answer. Remaining: Google One-Tap, function rate limits, foreground service. |
+| **UI** design integration | 🟢 **core done (2026-06-12)** | Steps 1–5 of the director's UI plan: tokens → JarvisTheme (M3, dark-only, tri-font, amber via CompositionLocal) → shared components → animated PresenceOrb (6 states) → designed screens (Live console ×4 variants, Timeline, Gallery empty-state, Settings) wired to HomeViewModel **with zero engine changes**. Live + Settings verified on device vs the design PNGs. Dev console preserved under Settings → Developer console. |
 
 **Phase C detail (all six increments verified 2026-06-12):**
 - **C1** every capture writes Room first, drains an outbox to cloud; `client_id` idempotency (server dedupes). `MemoryStore`, `ConnectivityGovernor`, "Cloud: …" chip.
@@ -49,7 +50,15 @@ pgvector) every feature reads/writes. Built offline-first: it must work in a tun
 ## 3. Architecture & where things live
 
 **Android modules** (`android/`, package root `com.echo`):
-- `:app` — UI (Compose, `ui/AppRoot.kt` = dev console), `HomeViewModel.kt` (the orchestrator),
+- `:app` UI layer (since the UI pass, 2026-06-12): `ui/theme/` (JarvisTheme — Color/Type/Shape/
+  Spacing, "Aetheric Intelligence" tokens from `docs/design/`; amber + ember + glow via
+  `JarvisTheme.colors`, transcripts via `JarvisTheme.dataMono`), `ui/components/` (chips, buttons,
+  GlowFab, transcript bubble, MemoryCard, tool-result cards, search field, top/bottom bars,
+  `PresenceOrb.kt` — 6 animated states), `ui/screens/` (LiveConsole/Timeline/Gallery/Settings),
+  `ui/dev/DevConsoleScreen.kt` (the old console, behind Settings → Developer console),
+  `ui/AppRoot.kt` (tab shell). Fonts: variable TTFs in `res/font/` (Space Grotesk/Inter/JetBrains
+  Mono). **The UI pass changed no engine/ViewModel code.**
+- `:app` — UI (Compose), `HomeViewModel.kt` (the orchestrator),
   Hilt DI (`di/AppModule.kt`), `JarvisApp.kt`, `JarvisLite.kt`, `SentenceChunker.kt`,
   `GlassesButtonController.kt`, `sync/SyncWorker.kt` + `SyncScheduler.kt`, `ml/MediaPipeEmbedder.kt`.
 - `:core` — `model/Memory.kt`, `MemoryType`.
@@ -247,6 +256,15 @@ before building (roadmap §10a).
   now surface GoTrue's real message. **Watch for the encodeDefaults trap in every new request DTO.**
 - **Capture/upload paths not yet exercised against cloud** (remember/photo/audio sync) — next
   glasses session; also still owed: voice-path `EchoLatency` numbers with streaming on.
+- **UI screens that need read-only engine queries to go real** (deliberately NOT added during the
+  UI pass — needs director sign-off): Timeline browse-by-day river (a `MemoryDao`/`MemoryStore`
+  "recent memories" query + ViewModel exposure), Gallery grid + memory detail (a media listing).
+  Today Timeline shows the last recall results; Gallery shows the designed empty state.
+- **Designed screens not yet built** (features don't exist yet): onboarding wizard, Help & Learn
+  center (the "?" shows a stub dialog), translation/OCR/meeting consoles, Ask-Jarvis (V2),
+  notification showcase. Build each alongside its feature.
+- **Pixel screenshots via adb:** use Git Bash (`adb exec-out screencap -p > x.png`) — PowerShell
+  `>` corrupts binary output (UTF-16 re-encode).
 - `supabase config push` / local `supabase start` need `RESEND_API_KEY` exported from
   `supabase/.env` first, or the `env()` substitution comes up empty (local dev never sends email,
   so only config push really cares).
