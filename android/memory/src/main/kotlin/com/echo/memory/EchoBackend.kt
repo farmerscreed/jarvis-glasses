@@ -37,7 +37,7 @@ class EchoBackend(
 
     /** Step 1 of email sign-in: Supabase emails a 6-digit code (creates the user on first use). */
     suspend fun requestEmailOtp(email: String): Unit = withContext(Dispatchers.IO) {
-        val body = json.encodeToString(OtpRequest.serializer(), OtpRequest(email))
+        val body = json.encodeToString(OtpRequest.serializer(), OtpRequest(email, create_user = true))
         val req = Request.Builder()
             .url(session.baseUrl + "/auth/v1/otp")
             .addHeader("apikey", session.anonKey)
@@ -50,7 +50,7 @@ class EchoBackend(
 
     /** Step 2 of email sign-in: exchange the emailed code for a session. */
     suspend fun verifyEmailOtp(email: String, code: String): Unit = withContext(Dispatchers.IO) {
-        val body = json.encodeToString(VerifyOtpRequest.serializer(), VerifyOtpRequest(email, code))
+        val body = json.encodeToString(VerifyOtpRequest.serializer(), VerifyOtpRequest(email, code, type = "email"))
         val req = Request.Builder()
             .url(session.baseUrl + "/auth/v1/verify")
             .addHeader("apikey", session.anonKey)

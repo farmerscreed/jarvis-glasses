@@ -21,11 +21,13 @@ data class AuthError(
     val error: String? = null,
 )
 
+// NOTE: this project's Json{} has encodeDefaults=false — fields with default values are DROPPED
+// from the payload. Auth fields the server requires must therefore have no default.
 @Serializable
-data class OtpRequest(val email: String, val create_user: Boolean = true)
+data class OtpRequest(val email: String, val create_user: Boolean)
 
 @Serializable
-data class VerifyOtpRequest(val email: String, val token: String, val type: String = "email")
+data class VerifyOtpRequest(val email: String, val token: String, val type: String)
 
 @Serializable
 data class RefreshRequest(val refresh_token: String)
