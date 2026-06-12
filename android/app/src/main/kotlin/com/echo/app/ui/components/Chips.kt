@@ -46,7 +46,7 @@ fun StatusChip(
         } else {
             Box(Modifier.size(8.dp).background(accent, CircleShape))
         }
-        Text(text, style = JarvisTheme.dataMono, color = accent)
+        Text(text, style = JarvisTheme.dataMono, color = accent, maxLines = 1)
     }
 }
 
@@ -72,7 +72,7 @@ fun NeutralChip(
                 modifier = Modifier.size(14.dp),
             )
         }
-        Text(text, style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text, style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
     }
 }
 

@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import com.echo.app.ui.theme.JarvisSpacing
 import com.echo.app.ui.theme.JarvisTheme
 import com.echo.app.ui.theme.SpaceGrotesk
@@ -130,10 +131,15 @@ fun JarvisBottomBar(
                         verticalArrangement = Arrangement.spacedBy(JarvisSpacing.xs),
                         modifier = Modifier
                             .selectable(selected = active, onClick = { onSelect(tab) })
-                            .padding(horizontal = JarvisSpacing.md, vertical = JarvisSpacing.xs),
+                            .padding(horizontal = JarvisSpacing.sm, vertical = JarvisSpacing.xs),
                     ) {
                         Icon(tab.icon, contentDescription = tab.label, tint = tint, modifier = Modifier.size(24.dp))
-                        Text(tab.label, style = JarvisTheme.dataMono, color = tint)
+                        Text(
+                            tab.label,
+                            style = JarvisTheme.dataMono.copy(fontSize = 11.sp),
+                            color = tint,
+                            maxLines = 1,
+                        )
                     }
                 }
             }

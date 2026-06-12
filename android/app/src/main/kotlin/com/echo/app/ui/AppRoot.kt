@@ -1,202 +1,92 @@
 package com.echo.app.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.echo.app.HomeViewModel
+import com.echo.app.ui.components.JarvisBottomBar
+import com.echo.app.ui.components.JarvisTab
+import com.echo.app.ui.components.JarvisTopBar
+import com.echo.app.ui.dev.DevConsoleScreen
+import com.echo.app.ui.screens.GalleryScreen
+import com.echo.app.ui.screens.LiveConsoleScreen
+import com.echo.app.ui.screens.SettingsScreen
+import com.echo.app.ui.screens.TimelineScreen
 
+/**
+ * The Companion Console shell: JARVIS top bar, four tabs (Live/Timeline/Gallery/Settings), and
+ * the legacy dev console tucked behind Settings → Developer console. Pure presentation — the
+ * single HomeViewModel drives every screen.
+ */
 @Composable
 fun AppRoot() {
     val vm: HomeViewModel = hiltViewModel()
-    HomeScreen(vm)
-}
+    var tab by rememberSaveable { mutableStateOf(JarvisTab.Live) }
+    var devConsole by rememberSaveable { mutableStateOf(false) }
+    var helpDialog by remember { mutableStateOf(false) }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun HomeScreen(vm: HomeViewModel) {
-    Scaffold(topBar = { TopAppBar(title = { Text("JARVIS") }) }) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .padding(16.dp)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (vm.busy) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                }
-                Text(vm.status, style = MaterialTheme.typography.bodyMedium)
-            }
-
-            val cloudState = when {
-                !vm.online -> "OFF-GRID"
-                vm.tier == "lean" -> "online · slow"
-                else -> "online"
-            }
-            Text(
-                "Cloud: $cloudState" +
-                    if (vm.pendingSync > 0) " · ${vm.pendingSync} to sync" else " · all synced",
-                style = MaterialTheme.typography.bodySmall,
-            )
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text("Glasses audio (0C)", fontWeight = FontWeight.SemiBold)
-                    Text(vm.audioStatus, style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = vm::testAudio, enabled = !vm.busy) {
-                        Text("Record 4s & play back")
-                    }
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text("Glasses BLE (0D)", fontWeight = FontWeight.SemiBold)
-                    Text(vm.bleStatus, style = MaterialTheme.typography.bodySmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = vm::runBleDiagnostic) { Text("Run BLE diagnostic") }
-                        Button(onClick = { vm.capturePhoto() }) { Text("Capture photo") }
-                    }
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text("Sync media (Phase 2)", fontWeight = FontWeight.SemiBold)
-                    Text(vm.syncStatus, style = MaterialTheme.typography.bodySmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = vm::syncGlasses, enabled = !vm.busy) { Text("Sync from glasses") }
-                        Button(onClick = vm::lookAndAsk, enabled = !vm.busy) { Text("Look & Ask") }
-                    }
-                }
-            }
-
-            if (!vm.loggedIn) {
-                Text(
-                    "Personal Memory Index — dev console",
-                    style = MaterialTheme.typography.titleMedium,
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            if (devConsole) {
+                JarvisTopBar(
+                    title = "Dev console",
+                    wordmark = false,
+                    onNavigate = { devConsole = false },
+                    navigateBack = true,
                 )
-                OutlinedTextField(
-                    value = vm.email,
-                    onValueChange = { vm.email = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Email") },
-                    enabled = !vm.otpSent,
-                )
-                if (!vm.otpSent) {
-                    Button(onClick = vm::sendOtp, enabled = !vm.busy) { Text("Email me a code") }
-                } else {
-                    OutlinedTextField(
-                        value = vm.otpCode,
-                        onValueChange = { vm.otpCode = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("6-digit code") },
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = vm::verifyOtp, enabled = !vm.busy) { Text("Sign in") }
-                        Button(onClick = vm::sendOtp, enabled = !vm.busy) { Text("Resend code") }
-                    }
-                }
-                if (vm.devLoginEnabled) {
-                    Button(onClick = vm::signIn, enabled = !vm.busy) { Text("Sign in (dev)") }
-                }
             } else {
-                Button(
-                    onClick = vm::talk,
-                    enabled = !vm.busy,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("🎙  Talk to Jarvis") }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Switch(checked = vm.handsFree, onCheckedChange = { vm.toggleHandsFree(it) })
-                    Text("Hands-free — say “Jarvis”")
-                }
-
-                HorizontalDivider()
-
-                Text("Remember something", fontWeight = FontWeight.SemiBold)
-                OutlinedTextField(
-                    value = vm.memoryText,
-                    onValueChange = { vm.memoryText = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Memory") },
-                )
-                Button(onClick = vm::remember, enabled = !vm.busy) { Text("Remember") }
-
-                HorizontalDivider()
-
-                Text("Ask Jarvis", fontWeight = FontWeight.SemiBold)
-                OutlinedTextField(
-                    value = vm.question,
-                    onValueChange = { vm.question = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Question") },
-                )
-                Button(onClick = vm::ask, enabled = !vm.busy) { Text("Ask") }
-
-                if (vm.answer.isNotEmpty()) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text("Answer", fontWeight = FontWeight.SemiBold)
-                            Text(vm.answer, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                }
-
-                if (vm.recalled.isNotEmpty()) {
-                    Text("Recalled memories", fontWeight = FontWeight.SemiBold)
-                    vm.recalled.forEach { m ->
-                        Text("• ${m.text}", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-
-                HorizontalDivider()
-
-                Button(onClick = vm::signOut, enabled = !vm.busy) { Text("Sign out") }
+                JarvisTopBar(onHelp = { helpDialog = true })
+            }
+        },
+        bottomBar = {
+            if (!devConsole) {
+                JarvisBottomBar(current = tab, onSelect = { tab = it })
+            }
+        },
+    ) { padding ->
+        Column(
+            Modifier
+                .padding(padding)
+                .fillMaxSize(),
+        ) {
+            when {
+                devConsole -> DevConsoleScreen(vm)
+                tab == JarvisTab.Live -> LiveConsoleScreen(vm)
+                tab == JarvisTab.Timeline -> TimelineScreen(vm)
+                tab == JarvisTab.Gallery -> GalleryScreen(vm)
+                tab == JarvisTab.Settings -> SettingsScreen(vm, onOpenDevConsole = { devConsole = true })
             }
         }
+    }
+
+    if (helpDialog) {
+        AlertDialog(
+            onDismissRequest = { helpDialog = false },
+            confirmButton = {
+                TextButton(onClick = { helpDialog = false }) { Text("OK") }
+            },
+            title = { Text("Help & Learn") },
+            text = {
+                Text(
+                    "Say “Jarvis” or press the glasses button to talk. Photos and voice notes " +
+                        "captured on the glasses sync automatically. The full Help & Learn center " +
+                        "ships in a later phase.",
+                )
+            },
+        )
     }
 }
