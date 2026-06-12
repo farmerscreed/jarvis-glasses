@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.URL
 
 /**
  * Loads a downscaled bitmap for a local media file (glasses captures live in app storage).
@@ -28,6 +29,24 @@ fun rememberLocalImage(path: String?, targetPx: Int = 512): ImageBitmap? {
                     while (bounds.outWidth / (sample * 2) >= targetPx) sample *= 2
                     BitmapFactory.decodeFile(it, BitmapFactory.Options().apply { inSampleSize = sample })
                         ?.asImageBitmap()
+                }.getOrNull()
+            }
+        }
+    }
+    return bitmap
+}
+
+/**
+ * Loads a bitmap from a remote URL (a Supabase signed media URL) off the main thread.
+ * Returns null while loading / on failure. For synced photos whose local capture file is gone.
+ */
+@Composable
+fun rememberRemoteImage(url: String?): ImageBitmap? {
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, url) {
+        value = url?.let {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    URL(it).openStream().use { stream -> BitmapFactory.decodeStream(stream) }?.asImageBitmap()
                 }.getOrNull()
             }
         }

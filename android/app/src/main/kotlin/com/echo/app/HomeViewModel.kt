@@ -447,6 +447,10 @@ class HomeViewModel @Inject constructor(
 
     fun clearSearch() { searchHits = null }
 
+    /** Read-only: a short-lived signed URL for a synced photo's stored media (null if not synced). */
+    suspend fun signedUrlFor(memory: Memory): String? =
+        memory.mediaPath?.let { runCatching { backend.signedMediaUrl(it) }.getOrNull() }
+
     private fun run(busyMsg: String, block: suspend () -> Unit) {
         viewModelScope.launch {
             busy = true
