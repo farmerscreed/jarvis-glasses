@@ -24,6 +24,10 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.RECORD_AUDIO,
                 Manifest.permission.BLUETOOTH_CONNECT,
                 Manifest.permission.BLUETOOTH_SCAN,
+                // Wi-Fi Direct (the glasses photo sync) needs both of these — without them
+                // discoverPeers() fails silently and every sync times out.
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.NEARBY_WIFI_DEVICES,
             ),
         )
         enableEdgeToEdge()

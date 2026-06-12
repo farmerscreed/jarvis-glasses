@@ -382,7 +382,9 @@ class HomeViewModel @Inject constructor(
         // ensure the P2P link is up before HTTP
         withTimeoutOrNull(15_000) { p2p.connected.first { it } }
         syncStatus = "Downloading from $ip…"
-        val files = transfer.pull(ip) { i, n -> syncStatus = "Downloading $i/$n…" }
+        // Bind the pull to the Wi-Fi Direct network, else the socket routes out home Wi-Fi.
+        val net = p2p.boundNetwork()
+        val files = transfer.pull(ip, net) { i, n -> syncStatus = "Downloading $i/$n…" }
         syncStatus = "Synced ${files.size} new file(s) from the glasses"
         ble.resetP2p()
         p2p.stop()

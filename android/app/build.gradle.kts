@@ -49,7 +49,11 @@ android {
                 "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndHVpbW5wcHFicmpvY3V6cXNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNTU2ODQsImV4cCI6MjA5NjgzMTY4NH0.KSExgwXG79KcCJ4FbBpWTkddewO_SKjYYVMSRHRXEyE\"",
             )
             buildConfigField("boolean", "DEV_LOGIN", "false")
-            manifestPlaceholders["usesCleartextTraffic"] = "false"
+            // Cleartext must stay ON even in prod: the glasses media sync is plain HTTP over
+            // Wi-Fi Direct (http://192.168.49.x/files/..., firmware constraint — no TLS on the
+            // device). All cloud traffic is https:// regardless; this flag never downgrades it.
+            // Phase F: revisit with a network-security-config if a subnet-scoped rule becomes possible.
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
         }
     }
 

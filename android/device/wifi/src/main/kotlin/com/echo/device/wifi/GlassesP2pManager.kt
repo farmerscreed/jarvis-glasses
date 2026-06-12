@@ -5,6 +5,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkInfo
 import android.net.wifi.p2p.WifiP2pConfig
 import android.net.wifi.p2p.WifiP2pDevice
@@ -87,6 +89,20 @@ class GlassesP2pManager(private val context: Context) {
             wps.setup = 0
         }
         mgr.connect(channel, config, listener("connect"))
+    }
+
+    /**
+     * The [Network] for the Wi-Fi Direct group's `p2p…` interface, or null if not up yet.
+     * Sockets must be bound to it (`network.socketFactory`) or Android routes traffic to the
+     * glasses' 192.168.49.x IP out the phone's *default* network (home Wi-Fi / cellular), where
+     * it never arrives — the silent cause of "sync does nothing" while on Wi-Fi.
+     */
+    fun boundNetwork(): Network? {
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return null
+        @Suppress("DEPRECATION")
+        return cm.allNetworks.firstOrNull { n ->
+            cm.getLinkProperties(n)?.interfaceName?.startsWith("p2p") == true
+        }
     }
 
     private fun listener(tag: String) = object : WifiP2pManager.ActionListener {

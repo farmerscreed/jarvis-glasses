@@ -32,6 +32,7 @@ import com.echo.app.ui.components.OrbState
 import com.echo.app.ui.components.PresenceOrb
 import com.echo.app.ui.components.rememberLocalImage
 import com.echo.app.ui.theme.JarvisSpacing
+import com.echo.app.ui.theme.JarvisTheme
 import com.echo.core.model.MemoryType
 
 /**
@@ -68,6 +69,13 @@ fun GalleryScreen(vm: HomeViewModel) {
             )
             Spacer(Modifier.height(JarvisSpacing.lg))
             JarvisSecondaryButton("Sync from glasses", onClick = vm::syncGlasses, enabled = !vm.busy)
+            Spacer(Modifier.height(JarvisSpacing.sm))
+            Text(
+                vm.syncStatus,
+                style = JarvisTheme.dataMono,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
         }
         return
     }
