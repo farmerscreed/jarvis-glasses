@@ -30,8 +30,8 @@ pgvector) every feature reads/writes. Built offline-first: it must work in a tun
 | **A** image persistence | ✅ | Private `media`/`audio` buckets + RLS; photos upload; `media_path` threaded (fixed a silent drop). |
 | **B** glasses-button reactions | ✅ (in-app) | Button event protocol decoded; press → auto-sync → route (photo→caption, audio→transcribe, AI-gesture→Look&Ask). |
 | **C** offline-first | ✅ **complete** | Local-first core + outbox + idempotency, background drain (survives app kill), on-device embeddings (offline semantic recall), Jarvis Lite floor, deferred AI re-run, LEAN tier. |
-| **D** latency | 🟡 **partial** | D1 done (VAD endpointing, earcons, instrumentation). D2 streaming now **wired into the live loop** (Phase E session) — unverified until the cloud functions deploy. |
-| **E** real users | 🟡 **in progress** | Cloud project `jarvis-prod` created + linked; dev/prod flavors; email-OTP auth + refresh-token rotation built (compiles, device-unverified). **Blocked on director-approved cloud deploy** (db push / secrets / functions deploy — see §6). |
+| **D** latency | 🟡 **partial** | D1 done (VAD endpointing, earcons, instrumentation). **D2 streaming VERIFIED on device vs cloud (2026-06-12):** text Ask spoke the answer streamed sentence-by-sentence. Voice-path `EchoLatency` numbers still to capture (needs a glasses voice turn). |
+| **E** real users | 🟢 **core done (2026-06-12)** | Cloud `jarvis-prod` fully deployed (migrations/secrets/6 functions); dev/prod flavors; **director signed in on device via emailed 6-digit code (Resend)** and got a streamed spoken answer. Remaining: Google One-Tap, function rate limits, foreground service; onboarding UI parked with the design pass. |
 
 **Phase C detail (all six increments verified 2026-06-12):**
 - **C1** every capture writes Room first, drains an outbox to cloud; `client_id` idempotency (server dedupes). `MemoryStore`, `ConnectivityGovernor`, "Cloud: …" chip.
@@ -240,9 +240,13 @@ before building (roadmap §10a).
 
 ## 9. Open issues / risks to carry forward
 
-- In-app **SSE streaming** wired but unverified (local Kong buffers SSE; verify against cloud).
-- **Email-OTP sign-in**: server side verified (code email delivered via Resend); the in-app flow
-  still needs one live run by the director.
+- **Verified on device vs cloud (2026-06-12):** OTP sign-in (real code email via Resend) and the
+  streamed, spoken Ask answer. Two OTP bugs found+fixed on the way: the project `Json{}` has
+  `encodeDefaults=false`, so defaulted DTO fields are DROPPED from payloads (verify's
+  `type:"email"` never got sent) — auth DTOs now take those fields explicitly; and verify errors
+  now surface GoTrue's real message. **Watch for the encodeDefaults trap in every new request DTO.**
+- **Capture/upload paths not yet exercised against cloud** (remember/photo/audio sync) — next
+  glasses session; also still owed: voice-path `EchoLatency` numbers with streaming on.
 - `supabase config push` / local `supabase start` need `RESEND_API_KEY` exported from
   `supabase/.env` first, or the `env()` substitution comes up empty (local dev never sends email,
   so only config push really cares).
