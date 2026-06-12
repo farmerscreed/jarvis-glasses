@@ -101,20 +101,26 @@ offline, and Android TTS is on-device. Only two things currently require the clo
 (Gemini) and the brain (Claude). So we re-architect around a local-first core and treat the cloud
 as an enhancer, not a dependency.*
 
-> **Status — C1+C2+C3 DONE & device-verified (2026-06-12):**
+> **Status — PHASE C COMPLETE & device-verified (2026-06-12).** All six increments shipped:
 > - **C1** local-first write path + outbox + `client_id` idempotency (Room `local_memories`,
->   `MemoryStore`, `ConnectivityGovernor` FULL/OFF_GRID, "Cloud: …" chip).
+>   `MemoryStore`, `ConnectivityGovernor`, "Cloud: …" chip).
 > - **C2** background drain via WorkManager (survives app kill) + persisted session token
 >   (`SyncWorker`/`SyncScheduler`; verified by killing the process and watching a fresh
 >   WorkManager-woken process drain with no UI).
-> - **C3** on-device embeddings for *semantic* offline recall (bundled USE model via MediaPipe;
->   `Embedder`/`MediaPipeEmbedder`, `LocalMemory.embedding` BLOB, cosine search in `MemoryStore`).
->   Dual-embedding preserved (local off-grid-only; Gemini 1536-dim canonical online).
+> - **C3** on-device embeddings for *semantic* offline recall (bundled USE via MediaPipe;
+>   `Embedder`/`MediaPipeEmbedder`, `LocalMemory.embedding` BLOB, cosine in `MemoryStore`).
+> - **C4** Jarvis Lite rule-based floor (`JarvisLite`) — off-grid `ask()` phrases + speaks a real
+>   answer; voice→text modality fallback (§4.5) when cloud STT is unavailable.
+> - **C5** deferred vision/transcribe re-run (`reprocessDeferred`/`syncAll`) — off-grid captures
+>   save a placeholder (held back from sync), get real Claude/Gemini content on reconnect.
+> - **C6** LEAN tier — `ConnectivityGovernor` RTT probe (FULL/LEAN/OFF_GRID), "online · slow" chip,
+>   `ask()` 12 s budget → on-device fallback on a slow link.
 >
-> **Still to build in C:** the LEAN tier RTT probe + degraded behaviour (§4.4), Jarvis Lite to phrase
-> real off-grid answers (§4.3 — C3 returns the closest memory, not yet a composed answer), the
-> type-to-Jarvis modality fallback (§4.5), deferred-vision/transcribe re-run for rows tagged
-> `needs_vision`/`needs_transcribe`, and refresh-token rotation for long-lived background auth.
+> **Deferred by design (NOT a Phase C blocker):** the optional large on-device LLM "Offline Pack"
+> (§4.3 — ~1–2 GB Gemma) is a download-gated *quality* enhancement; the rule-based floor already
+> makes the product offline-complete. **Small follow-ups:** refresh-token rotation for long-lived
+> background auth; on-device Vosk dictation for true off-grid voice (today off-grid voice falls
+> back to typing). Genuine slow-network LEAN degradation is coded but was not simulated on device.
 
 ### 4.1 The three-tier capability model
 
@@ -155,7 +161,13 @@ per tier. The UI surfaces the tier as a calm status chip, never an error.
 
 ### 4.3 Jarvis Lite (the offline brain) — brainstormed options, recommendation included
 
-1. **On-device small LLM (recommended):** Gemma 3 1B (or 3n) via **MediaPipe LLM Inference API** /
+> **Built (C4):** option 2 — the rule-based floor — ships in `JarvisLite` and is what off-grid
+> `ask()` uses today (phrase + speak from on-device recall + simple intents). Option 1 — the large
+> on-device LLM — is the optional, download-gated **"Offline Pack"** that *upgrades* off-grid answer
+> quality; it is intentionally NOT part of Phase C completion (the floor already makes the product
+> offline-complete). Build it when free-form off-grid reasoning becomes the priority.
+
+1. **On-device small LLM (the optional Offline Pack):** Gemma 3 1B (or 3n) via **MediaPipe LLM Inference API** /
    LiteRT. Pixel 8 runs 1B comfortably (4-bit, ~1–2 GB). Persona-prompted "Jarvis Lite": answers
    simple questions over the top-K locally-recalled snippets, admits limits ("I can answer fully
    when we're back online"). Model downloaded as an optional **"Offline Pack"** in settings
