@@ -92,7 +92,7 @@ fun DevConsoleScreen(vm: HomeViewModel) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("Sync media (Phase 2)", fontWeight = FontWeight.SemiBold)
-                Text(vm.syncStatus, style = MaterialTheme.typography.bodySmall)
+                Text(vm.status, style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = vm::syncGlasses, enabled = !vm.busy) { Text("Sync from glasses") }
                     Button(onClick = vm::lookAndAsk, enabled = !vm.busy) { Text("Look & Ask") }

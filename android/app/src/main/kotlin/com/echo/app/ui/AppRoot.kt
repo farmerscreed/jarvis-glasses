@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -13,6 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.echo.app.CompanionPrefs
+import com.echo.app.ConnectedCompanionService
 import com.echo.app.HomeViewModel
 import com.echo.app.ui.components.JarvisBottomBar
 import com.echo.app.ui.components.JarvisTab
@@ -39,6 +42,13 @@ fun AppRoot() {
     var tab by rememberSaveable { mutableStateOf(JarvisTab.Live) }
     var devConsole by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
+
+    // Restart the background companion on app launch if the user enabled it and is signed in.
+    LaunchedEffect(vm.loggedIn, onboarded) {
+        if (onboarded && vm.loggedIn && CompanionPrefs.isEnabled(context)) {
+            ConnectedCompanionService.start(context)
+        }
+    }
 
     if (!onboarded) {
         OnboardingScreen(vm, onFinish = { onboarded = true })

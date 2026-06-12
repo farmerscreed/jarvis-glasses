@@ -1,5 +1,9 @@
 package com.echo.app.ui.screens
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,7 +30,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import com.echo.app.BuildConfig
+import com.echo.app.CompanionPrefs
+import com.echo.app.ConnectedCompanionService
 import com.echo.app.HomeViewModel
 import com.echo.app.ui.components.JarvisSecondaryButton
 import com.echo.app.ui.components.SectionLabel
@@ -91,6 +102,39 @@ fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit) {
                 Switch(
                     checked = vm.handsFree,
                     onCheckedChange = { vm.toggleHandsFree(it) },
+                    colors = SwitchDefaults.colors(checkedTrackColor = cyan),
+                )
+            }
+        }
+        SettingsCard {
+            val ctx = LocalContext.current
+            var bgOn by remember { mutableStateOf(CompanionPrefs.isEnabled(ctx)) }
+            val notifLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission(),
+            ) { /* runs regardless; the service shows even if the notification is suppressed */ }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Keep listening in the background", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        "React to glasses captures with the app closed.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = bgOn,
+                    onCheckedChange = { on ->
+                        bgOn = on
+                        CompanionPrefs.setEnabled(ctx, on)
+                        if (on) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                            ConnectedCompanionService.start(ctx)
+                        } else {
+                            ConnectedCompanionService.stop(ctx)
+                        }
+                    },
                     colors = SwitchDefaults.colors(checkedTrackColor = cyan),
                 )
             }

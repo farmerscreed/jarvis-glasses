@@ -88,10 +88,10 @@ fun GalleryScreen(vm: HomeViewModel) {
                 textAlign = TextAlign.Center,
             )
             Spacer(Modifier.height(JarvisSpacing.lg))
-            JarvisSecondaryButton("Sync from glasses", onClick = vm::syncGlasses, enabled = !vm.busy)
+            JarvisSecondaryButton("Sync from glasses", onClick = vm::syncGlasses, enabled = !vm.syncing)
             Spacer(Modifier.height(JarvisSpacing.sm))
             Text(
-                vm.syncStatus,
+                vm.status,
                 style = JarvisTheme.dataMono,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -129,14 +129,14 @@ fun GalleryScreen(vm: HomeViewModel) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (vm.busy) {
+                    if (vm.syncing) {
                         CircularProgressIndicator(
                             strokeWidth = 2.dp,
                             color = MaterialTheme.colorScheme.primaryContainer,
                             modifier = Modifier.height(20.dp).padding(end = JarvisSpacing.sm),
                         )
                     }
-                    IconButton(onClick = vm::syncGlasses, enabled = !vm.busy) {
+                    IconButton(onClick = vm::syncGlasses, enabled = !vm.syncing) {
                         Icon(
                             Icons.Outlined.Sync,
                             contentDescription = "sync from glasses",
@@ -144,9 +144,9 @@ fun GalleryScreen(vm: HomeViewModel) {
                         )
                     }
                 }
-                if (vm.busy) {
+                if (vm.syncing) {
                     Text(
-                        vm.syncStatus,
+                        vm.status,
                         style = JarvisTheme.dataMono,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
