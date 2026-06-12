@@ -68,21 +68,51 @@ fun PresenceOrb(
             infiniteRepeatable(tween(2800, easing = LinearEasing)),
             label = "angle",
         )
+        // "Living light": the core highlight slowly orbits in every state, so the orb never
+        // reads as a static render even when nothing is happening.
+        val drift by t.animateFloat(
+            0f, 360f,
+            infiniteRepeatable(tween(7400, easing = LinearEasing)),
+            label = "drift",
+        )
+        // Long-period pulse for the idle ripple (one soft ring every ~4.8s).
+        val slowLoop by t.animateFloat(
+            0f, 1f,
+            infiniteRepeatable(tween(4800, easing = LinearEasing)),
+            label = "slowLoop",
+        )
 
         Canvas(modifier) {
             val r = size.minDimension * 0.30f
+            val driftRad = drift * DEG
             when (s) {
                 OrbState.Idle -> {
-                    // Dark sphere, faint cyan rim, 3.6s breath (±2% scale, halo swell).
-                    val sc = 1f + 0.02f * breath
-                    halo(extras.glowCyan, r * (1.5f + 0.25f * breath), alpha = 0.10f + 0.08f * breath)
+                    // Dark sphere with a drifting inner glint, 3.6s breath (±3% scale, halo
+                    // swell) and one soft ripple every ~4.8s — present, alive, calm.
+                    val sc = 1f + 0.03f * breath
+                    halo(extras.glowCyan, r * (1.5f + 0.3f * breath), alpha = 0.12f + 0.10f * breath)
                     sphere(
                         r * sc,
                         listOf(scheme.surfaceContainerHigh, scheme.surfaceContainerLowest),
+                        highlightAngle = driftRad,
+                    )
+                    // drifting glint: a faint cyan inner light that slowly circles the core
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(extras.glowCyan.copy(alpha = 0.20f + 0.10f * breath), Color.Transparent),
+                            center = center + Offset(cos(driftRad) * r * 0.45f, sin(driftRad) * r * 0.45f),
+                            radius = r * 0.7f,
+                        ),
+                        radius = r * sc,
                     )
                     drawCircle(
                         color = extras.glowCyan.copy(alpha = 0.25f + 0.20f * breath),
                         radius = r * sc,
+                        style = Stroke(width = 1.5.dp.toPx()),
+                    )
+                    drawCircle( // the occasional soft pulse
+                        color = extras.glowCyan.copy(alpha = (1f - slowLoop) * 0.18f),
+                        radius = r * (1f + 0.55f * slowLoop),
                         style = Stroke(width = 1.5.dp.toPx()),
                     )
                 }
@@ -90,7 +120,7 @@ fun PresenceOrb(
                 OrbState.Listening -> {
                     // Bright cyan core + three ripples expanding past the rim (acoustic feedback).
                     halo(extras.glowCyan, r * 1.8f, alpha = 0.30f)
-                    sphere(r, listOf(scheme.primary, scheme.primaryContainer, scheme.onPrimaryContainer))
+                    sphere(r, listOf(scheme.primary, scheme.primaryContainer, scheme.onPrimaryContainer), driftRad)
                     repeat(3) { k ->
                         val p = (loop + k / 3f) % 1f
                         drawCircle(
@@ -111,6 +141,7 @@ fun PresenceOrb(
                             scheme.primaryContainer.copy(alpha = 0.75f),
                             scheme.onPrimaryContainer,
                         ),
+                        highlightAngle = driftRad,
                     )
                     repeat(3) { i ->
                         val tilt = i * 60f
@@ -129,6 +160,7 @@ fun PresenceOrb(
                     sphere(
                         r * 0.75f,
                         listOf(Color.White, scheme.primary, scheme.primaryContainer, scheme.onPrimaryContainer),
+                        highlightAngle = driftRad,
                     )
                     val bars = 4
                     repeat(bars) { i ->
@@ -151,7 +183,7 @@ fun PresenceOrb(
                 OrbState.Deliberating -> {
                     // Core + counter-rotating flux arcs (high-load compute).
                     halo(extras.glowCyan, r * 1.8f, alpha = 0.28f)
-                    sphere(r * 0.85f, listOf(scheme.primary, scheme.primaryContainer, scheme.onPrimaryContainer))
+                    sphere(r * 0.85f, listOf(scheme.primary, scheme.primaryContainer, scheme.onPrimaryContainer), driftRad)
                     val ringR = r * 1.3f
                     arcRing(extras.glowCyan.copy(alpha = 0.9f), ringR, startAngle = angle, sweep = 110f)
                     arcRing(scheme.primary.copy(alpha = 0.5f), ringR * 1.12f, startAngle = -angle * 1.4f, sweep = 70f)
@@ -165,6 +197,7 @@ fun PresenceOrb(
                     sphere(
                         r * flicker,
                         listOf(extras.emberHighlight, extras.presenceAmber, extras.emberDeep),
+                        highlightAngle = driftRad,
                     )
                 }
             }
@@ -184,12 +217,20 @@ private fun DrawScope.halo(color: Color, radius: Float, alpha: Float) {
     )
 }
 
-/** The orb body: radial gradient with the highlight pulled to 40%,40% like the design CSS. */
-private fun DrawScope.sphere(radius: Float, colors: List<Color>) {
+/**
+ * The orb body: radial gradient with the highlight pulled off-center like the design CSS's
+ * `circle at 40% 40%`. [highlightAngle] lets the light slowly orbit (the "alive" drift).
+ */
+private fun DrawScope.sphere(
+    radius: Float,
+    colors: List<Color>,
+    highlightAngle: Float = (-135f) * DEG,
+) {
+    val off = Offset(cos(highlightAngle) * radius * 0.28f, sin(highlightAngle) * radius * 0.28f)
     drawCircle(
         brush = Brush.radialGradient(
             colors = colors,
-            center = center + Offset(-radius * 0.2f, -radius * 0.2f),
+            center = center + off,
             radius = radius * 1.4f,
         ),
         radius = radius,

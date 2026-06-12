@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>JARVIS branding preview</title>
+<style>
+  body { margin: 0; font-family: monospace; background: #555; }
+  .row { display: flex; }
+  .cell { flex: 1; padding: 32px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .dark { background: #0B0F14; color: #888; }
+  .light { background: #FFFFFF; color: #888; }
+  img.mark { width: 256px; height: 256px; }
+  img.lockup { width: 460px; }
+  .label { font-size: 12px; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="cell dark">
+      <img class="mark" src="logomark.svg"><div class="label">LOGOMARK · DARK</div>
+    </div>
+    <div class="cell light">
+      <img class="mark" src="logomark_light.svg"><div class="label">LOGOMARK · LIGHT</div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="cell dark">
+      <img class="lockup" src="logo_lockup.svg"><div class="label">LOCKUP · DARK</div>
+    </div>
+    <div class="cell light">
+      <img class="lockup" src="logo_lockup_light.svg"><div class="label">LOCKUP · LIGHT</div>
+    </div>
+  </div>
+</body>
+</html>

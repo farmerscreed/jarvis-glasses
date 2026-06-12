@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JARVIS launcher foreground: the presence orb (branding/logomark.svg), scaled so the rings
+     sit inside the 66dp adaptive-icon safe zone; the glow may bleed into the masked edge. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- soft glow -->
+    <path android:pathData="M54,54 m-44,0 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="54" android:centerY="54"
+                android:gradientRadius="44">
+                <item android:offset="0.0" android:color="#663DDCFF"/>
+                <item android:offset="0.55" android:color="#1F3DDCFF"/>
+                <item android:offset="1.0" android:color="#003DDCFF"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- core -->
+    <path android:pathData="M54,54 m-14,0 a14,14 0 1,1 28,0 a14,14 0 1,1 -28,0">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="54" android:centerY="54"
+                android:gradientRadius="15">
+                <item android:offset="0.0" android:color="#FFFFFFFF"/>
+                <item android:offset="0.25" android:color="#FFBBEFFF"/>
+                <item android:offset="0.62" android:color="#FF3DDCFF"/>
+                <item android:offset="1.0" android:color="#FF005E6F"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- rings, fading outward (listening-ripple ratios from the in-app orb) -->
+    <path
+        android:pathData="M54,54 m-21,0 a21,21 0 1,1 42,0 a21,21 0 1,1 -42,0"
+        android:strokeColor="#D93DDCFF"
+        android:strokeWidth="1.6"
+        android:fillColor="#00000000"/>
+    <path
+        android:pathData="M54,54 m-27,0 a27,27 0 1,1 54,0 a27,27 0 1,1 -54,0"
+        android:strokeColor="#733DDCFF"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000"/>
+    <path
+        android:pathData="M54,54 m-33,0 a33,33 0 1,1 66,0 a33,33 0 1,1 -66,0"
+        android:strokeColor="#383DDCFF"
+        android:strokeWidth="0.9"
+        android:fillColor="#00000000"/>
+</vector>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- JARVIS logomark — the presence orb, dark-background version.
+       Geometry mirrors ui/components/PresenceOrb.kt: the speaking/listening core gradient
+       (#FFF → #BBEFFF → #3DDCFF → #005E6F) and rings fading outward like the listening ripples. -->
+  <defs>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="25%" stop-color="#BBEFFF"/>
+      <stop offset="62%" stop-color="#3DDCFF"/>
+      <stop offset="100%" stop-color="#005E6F"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3DDCFF" stop-opacity="0.40"/>
+      <stop offset="55%" stop-color="#3DDCFF" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#3DDCFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="256" r="232" fill="url(#glow)"/>
+  <circle cx="256" cy="256" r="72" fill="url(#core)"/>
+  <circle cx="256" cy="256" r="116" fill="none" stroke="#3DDCFF" stroke-width="3" stroke-opacity="0.85"/>
+  <circle cx="256" cy="256" r="156" fill="none" stroke="#3DDCFF" stroke-width="2" stroke-opacity="0.45"/>
+  <circle cx="256" cy="256" r="196" fill="none" stroke="#3DDCFF" stroke-width="1.5" stroke-opacity="0.22"/>
+</svg>
