@@ -44,6 +44,20 @@ class TtsEngine(context: Context) {
         }
     }
 
+    /** Prepare for a streamed turn: wait for init, set language, clear any queued speech. */
+    suspend fun beginStream(): Boolean {
+        if (!ready.await()) return false
+        tts.language = Locale.US
+        runCatching { tts.stop() }
+        return true
+    }
+
+    /** Queue one sentence to speak after whatever is already queued (non-blocking) — for streaming. */
+    fun enqueue(text: String) {
+        if (text.isBlank()) return
+        tts.speak(text, TextToSpeech.QUEUE_ADD, null, "echo-stream-${System.identityHashCode(text)}")
+    }
+
     fun shutdown() {
         runCatching { tts.stop() }
         runCatching { tts.shutdown() }

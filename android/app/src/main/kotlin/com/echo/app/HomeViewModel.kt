@@ -180,8 +180,9 @@ class HomeViewModel @Inject constructor(
 
     fun ask() = run("Thinking…") {
         if (online) {
-            // Adaptive timeout (§4.4): on a slow/LEAN link, fail fast to the on-device answer
-            // rather than hanging on Claude.
+            // Adaptive timeout (§4.4): on a slow/LEAN link, fail fast to the on-device answer.
+            // (Streaming chat is built — backend.chatStream + chat-stream fn — but kept out of the
+            // live loop until the SSE-over-Kong path is verified; see Phase D notes.)
             val result = withTimeoutOrNull(12_000) { backend.chat(question) }
             if (result != null) {
                 answer = result.answer

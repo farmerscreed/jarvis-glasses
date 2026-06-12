@@ -136,6 +136,47 @@ class EchoBackend(
         ChatResult(resp.answer, resp.memories_used.map { it.toMemory() })
     }
 
+    /**
+     * Streaming RAG turn: [onDelta] is called with each text chunk as Claude produces it (so the
+     * caller can speak sentence-by-sentence). Returns the full answer + memories used.
+     */
+    suspend fun chatStream(message: String, onDelta: (String) -> Unit): ChatResult = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(message))
+        val builder = Request.Builder()
+            .url(session.baseUrl + "/functions/v1/chat-stream")
+            .addHeader("apikey", session.anonKey)
+            .addHeader("Accept", "text/event-stream")
+        session.accessToken?.let { builder.addHeader("Authorization", "Bearer $it") }
+        builder.post(body.toRequestBody(jsonMedia))
+        http.newCall(builder.build()).execute().use { resp ->
+            if (!resp.isSuccessful) error("HTTP ${resp.code}: ${resp.body?.string().orEmpty()}")
+            val source = resp.body?.source() ?: error("no stream body")
+            var event = "message"
+            var memories = emptyList<Memory>()
+            val full = StringBuilder()
+            while (true) {
+                val line = source.readUtf8Line() ?: break
+                when {
+                    line.isBlank() -> event = "message" // SSE record boundary
+                    line.startsWith("event:") -> event = line.removePrefix("event:").trim()
+                    line.startsWith("data:") -> {
+                        val data = line.removePrefix("data:").trim()
+                        when (event) {
+                            "memories" -> memories =
+                                json.decodeFromString(StreamMemories.serializer(), data).matches.map { it.toMemory() }
+                            "done", "error" -> {}
+                            else -> {
+                                val delta = json.decodeFromString(StreamDelta.serializer(), data).t
+                                if (delta.isNotEmpty()) { full.append(delta); onDelta(delta) }
+                            }
+                        }
+                    }
+                }
+            }
+            ChatResult(full.toString(), memories)
+        }
+    }
+
     private fun post(path: String, body: String): String {
         val builder = Request.Builder()
             .url(session.baseUrl + path)

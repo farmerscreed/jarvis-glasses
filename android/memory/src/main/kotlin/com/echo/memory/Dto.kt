@@ -60,6 +60,13 @@ data class ChatResponse(
     val memories_used: List<MemoryDto> = emptyList(),
 )
 
+/** SSE payloads from /chat-stream. */
+@Serializable
+data class StreamDelta(val t: String = "")
+
+@Serializable
+data class StreamMemories(val matches: List<MemoryDto> = emptyList())
+
 @Serializable
 data class MemoryDto(
     val id: String? = null,
