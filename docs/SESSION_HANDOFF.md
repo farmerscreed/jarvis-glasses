@@ -153,6 +153,12 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 - **CRLF warnings** on `git commit` are normal (Windows line endings) — ignore.
 - **PowerShell:** no heredoc; for multi-line commit messages write the message to a temp file and
   `git commit -F <file>` (double-quotes in `-m` break it).
+- **The glasses steal the phone's AUDIO whenever they're powered on** (BT classic SCO/A2DP —
+  independent of the BLE control link): the mic records from the glasses and TTS answers play in
+  the glasses speaker. Testing on the phone with the glasses on a desk looks like "nothing works"
+  (silent recordings → "Didn't catch that"; answers inaudible). Power the glasses off to test
+  phone-only. The Live console now reads the true audio route (`rememberGlassesAudioConnected`)
+  and appends "audio in glasses" to the always-visible status line.
 - **Decoded device gotchas** (full detail in `docs/recon/Glasses_Controls.md` §4): glasses **delete
   their files after a successful sync** and emit a zero-inventory event (only an inventory *increase*
   = a new capture); `BC 41` frames on `de5bf729` are **command-ACK echoes, NOT events** (parsing
