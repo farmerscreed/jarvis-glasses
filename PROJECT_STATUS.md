@@ -54,7 +54,7 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
 1. **Backend:** `supabase start --workdir <repo>` (ports shifted +100 → API 54421, DB 54422, Studio 54423, to coexist with another local project).
 2. **Functions:** put keys in `supabase/functions/.env` (see `.env.example`), then `supabase functions serve --env-file supabase/functions/.env --workdir <repo>`.
 3. **Device bridge:** `adb reverse tcp:54421 tcp:54421` (phone reaches PC backend at 127.0.0.1).
-4. **App:** `android\gradlew.bat -p android :app:installDebug` (or open `android/` in Android Studio). Sign in (dev) uses a test account; `DevConfig` points at `127.0.0.1:54421`.
+4. **App:** `android\gradlew.bat -p android :app:installDevDebug` (or open `android/` in Android Studio). Sign in (dev) uses a test account; the dev flavor's BuildConfig points at `127.0.0.1:54421` (`:app:installProdDebug` targets cloud `jarvis-prod`).
 - Full schema/endpoint/build detail in the per-area READMEs.
 
 ## 6. Recently completed + what's deferred
@@ -69,7 +69,7 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
 - **Latency:** voice loop records a fixed 5 s then processes (not streaming) → ~10–15 s round trip.
 - **Wake word = phone mic** (always-on BT-SCO mic would drain battery + block A2DP). Question after wake uses the glasses mic.
 - **Vision half not in-app yet:** we can trigger the camera, but pulling the photo (Wi-Fi Direct → HTTP `/files/`) into the app and feeding Claude vision is not built (Phase 2).
-- **Local dev only:** hardcoded test login, local Supabase, cleartext to 127.0.0.1, provider quotas hit and routed around (OpenAI no credit → Gemini; Gemini 2.0-flash STT quota 0 → 2.5-flash).
+- **Dev flavor only:** hardcoded test login + cleartext to 127.0.0.1 (the prod flavor compiles both out and targets cloud over TLS); provider quotas hit and routed around (OpenAI no credit → Gemini; Gemini 2.0-flash STT quota 0 → 2.5-flash).
 
 ## 8. Next steps (priority order)
 *Full start-to-finish production plan (incl. offline-first architecture + UI/UX design workflow): `docs/PRODUCTION_ROADMAP.md`.*
@@ -83,8 +83,9 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
    - **C5** deferred vision/transcribe re-run — off-grid captures save a placeholder (held back from sync), then get real Claude/Gemini content on reconnect. Verified: off-grid Look & Ask → placeholder → reconnect → real description synced.
    - **C6** LEAN tier — RTT probe (FULL/LEAN/OFF_GRID), "online · slow" chip, `ask()` fails fast to on-device answer on a slow link.
    **Deferred by design:** the optional large on-device LLM ("Offline Pack", ~1–2 GB) — the rule-based floor makes the product offline-complete without it; the pack is a download-gated quality enhancement. **Small follow-ups (not blockers):** refresh-token rotation for long-lived background auth; on-device dictation (Vosk) for true off-grid voice. Phase C is also the cost lever (§4.7).
-4. **Phase D — latency war (in progress).** **D1 DONE & on-device:** VAD endpointing (`recordUntilSilence` — stop ~0.7 s after you stop talking vs fixed 5 s), earcons, per-stage `EchoLatency` instrumentation. Measured baseline (no-speech): record≈6.6 s · stt≈3.7 s · llm≈5.1 s. **D2 streaming chat — built & server-verified (curl), live wiring deferred:** `chat-stream` SSE function + `chatStream`/`SentenceChunker`/streaming-TTS exist, but the in-app SSE path flaked through the local Kong proxy, so the live loop stays on non-streaming chat; finish against cloud Supabase in Phase E. Then auth/onboarding/cloud; hardening; release.
-5. Polish: 16 KB-aligned native libs (Vosk).
+4. **Phase D — latency war (in progress).** **D1 DONE & on-device:** VAD endpointing (`recordUntilSilence` — stop ~0.7 s after you stop talking vs fixed 5 s), earcons, per-stage `EchoLatency` instrumentation. Measured baseline (no-speech): record≈6.6 s · stt≈3.7 s · llm≈5.1 s. **D2 streaming chat — now wired into the live loop (2026-06-12):** `ask()` + the voice path stream Claude's answer sentence-by-sentence (`chatStream` → `SentenceChunker` → `TtsEngine.enqueue`/`finishStream`) on a FULL-tier link, falling back to one-shot chat on LEAN/failure. Unverified until the cloud functions deploy (local Kong buffers SSE).
+5. **Phase E — real users (STARTED 2026-06-12):** cloud Supabase project **`jarvis-prod`** (ref `agtuimnppqbrjocuzqsk`, West EU) created + linked; **dev/prod build flavors** (prod = TLS-only cloud, dev login compiled out); **email-OTP sign-in** + **refresh-token rotation** (401 → rotate → retry on all authed paths — closes the long-lived background-auth gap from Phase C). **Pending:** director-run `db push`/`secrets set`/`functions deploy` (agent-gated), Magic Link email template needs `{{ .Token }}`, then on-device verification; onboarding wizard lands with the design integration (35-screen Stitch design system committed to `docs/design/`).
+6. Polish: 16 KB-aligned native libs (Vosk).
 
 **Settled decisions (2026-06-12, see `docs/PRODUCTION_ROADMAP.md`):**
 - **Two-Speed Brain** (§1): fast reflexive lane (voice, Phases C/D) + deliberate lane (capture-anchored, tool-using, patient — V2).

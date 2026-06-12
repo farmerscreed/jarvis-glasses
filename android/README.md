@@ -15,12 +15,14 @@ resolves the capture characteristic (`de5bf72a` in `de5bf728`, handle 0x008E), a
 Verified — 3 writes produced 3 new photos (stock app album confirmed). **All of Phase 0 is proven on hardware.**
 `:device:wifi` (Wi-Fi media transfer) is the remaining device piece (Phase 2).
 
-### Run on device (local backend)
+### Run on device
 ```powershell
-$adb reverse tcp:54421 tcp:54421     # phone 127.0.0.1:54421 -> PC Supabase
-& "$a\gradlew.bat" -p $a :app:installDebug
+$adb reverse tcp:54421 tcp:54421     # phone 127.0.0.1:54421 -> PC Supabase (dev flavor only)
+& "$a\gradlew.bat" -p $a :app:installDevDebug    # local backend (dev console loop)
+& "$a\gradlew.bat" -p $a :app:installProdDebug   # cloud jarvis-prod (TLS, OTP sign-in only)
 ```
-Requires the local stack + `supabase functions serve` running (see ../supabase). `DevConfig` points the app at `http://127.0.0.1:54421`.
+The dev flavor requires the local stack + `supabase functions serve` (see ../supabase). Backend URL +
+anon key come from each flavor's `BuildConfig` (see `app/build.gradle.kts` productFlavors).
 
 ## Modules
 | Module | Contents |

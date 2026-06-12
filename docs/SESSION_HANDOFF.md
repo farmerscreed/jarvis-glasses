@@ -30,7 +30,8 @@ pgvector) every feature reads/writes. Built offline-first: it must work in a tun
 | **A** image persistence | ✅ | Private `media`/`audio` buckets + RLS; photos upload; `media_path` threaded (fixed a silent drop). |
 | **B** glasses-button reactions | ✅ (in-app) | Button event protocol decoded; press → auto-sync → route (photo→caption, audio→transcribe, AI-gesture→Look&Ask). |
 | **C** offline-first | ✅ **complete** | Local-first core + outbox + idempotency, background drain (survives app kill), on-device embeddings (offline semantic recall), Jarvis Lite floor, deferred AI re-run, LEAN tier. |
-| **D** latency | 🟡 **partial** | D1 done (VAD endpointing, earcons, instrumentation). D2 streaming built + server-verified but **not wired into the live loop** (local-proxy SSE issue → finish in Phase E). |
+| **D** latency | 🟡 **partial** | D1 done (VAD endpointing, earcons, instrumentation). D2 streaming now **wired into the live loop** (Phase E session) — unverified until the cloud functions deploy. |
+| **E** real users | 🟡 **in progress** | Cloud project `jarvis-prod` created + linked; dev/prod flavors; email-OTP auth + refresh-token rotation built (compiles, device-unverified). **Blocked on director-approved cloud deploy** (db push / secrets / functions deploy — see §6). |
 
 **Phase C detail (all six increments verified 2026-06-12):**
 - **C1** every capture writes Room first, drains an outbox to cloud; `client_id` idempotency (server dedupes). `MemoryStore`, `ConnectivityGovernor`, "Cloud: …" chip.
@@ -64,7 +65,13 @@ pgvector) every feature reads/writes. Built offline-first: it must work in a tun
 **Backend** (`supabase/`): migrations `20260610214254_init_memory_schema` (memories + pgvector +
 `match_memories` RPC + RLS), `20260611110843_storage_media_buckets` (media/audio buckets + RLS),
 `20260612120000_add_client_id_idempotency`. Edge Functions: `ingest`, `recall`, `chat`,
-`transcribe`, `vision`, `chat-stream` (SSE, built but live-wiring deferred), `_shared/`.
+`transcribe`, `vision`, `chat-stream` (SSE, now wired into the live loop), `_shared/`.
+
+**Cloud (Phase E, created 2026-06-12):** Supabase project **`jarvis-prod`**, ref
+`agtuimnppqbrjocuzqsk`, West EU (Ireland), org `bfpprerlkqqhoktadliq`. CLI is `supabase link`ed.
+DB password + ref live in gitignored `supabase/.env`. Migrations/functions/secrets **not pushed
+yet** (needs director-run commands, §6). App flavors: **dev** = local stack (cleartext +
+"Sign in (dev)"), **prod** = `https://agtuimnppqbrjocuzqsk.supabase.co` (TLS only, OTP sign-in only).
 
 **AI providers** (keys in `supabase/functions/.env`, gitignored): embeddings = Gemini
 `gemini-embedding-001` (1536-dim, free); chat/vision = Claude `claude-sonnet-4-6`; STT = Gemini
@@ -85,8 +92,9 @@ supabase functions serve --env-file supabase\functions\.env --workdir $w   # run
 # 2. Device bridge (phone reaches PC backend at 127.0.0.1)
 adb reverse tcp:54421 tcp:54421             # RE-ASSERT after ANY Wi-Fi toggle (see gotchas)
 
-# 3. App
-android\gradlew.bat -p android :app:installDebug      # builds + installs to the Pixel
+# 3. App — flavors since Phase E: dev = local stack, prod = cloud jarvis-prod
+android\gradlew.bat -p android :app:installDevDebug    # local-backend build (the usual dev loop)
+android\gradlew.bat -p android :app:installProdDebug   # cloud build (no adb reverse needed)
 ```
 
 **Dev login:** `tester@local.dev` / `password123` (the "Sign in (dev)" button). Token now persists,
@@ -147,15 +155,25 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 → Phase **F** (privacy/hardening) → Phase **G** (Play release) → **H** (ops). Reasoning: E unblocks
 finishing the streaming latency work and is the prerequisite for everything user-facing.
 
-**Phase E — Real users (recommended next):**
-- **Cloud Supabase:** create project → `supabase link` → `db push` (migrations were built for this)
-  → `supabase secrets set` the provider keys → enable PITR. Introduce `dev`/`prod` build flavors.
-- **Real auth:** email OTP + Google One-Tap; kill the hardcoded test login; `verify_jwt` + rate
-  limits on functions; refresh-token rotation (also fixes long-lived background auth).
-- **Onboarding + pairing wizard** (make-or-break for screenless hardware; #1 support topic). This is
-  where the **Help & Learn center** (roadmap §11.6) lands.
-- **While here:** finish the **streaming LLM→TTS** wiring (built; the local Kong proxy flaked SSE —
-  cloud has no Kong). Verify via the text Ask path.
+**Phase E — Real users (in progress, 2026-06-12):**
+- ✅ **Cloud project** `jarvis-prod` created + linked (ref `agtuimnppqbrjocuzqsk`); ✅ `dev`/`prod`
+  build flavors; ✅ **email-OTP auth** (request + verify, UI) with dev login compiled out of prod;
+  ✅ **refresh-token rotation** (persisted, rotated on any 401 — fixes long-lived background auth);
+  ✅ **streaming LLM→TTS wired into the live loop** (ask + voice path, FULL tier, with one-shot
+  fallback). All compile; none device-verified against cloud yet.
+- ⛔ **Blocked on director-run cloud deploy** (the agent's permission mode won't push to prod):
+  ```powershell
+  $pw = ((Get-Content supabase\.env) -match '^DB_PASSWORD=')[0].Substring(12)
+  supabase db push --password $pw
+  supabase secrets set --env-file supabase\functions\.env
+  supabase functions deploy
+  ```
+  Then in the dashboard: **Auth → Email Templates → Magic Link** must include `{{ .Token }}`
+  (default template only has the link; the app's OTP flow needs the 6-digit code), and decide on
+  **PITR** (paid add-on — not enabled silently).
+- **Still to do:** verify e2e on device (prod flavor), Google One-Tap (needs an OAuth client),
+  rate limits on functions, **onboarding + pairing wizard** (lands with the design integration;
+  the 35-screen Stitch design system arrived + committed this session — `docs/design/`).
 
 **Carried-over small, high-leverage items (can do anytime):**
 - **`ConnectedCompanionService` foreground service** — so glasses-button reactions + sync work with
@@ -194,8 +212,8 @@ before building (roadmap §10a).
   tool-using, patient — the V2 "Ask Jarvis"). The orb visualizes both.
 - **Offline "Offline Pack" (large on-device LLM) is deferred by design** — the rule-based Jarvis Lite
   floor makes the product offline-complete; the big LLM is an optional download-gated quality upgrade.
-- **Streaming chat is built & server-verified; live wiring deferred to cloud (Phase E)** — the local
-  Kong proxy buffers SSE.
+- **Streaming chat is wired into the live loop (Phase E, 2026-06-12)** — FULL tier only, one-shot
+  fallback kept; the local Kong proxy buffers SSE, so it's verified against cloud, not local.
 - **Glasses native captures stay native; the app listens + enriches** (never intercept firmware
   capture; preserve video for V2).
 
@@ -217,9 +235,11 @@ before building (roadmap §10a).
 
 ## 9. Open issues / risks to carry forward
 
-- In-app **SSE streaming** unverified (local Kong) — finish against cloud.
+- **Cloud deploy not yet run** (db push / secrets / functions deploy are director-gated) — until
+  then the prod flavor points at an empty project and nothing Phase E is device-verified.
+- In-app **SSE streaming** wired but unverified (local Kong buffers SSE; verify against cloud).
+- **Email-OTP sign-in** unverified; needs the Magic Link template edited to include `{{ .Token }}`.
 - **No foreground service** yet → button reactions need the app foregrounded to be reliable.
-- **Refresh-token rotation** absent → background auth limited to the access-token lifetime.
 - **Off-grid voice** has no on-device dictation → falls back to typing.
-- App is **local-dev only**: hardcoded login, cleartext to 127.0.0.1, single test user — all addressed in Phase E/F.
+- **Dev flavor** keeps the hardcoded login + cleartext to 127.0.0.1 by design; prod compiles both out.
 - **16 KB page warning** (Vosk libs) on Android 16 launch — dismissable now; matters for Play (Phase G).
