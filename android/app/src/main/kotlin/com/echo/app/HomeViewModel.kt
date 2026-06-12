@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.echo.core.model.Memory
 import com.echo.core.model.MemoryType
 import com.echo.device.audio.BtAudioEngine
+import com.echo.device.audio.EarconKind
 import com.echo.device.audio.TtsEngine
 import com.echo.device.audio.WakeWordEngine
 import com.echo.device.audio.WavUtil
@@ -52,6 +53,9 @@ class HomeViewModel @Inject constructor(
 
     var audioStatus by mutableStateOf("Tap to test the glasses mic + speaker"); private set
     var bleStatus by mutableStateOf("BLE idle"); private set
+
+    /** Phase D: time-to-first-spoken-word of the last voice turn (ms), for the latency war. */
+    var lastLatencyMs by mutableStateOf(0L); private set
     var syncStatus by mutableStateOf("Pull captured media off the glasses"); private set
     var handsFree by mutableStateOf(false); private set
 
@@ -218,27 +222,42 @@ class HomeViewModel @Inject constructor(
     fun talk() = run("Listening — speak into the glasses…") { doTalk() }
 
     private suspend fun doTalk() {
-        val rec = audio.record(5000)
         // Off-grid: cloud STT (Gemini) is unavailable and on-device dictation isn't wired yet, so
-        // fall back to the text path (modality fallback §4.5) rather than failing silently.
+        // fall back to the text path (modality fallback §4.5) rather than recording pointlessly.
         if (!online) {
-            val msg = "I can't transcribe speech while we're off-grid yet. Type your question and " +
+            answer = "I can't transcribe speech while we're off-grid yet. Type your question and " +
                 "I'll answer from your memories."
-            answer = msg; status = "Off-grid — type to ask"
+            status = "Off-grid — type to ask"
             tts.speak("I can't hear you in detail off-grid yet. Type your question.")
             return
         }
+        val t0 = System.currentTimeMillis()
+        audio.earcon(EarconKind.LISTENING)
+        // Phase D: stop recording when you stop talking, not after a fixed 5 s.
+        val rec = audio.recordUntilSilence()
+        val tRecord = System.currentTimeMillis() - t0
         status = "Transcribing…"
+        val sttStart = System.currentTimeMillis()
         val heard = runCatching { backend.transcribe(WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)) }.getOrDefault("")
+        val tStt = System.currentTimeMillis() - sttStart
         question = heard.ifBlank { "(didn't catch that)" }
         if (heard.isNotBlank()) {
+            audio.earcon(EarconKind.THINKING)
             status = "Thinking…"
+            val llmStart = System.currentTimeMillis()
             val result = backend.chat(heard)
+            val tLlm = System.currentTimeMillis() - llmStart
             answer = result.answer
             recalled = result.memoriesUsed
+            val toSpeak = System.currentTimeMillis() - t0
+            lastLatencyMs = toSpeak
+            android.util.Log.i(
+                "EchoLatency",
+                "record=${tRecord}ms (%.1fs audio) stt=${tStt}ms llm=${tLlm}ms time-to-speak=${toSpeak}ms".format(rec.seconds),
+            )
             status = "Speaking…"
             tts.speak(result.answer)
-            status = "Done"
+            status = "Done · ${toSpeak}ms to first word"
         } else {
             status = "Didn't catch that — try again"
         }
