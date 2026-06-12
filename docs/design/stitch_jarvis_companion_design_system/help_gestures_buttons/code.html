@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hardware Guide | Ethereal Sentinel</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Space+Grotesk:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-error-container": "#ffdad6",
+            "on-primary-fixed": "#001f26",
+            "surface-bright": "#36393f",
+            "on-secondary-fixed": "#141c28",
+            "tertiary": "#ffe2c4",
+            "surface": "#101419",
+            "inverse-on-surface": "#2d3136",
+            "on-secondary-fixed-variant": "#3f4754",
+            "secondary": "#bfc7d7",
+            "primary-fixed": "#aeecff",
+            "primary": "#bbefff",
+            "on-tertiary-container": "#794b00",
+            "on-primary-fixed-variant": "#004e5d",
+            "primary-fixed-dim": "#36d8fb",
+            "on-surface": "#e0e2ea",
+            "secondary-fixed-dim": "#bfc7d7",
+            "tertiary-fixed-dim": "#ffb961",
+            "surface-container-high": "#262a30",
+            "outline": "#869397",
+            "outline-variant": "#3c494d",
+            "on-error": "#690005",
+            "error": "#ffb4ab",
+            "surface-container-lowest": "#0a0e13",
+            "surface-variant": "#31353b",
+            "on-tertiary-fixed-variant": "#663e00",
+            "on-primary": "#003641",
+            "secondary-container": "#444c59",
+            "on-surface-variant": "#bbc9ce",
+            "surface-container-low": "#181c21",
+            "on-background": "#e0e2ea",
+            "surface-tint": "#36d8fb",
+            "on-tertiary": "#472a00",
+            "on-primary-container": "#005e6f",
+            "error-container": "#93000a",
+            "secondary-fixed": "#dbe3f3",
+            "primary-container": "#3ddcff",
+            "tertiary-fixed": "#ffddb9",
+            "tertiary-container": "#ffbe6f",
+            "on-secondary": "#29313d",
+            "surface-dim": "#101419",
+            "inverse-surface": "#e0e2ea",
+            "background": "#101419",
+            "on-tertiary-fixed": "#2b1700",
+            "inverse-primary": "#00687b",
+            "surface-container": "#1c2025",
+            "surface-container-highest": "#31353b",
+            "on-secondary-container": "#b4bccc"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "margin-mobile": "24px",
+            "md": "16px",
+            "gutter": "16px",
+            "xs": "4px",
+            "xl": "40px",
+            "margin-desktop": "64px",
+            "lg": "24px",
+            "unit": "4px",
+            "sm": "8px"
+          },
+          "fontFamily": {
+            "headline-lg": ["Space Grotesk"],
+            "label-sm": ["Inter"],
+            "headline-lg-mobile": ["Space Grotesk"],
+            "data-mono": ["JetBrains Mono"],
+            "body-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "display-md": ["Space Grotesk"],
+            "display-lg": ["Space Grotesk"]
+          },
+          "fontSize": {
+            "headline-lg": ["28px", {"lineHeight": "36px", "fontWeight": "500"}],
+            "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+            "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "500"}],
+            "data-mono": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+            "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+            "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+            "display-md": ["36px", {"lineHeight": "44px", "fontWeight": "600"}],
+            "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    
+    .glass-panel {
+      background: rgba(26, 34, 46, 0.4);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .pulse-cyan {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.1); }
+    }
+
+    .hotspot-active {
+      box-shadow: 0 0 15px #36d8fb;
+      background-color: #36d8fb ! from-primary-fixed-dim;
+    }
+
+    .hardware-container {
+      perspective: 1000px;
+    }
+
+    .floating-orb {
+      background: radial-gradient(circle at center, #36d8fb 0%, transparent 70%);
+      filter: blur(8px);
+      opacity: 0.4;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md overflow-x-hidden">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl border-b border-white/20 shadow-sm flex items-center justify-between px-margin-mobile h-16">
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-primary-fixed-dim hover:bg-surface-variant/50 transition-colors p-2 rounded-full active:scale-95 duration-200">arrow_back</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary">Hardware</h1>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:bg-surface-variant/50 transition-colors p-2 rounded-full active:scale-95 duration-200">search</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 pb-32 px-margin-mobile max-w-[600px] mx-auto min-h-screen relative">
+<!-- Introduction Section -->
+<section class="mb-xl">
+<h2 class="font-display-md text-display-md text-primary mb-sm">Master the Flow</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Tap any interactive hotspot to explore the smart gestures integrated into your Ethereal Sentinel frames.</p>
+</section>
+<!-- 3D Hardware Interaction Zone -->
+<div class="relative hardware-container w-full aspect-square flex items-center justify-center mb-xl">
+<!-- Ambient Light Background -->
+<div class="absolute inset-0 floating-orb animate-pulse"></div>
+<!-- Mock 3D Illustration via Background Image -->
+<div class="relative z-10 w-full h-full rounded-full border border-white/5 flex items-center justify-center overflow-hidden">
+<div class="w-full h-full bg-center bg-no-repeat bg-contain transition-transform duration-700 hover:scale-105" data-alt="A sleek, futuristic pair of smart glasses with a minimalist matte black finish and subtle blue lens tint. The glasses are showcased in a dark, ethereal studio setting with cinematic rim lighting emphasizing their aerodynamic curves. Glowing holographic interfaces emerge faintly around the frame temples, creating a high-tech sentinel aesthetic." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDh9etxGOQGxHc8HUQHCLIP3QNBNVGSFZFcvJHiSOg7R16NcTiWLG7hoepvD6JOk412wPmKwmc7-0J3duy7zD_HQ7BBgq8h8lhYGBeERU8Inw5jsBxT1jGebudHlhmyBQ6MFGuzmOAC_Ogx4LSy4uq_YsJedldh70sHwWFmcVwnP37_7HIxWxqkZpsVbbXTAGdXpAOB-Xe5zLbKyMwlDugFbdfX5rVy-ymMg6LcpG5V6mp5S3HisApjhXgygOmRLofzhl858bvVQws')">
+</div>
+<!-- Hotspot: Single-click Front (Photo) -->
+<button class="absolute top-[35%] left-[20%] w-6 h-6 rounded-full bg-primary-fixed-dim/40 border-2 border-primary-fixed-dim pulse-cyan flex items-center justify-center" onclick="openSheet('photo')">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+</button>
+<!-- Hotspot: Double-click Front (Video) -->
+<button class="absolute top-[28%] left-[45%] w-6 h-6 rounded-full bg-primary-fixed-dim/40 border-2 border-primary-fixed-dim pulse-cyan flex items-center justify-center" onclick="openSheet('video')">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+</button>
+<!-- Hotspot: Double-click Back (AI Ask) -->
+<button class="absolute top-[55%] right-[15%] w-6 h-6 rounded-full bg-primary-fixed-dim/40 border-2 border-primary-fixed-dim pulse-cyan flex items-center justify-center" onclick="openSheet('ai')">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+</button>
+<!-- Hotspot: Hold Back (Voice Note) -->
+<button class="absolute top-[65%] right-[30%] w-6 h-6 rounded-full bg-primary-fixed-dim/40 border-2 border-primary-fixed-dim pulse-cyan flex items-center justify-center" onclick="openSheet('voice')">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+</button>
+<!-- Hotspot: Trackpad (Volume) -->
+<button class="absolute bottom-[30%] right-[45%] w-6 h-6 rounded-full bg-primary-fixed-dim/40 border-2 border-primary-fixed-dim pulse-cyan flex items-center justify-center" onclick="openSheet('trackpad')">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+</button>
+</div>
+</div>
+<!-- Quick Reference Bento -->
+<div class="grid grid-cols-2 gap-gutter">
+<div class="glass-panel p-lg rounded-xl flex flex-col gap-sm">
+<span class="material-symbols-outlined text-primary-fixed-dim">battery_charging_full</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant">BATTERY</span>
+<span class="font-headline-lg-mobile text-headline-lg-mobile">84%</span>
+</div>
+<div class="glass-panel p-lg rounded-xl flex flex-col gap-sm">
+<span class="material-symbols-outlined text-primary-fixed-dim">cloud_sync</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant">STATUS</span>
+<span class="font-headline-lg-mobile text-headline-lg-mobile">Synced</span>
+</div>
+</div>
+</main>
+<!-- Interaction Sheet (Hidden by default) -->
+<div class="fixed inset-0 z-[100] flex items-end justify-center pointer-events-none" id="gestureSheet">
+<div class="absolute inset-0 bg-black/60 opacity-0 transition-opacity duration-300 pointer-events-auto" id="sheetOverlay" onclick="closeSheet()"></div>
+<div class="relative w-full max-w-[600px] glass-panel rounded-t-[32px] p-xl translate-y-full transition-transform duration-500 pointer-events-auto shadow-2xl" id="sheetContent">
+<div class="w-12 h-1.5 bg-outline-variant/30 rounded-full mx-auto mb-lg"></div>
+<div class="flex items-start gap-lg mb-xl">
+<div class="p-md rounded-xl bg-primary-container/20 text-primary-fixed-dim">
+<span class="material-symbols-outlined text-[32px]" id="sheetIcon">photo_camera</span>
+</div>
+<div>
+<h3 class="font-headline-lg text-headline-lg text-primary mb-xs" id="sheetTitle">Single-click Front</h3>
+<p class="font-body-md text-body-md text-on-surface-variant" id="sheetDesc">Capture a high-resolution moment instantly from your perspective.</p>
+</div>
+</div>
+<div class="flex flex-col gap-lg">
+<div class="hidden glass-panel border-primary/20 p-md rounded-xl flex items-center justify-center gap-md" id="waitingStatus">
+<div class="w-2 h-2 rounded-full bg-primary-fixed-dim animate-ping"></div>
+<span class="font-data-mono text-data-mono text-primary">WAITING FOR INPUT...</span>
+</div>
+<button class="w-full bg-primary-container text-on-primary-fixed font-bold py-4 rounded-xl flex items-center justify-center gap-sm active:scale-[0.98] transition-all" id="tryNowBtn" onclick="simulateGesture()">
+<span class="material-symbols-outlined">touch_app</span>
+          TRY IT NOW
+        </button>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface-container-low/90 backdrop-blur-xl border-t border-white/10 shadow-xl flex justify-around items-center h-20 px-4 pb-safe">
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-all cursor-pointer">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-label-sm text-label-sm">Hub</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-primary-container/30 text-primary-fixed-dim rounded-full px-4 py-1 cursor-pointer">
+<span class="material-symbols-outlined">visibility</span>
+<span class="font-label-sm text-label-sm">Hardware</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-all cursor-pointer">
+<span class="material-symbols-outlined">school</span>
+<span class="font-label-sm text-label-sm">Tutorials</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-all cursor-pointer">
+<span class="material-symbols-outlined">keyboard_command_key</span>
+<span class="font-label-sm text-label-sm">Commands</span>
+</div>
+</nav>
+<script>
+    const gestures = {
+      photo: {
+        title: "Single-click Front",
+        desc: "Captures a 12MP high-resolution photo instantly. The shutter sound plays in your temples.",
+        icon: "photo_camera"
+      },
+      video: {
+        title: "Double-click Front",
+        desc: "Starts a 60fps cinematic video recording. A small indicator light will glow red on the inner frame.",
+        icon: "videocam"
+      },
+      ai: {
+        title: "Double-click Back",
+        desc: "Summons the AI Assistant. Ask about anything you are currently seeing.",
+        icon: "smart_toy"
+      },
+      voice: {
+        title: "Hold Back",
+        desc: "Record a quick voice note. Notes are automatically transcribed and synced to your cloud.",
+        icon: "mic"
+      },
+      trackpad: {
+        title: "Trackpad Swipe",
+        desc: "Slide your finger forward or backward to adjust volume or skip through music tracks.",
+        icon: "swipe"
+      }
+    };
+
+    function openSheet(key) {
+      const data = gestures[key];
+      document.getElementById('sheetTitle').innerText = data.title;
+      document.getElementById('sheetDesc').innerText = data.desc;
+      document.getElementById('sheetIcon').innerText = data.icon;
+      
+      const sheet = document.getElementById('gestureSheet');
+      const overlay = document.getElementById('sheetOverlay');
+      const content = document.getElementById('sheetContent');
+      
+      sheet.classList.remove('pointer-events-none');
+      overlay.classList.remove('opacity-0');
+      content.classList.remove('translate-y-full');
+      
+      // Reset waiting status
+      document.getElementById('waitingStatus').classList.add('hidden');
+      document.getElementById('tryNowBtn').classList.remove('opacity-50');
+      document.getElementById('tryNowBtn').disabled = false;
+    }
+
+    function closeSheet() {
+      const sheet = document.getElementById('gestureSheet');
+      const overlay = document.getElementById('sheetOverlay');
+      const content = document.getElementById('sheetContent');
+      
+      overlay.classList.add('opacity-0');
+      content.classList.add('translate-y-full');
+      setTimeout(() => {
+        sheet.classList.add('pointer-events-none');
+      }, 500);
+    }
+
+    function simulateGesture() {
+      const btn = document.getElementById('tryNowBtn');
+      const status = document.getElementById('waitingStatus');
+      
+      btn.classList.add('opacity-50');
+      btn.disabled = true;
+      status.classList.remove('hidden');
+      
+      setTimeout(() => {
+        status.innerHTML = `
+          <div class="flex items-center gap-md text-primary">
+            <span class="material-symbols-outlined">check_circle</span>
+            <span class="font-data-mono text-data-mono">GESTURE DETECTED</span>
+          </div>
+        `;
+        setTimeout(() => {
+          closeSheet();
+          // Reset for next time
+          setTimeout(() => {
+            status.innerHTML = `
+              <div class="w-2 h-2 rounded-full bg-primary-fixed-dim animate-ping"></div>
+              <span class="font-data-mono text-data-mono text-primary">WAITING FOR INPUT...</span>
+            `;
+          }, 500);
+        }, 1500);
+      }, 2500);
+    }
+  </script>
+</body></html>

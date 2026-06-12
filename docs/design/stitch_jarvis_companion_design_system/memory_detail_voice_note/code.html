@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        :root {
+            --surface-navy: #1A222E;
+            --electric-cyan: #36d8fb;
+        }
+        body {
+            background-color: #0B0F14;
+            color: #e0e2ea;
+            -webkit-font-smoothing: antialiased;
+        }
+        .glass-panel {
+            background: rgba(26, 34, 46, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .waveform-bar {
+            transition: height 0.2s ease;
+        }
+        .voice-orb-glow {
+            filter: blur(15px);
+            background: var(--electric-cyan);
+            opacity: 0.3;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-high": "#262a30",
+                      "secondary": "#bfc7d7",
+                      "secondary-fixed-dim": "#bfc7d7",
+                      "inverse-on-surface": "#2d3136",
+                      "on-tertiary-container": "#794b00",
+                      "on-secondary-fixed": "#141c28",
+                      "on-primary-container": "#005e6f",
+                      "on-tertiary-fixed": "#2b1700",
+                      "tertiary-fixed": "#ffddb9",
+                      "surface-tint": "#36d8fb",
+                      "primary-container": "#3ddcff",
+                      "on-primary": "#003641",
+                      "on-tertiary-fixed-variant": "#663e00",
+                      "tertiary": "#ffe2c4",
+                      "surface-container-low": "#181c21",
+                      "on-tertiary": "#472a00",
+                      "tertiary-fixed-dim": "#ffb961",
+                      "on-background": "#e0e2ea",
+                      "outline-variant": "#3c494d",
+                      "inverse-primary": "#00687b",
+                      "on-error-container": "#ffdad6",
+                      "surface-variant": "#31353b",
+                      "surface-bright": "#36393f",
+                      "outline": "#869397",
+                      "on-primary-fixed-variant": "#004e5d",
+                      "background": "#101419",
+                      "primary": "#bbefff",
+                      "on-surface-variant": "#bbc9ce",
+                      "on-secondary-container": "#b4bccc",
+                      "surface-dim": "#101419",
+                      "secondary-container": "#444c59",
+                      "on-error": "#690005",
+                      "surface": "#101419",
+                      "secondary-fixed": "#dbe3f3",
+                      "primary-fixed": "#aeecff",
+                      "on-secondary": "#29313d",
+                      "on-secondary-fixed-variant": "#3f4754",
+                      "surface-container": "#1c2025",
+                      "primary-fixed-dim": "#36d8fb",
+                      "error": "#ffb4ab",
+                      "surface-container-lowest": "#0a0e13",
+                      "inverse-surface": "#e0e2ea",
+                      "on-primary-fixed": "#001f26",
+                      "surface-container-highest": "#31353b",
+                      "tertiary-container": "#ffbe6f",
+                      "on-surface": "#e0e2ea",
+                      "error-container": "#93000a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xs": "4px",
+                      "lg": "24px",
+                      "unit": "4px",
+                      "margin-desktop": "64px",
+                      "md": "16px",
+                      "sm": "8px",
+                      "gutter": "16px",
+                      "xl": "40px",
+                      "margin-mobile": "24px"
+              },
+              "fontFamily": {
+                      "data-mono": ["JetBrains Mono"],
+                      "headline-lg-mobile": ["Space Grotesk"],
+                      "body-lg": ["Inter"],
+                      "display-lg": ["Space Grotesk"],
+                      "display-md": ["Space Grotesk"],
+                      "label-sm": ["Inter"],
+                      "body-md": ["Inter"],
+                      "headline-lg": ["Space Grotesk"]
+              },
+              "fontSize": {
+                      "data-mono": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "500"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "display-md": ["36px", {"lineHeight": "44px", "fontWeight": "600"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-lg": ["28px", {"lineHeight": "36px", "fontWeight": "500"}]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen pb-32">
+<!-- Top Navigation Anchor -->
+<header class="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-margin-mobile py-sm">
+<div class="flex items-center gap-3">
+<button class="active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-primary">arrow_back</span>
+</button>
+<h1 class="font-display-md text-[20px] tracking-tighter text-primary">JARVIS</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant hover:opacity-80 transition-opacity cursor-pointer">help</span>
+</div>
+</header>
+<main class="pt-24 px-margin-mobile max-w-[600px] mx-auto space-y-xl">
+<!-- Header Metadata -->
+<section class="space-y-md">
+<div class="flex flex-wrap gap-sm">
+<div class="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container border border-white/5">
+<span class="material-symbols-outlined text-[16px] text-primary">calendar_today</span>
+<span class="font-data-mono text-label-sm text-on-surface">OCT 24, 2023 · 14:32</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container border border-white/5">
+<span class="material-symbols-outlined text-[16px] text-primary">location_on</span>
+<span class="font-data-mono text-label-sm text-on-surface">AUSTIN, TX</span>
+</div>
+</div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Reflection on the Morning Creative Session</h2>
+</section>
+<!-- Audio Player Section -->
+<section class="glass-panel rounded-3xl p-lg space-y-lg relative overflow-hidden">
+<!-- Background Atmospheric Glow -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 voice-orb-glow rounded-full"></div>
+<div class="relative z-10 flex flex-col items-center">
+<!-- Waveform Area -->
+<div class="w-full h-24 flex items-end justify-between gap-[2px] mb-6">
+<!-- Dynamic Waveform Placeholder -->
+<script>
+                        document.write([...Array(50)].map((_, i) => {
+                            const height = Math.floor(Math.random() * 80) + 10;
+                            const opacity = i < 20 ? 'bg-primary' : 'bg-outline-variant';
+                            return `<div class="waveform-bar w-1 ${opacity} rounded-full" style="height: ${height}%"></div>`;
+                        }).join(''));
+                    </script>
+</div>
+<!-- Scrubber & Time -->
+<div class="w-full space-y-2">
+<div class="relative w-full h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="absolute top-0 left-0 w-[40%] h-full bg-primary"></div>
+</div>
+<div class="flex justify-between font-data-mono text-label-sm text-on-surface-variant">
+<span>01:42</span>
+<span>04:15</span>
+</div>
+</div>
+<!-- Controls -->
+<div class="flex items-center gap-xl mt-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors active:scale-90">
+<span class="material-symbols-outlined text-[32px]">replay_10</span>
+</button>
+<button class="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-[0_0_20px_rgba(54,216,251,0.4)] active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[40px]" style="font-variation-settings: 'FILL' 1;">pause</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors active:scale-90">
+<span class="material-symbols-outlined text-[32px]">forward_10</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Mini Map & Chips Section -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div class="glass-panel rounded-3xl overflow-hidden h-32 relative">
+<img alt="Map showing Austin, Texas" class="w-full h-full object-cover grayscale opacity-50 contrast-125" data-location="Austin, Texas" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAIrmytPTydwlnvpKTzVf1D58LuCF18xbn9lxBVYVdVdnccV0Rv9TLhWg76XU5119KvxDVef5dbJELNbcyZxb3JVmxVWiEXS77HNSSfMbAbj1-p7dDqb5xp_4ritbm2RGvaJflIvrZUFI46zF0yxIJUVOteduNKaCqy2om_FoMIcTQv6ukmKEldQ4B7qoMyaOTRy18BcFOYy9DI2wx9Q3c6Kekrg_KJBH0yVfJtUo_zy0x9vXrgG9DG9Bh_J9v4ABSFAa7-h_7d1pU"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-4 h-4 bg-primary rounded-full animate-ping"></div>
+<div class="w-3 h-3 bg-primary rounded-full absolute"></div>
+</div>
+<div class="absolute bottom-2 left-2 px-2 py-0.5 bg-background/80 backdrop-blur-sm rounded text-[10px] font-data-mono uppercase tracking-widest">Local Context</div>
+</div>
+<div class="flex flex-col gap-sm">
+<h3 class="font-label-sm text-label-sm text-primary uppercase tracking-widest">Knowledge Tags</h3>
+<div class="flex flex-wrap gap-sm">
+<span class="px-3 py-1 rounded-lg border border-primary/30 text-primary font-data-mono text-label-sm">#creativity</span>
+<span class="px-3 py-1 rounded-lg border border-primary/30 text-primary font-data-mono text-label-sm">#workflow</span>
+<span class="px-3 py-1 rounded-lg border border-primary/30 text-primary font-data-mono text-label-sm">#brainstorm</span>
+</div>
+</div>
+</section>
+<!-- Full Transcript -->
+<section class="space-y-md">
+<h3 class="font-label-sm text-label-sm text-primary uppercase tracking-widest">Transcription</h3>
+<div class="glass-panel rounded-3xl p-lg">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed opacity-90">
+<span class="text-primary font-bold">00:00</span> So, I've been thinking about the way we structure these ethereal sentinel interfaces. The goal is to make it feel like the information is just floating in the periphery. <span class="bg-primary/20 text-primary px-1">We need to prioritize typographic clarity</span> over any decorative elements. <br/><br/>
+<span class="text-primary font-bold">00:45</span> The morning light in Austin today is incredible, it actually reminds me of that high-key lighting style we discussed for the glassmorphism foundations. Let's make sure the contrast ratios are high enough for optical displays...
+                </p>
+<button class="mt-4 flex items-center gap-2 text-primary font-label-sm hover:underline">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+                    Edit Transcript
+                </button>
+</div>
+</section>
+<!-- Related Memories -->
+<section class="space-y-md">
+<h3 class="font-label-sm text-label-sm text-primary uppercase tracking-widest">Semantic Links</h3>
+<div class="flex gap-md overflow-x-auto pb-4 no-scrollbar">
+<div class="min-w-[200px] glass-panel rounded-2xl p-md space-y-sm hover:border-primary/50 transition-colors cursor-pointer group">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">history</span>
+<span class="font-data-mono text-[10px] text-on-surface-variant">2 DAYS AGO</span>
+</div>
+<p class="font-body-md text-sm font-medium line-clamp-2">Project Ethereal Design Sprints</p>
+</div>
+<div class="min-w-[200px] glass-panel rounded-2xl p-md space-y-sm hover:border-primary/50 transition-colors cursor-pointer group">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">history</span>
+<span class="font-data-mono text-[10px] text-on-surface-variant">1 WEEK AGO</span>
+</div>
+<p class="font-body-md text-sm font-medium line-clamp-2">Voice Interface User Flow Notes</p>
+</div>
+<div class="min-w-[200px] glass-panel rounded-2xl p-md space-y-sm hover:border-primary/50 transition-colors cursor-pointer group">
+<div class="flex items-center justify-between">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">history</span>
+<span class="font-data-mono text-[10px] text-on-surface-variant">OCT 12</span>
+</div>
+<p class="font-body-md text-sm font-medium line-clamp-2">Morning Run Thoughts on AI Ethics</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Contextual Action Bar (Bottom) -->
+<nav class="fixed bottom-0 w-full z-50 px-margin-mobile pb-8">
+<div class="max-w-[600px] mx-auto flex items-center justify-between gap-md p-2 rounded-full glass-panel border border-white/20 shadow-2xl">
+<button class="flex-1 h-12 rounded-full bg-primary text-on-primary font-label-sm flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-[0_0_15px_rgba(54,216,251,0.3)]">
+<span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+                Ask about this
+            </button>
+<div class="flex items-center gap-2">
+<button class="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-on-surface hover:bg-white/5 active:scale-90 transition-all">
+<span class="material-symbols-outlined">share</span>
+</button>
+<button class="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center text-error hover:bg-error/10 active:scale-90 transition-all">
+<span class="material-symbols-outlined">delete</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Mini interaction script -->
+<script>
+        // Simple waveform animation simulation
+        const bars = document.querySelectorAll('.waveform-bar');
+        setInterval(() => {
+            bars.forEach(bar => {
+                if (bar.classList.contains('bg-primary')) {
+                    const newHeight = Math.floor(Math.random() * 60) + 30;
+                    bar.style.height = `${newHeight}%`;
+                }
+            });
+        }, 150);
+
+        // Smooth reveal for content
+        document.addEventListener('DOMContentLoaded', () => {
+            const main = document.querySelector('main');
+            main.style.opacity = '0';
+            main.style.transform = 'translateY(20px)';
+            main.style.transition = 'all 0.6s cubic-bezier(0.2, 0.8, 0.2, 1)';
+            
+            setTimeout(() => {
+                main.style.opacity = '1';
+                main.style.transform = 'translateY(0)';
+            }, 100);
+        });
+    </script>
+</body></html>

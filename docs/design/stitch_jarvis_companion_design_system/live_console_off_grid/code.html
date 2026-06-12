@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>JARVIS - Live Console (Off-grid)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "error-container": "#93000a",
+                      "on-secondary": "#29313d",
+                      "surface-container-high": "#262a30",
+                      "surface-container-lowest": "#0a0e13",
+                      "tertiary-fixed-dim": "#ffb961",
+                      "surface-bright": "#36393f",
+                      "tertiary-fixed": "#ffddb9",
+                      "surface": "#101419",
+                      "on-tertiary-fixed": "#2b1700",
+                      "surface-container-highest": "#31353b",
+                      "primary-container": "#3ddcff",
+                      "on-secondary-container": "#b4bccc",
+                      "surface-tint": "#36d8fb",
+                      "secondary": "#bfc7d7",
+                      "on-primary": "#003641",
+                      "on-error-container": "#ffdad6",
+                      "on-primary-fixed": "#001f26",
+                      "surface-container": "#1c2025",
+                      "surface-container-low": "#181c21",
+                      "secondary-container": "#444c59",
+                      "on-tertiary": "#472a00",
+                      "error": "#ffb4ab",
+                      "tertiary": "#ffe2c4",
+                      "on-primary-fixed-variant": "#004e5d",
+                      "on-tertiary-fixed-variant": "#663e00",
+                      "on-secondary-fixed-variant": "#3f4754",
+                      "on-error": "#690005",
+                      "background": "#101419",
+                      "secondary-fixed-dim": "#bfc7d7",
+                      "on-tertiary-container": "#794b00",
+                      "on-primary-container": "#005e6f",
+                      "primary-fixed": "#aeecff",
+                      "outline": "#869397",
+                      "primary-fixed-dim": "#36d8fb",
+                      "on-secondary-fixed": "#141c28",
+                      "secondary-fixed": "#dbe3f3",
+                      "on-surface": "#e0e2ea",
+                      "tertiary-container": "#ffbe6f",
+                      "inverse-primary": "#00687b",
+                      "primary": "#bbefff",
+                      "on-background": "#e0e2ea",
+                      "on-surface-variant": "#bbc9ce",
+                      "inverse-on-surface": "#2d3136",
+                      "outline-variant": "#3c494d",
+                      "surface-dim": "#101419",
+                      "inverse-surface": "#e0e2ea",
+                      "surface-variant": "#31353b"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "md": "16px",
+                      "gutter": "16px",
+                      "xs": "4px",
+                      "margin-desktop": "64px",
+                      "xl": "40px",
+                      "margin-mobile": "24px",
+                      "unit": "4px",
+                      "sm": "8px",
+                      "lg": "24px"
+              },
+              "fontFamily": {
+                      "display-lg": [
+                              "Space Grotesk"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "display-md": [
+                              "Space Grotesk"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "data-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "headline-lg": [
+                              "Space Grotesk"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Space Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-md": [
+                              "36px",
+                              {
+                                      "lineHeight": "44px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "data-mono": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "500"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-body-md overflow-x-hidden selection:bg-tertiary-fixed-dim selection:text-on-tertiary-fixed antialiased">
+<!-- TopAppBar -->
+<header class="bg-transparent fixed top-0 w-full backdrop-blur-md flex justify-between items-center px-margin-mobile h-16 z-50 transition-opacity duration-300">
+<button aria-label="Menu" class="text-on-surface-variant hover:text-primary-fixed hover:opacity-80 transition-colors focus:outline-none">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="font-display-md text-display-md text-primary-fixed-dim tracking-tight">JARVIS</h1>
+<button aria-label="Help" class="text-on-surface-variant hover:text-primary-fixed hover:opacity-80 transition-colors focus:outline-none">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col items-center justify-start pt-24 pb-32 px-margin-mobile md:px-margin-desktop w-full max-w-[600px] mx-auto space-y-xl relative">
+<!-- Ambient Background Glow (Amber for Off-grid) -->
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-96 bg-tertiary-container/10 blur-[100px] rounded-full pointer-events-none -z-10"></div>
+<!-- Upper Area: Presence Orb & Status -->
+<section class="flex flex-col items-center space-y-md w-full relative">
+<!-- Presence Orb Container -->
+<div class="relative w-48 h-48 flex items-center justify-center">
+<div class="absolute inset-0 bg-tertiary-fixed-dim/20 rounded-full blur-2xl animate-pulse"></div>
+
+</div>
+<!-- Status Chips -->
+<div class="flex flex-wrap justify-center gap-sm mt-4">
+<div class="flex items-center gap-xs px-3 py-1.5 rounded-full bg-surface-container border border-surface-variant text-on-surface font-data-mono text-data-mono">
+<span class="material-symbols-outlined text-[16px] text-primary-fixed-dim" data-icon="glasses">glass</span>
+<span>Glasses · Connected</span>
+</div>
+<div class="flex items-center gap-xs px-3 py-1.5 rounded-full bg-surface-container border border-tertiary-fixed-dim/50 text-tertiary-fixed-dim font-data-mono text-data-mono shadow-[0_0_10px_rgba(255,185,97,0.1)]">
+<span class="material-symbols-outlined text-[16px]" data-icon="cloud_off">cloud_off</span>
+<span>Cloud · Off-grid</span>
+</div>
+</div>
+<!-- Reassurance Copy -->
+<p class="font-body-md text-body-md text-on-surface-variant text-center max-w-sm mt-2 opacity-80">
+                Saving everything on your phone — will sync later.
+            </p>
+</section>
+<!-- Mid Area: Transcript Card -->
+<section class="w-full">
+<div class="bg-surface-container-low rounded-xl p-lg border border-white/5 shadow-2xl relative overflow-hidden group">
+<!-- Subtle amber gradient at top to indicate offline state affecting memory -->
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-tertiary-fixed-dim/40 to-transparent"></div>
+<div class="flex flex-col space-y-md">
+<!-- User Message -->
+<div class="flex flex-col items-end space-y-1">
+<div class="px-4 py-2 rounded-2xl rounded-tr-sm bg-surface-container-highest text-on-surface max-w-[85%]">
+<p class="font-body-md text-body-md">Note down the license plate of that red car, ABC-1234.</p>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-60">10:42 AM</span>
+</div>
+<!-- JARVIS Response (Pending sync) -->
+<div class="flex flex-col items-start space-y-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-tertiary-fixed-dim uppercase tracking-wider">Local Processing</span>
+</div>
+<div class="px-4 py-3 rounded-2xl rounded-tl-sm bg-surface-container border border-tertiary-fixed-dim/20 text-on-surface max-w-[85%] shadow-[0_4px_20px_rgba(0,0,0,0.2)] backdrop-blur-md">
+<p class="font-body-md text-body-md text-on-surface-variant italic">Saved to local device. Will add to timeline when connection is restored.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Lower Area: Controls -->
+<section class="w-full flex flex-col items-center space-y-md mt-auto pb-4">
+<!-- Contextual Pills -->
+<div class="flex items-center justify-between w-full px-4 mb-2">
+<div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+<span class="material-symbols-outlined text-[16px] text-tertiary-fixed-dim" data-icon="photo_library">photo_library</span>
+<span class="font-label-sm text-label-sm text-on-surface">3 new captures</span>
+</div>
+<div class="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+<span class="material-symbols-outlined text-[16px] text-primary-fixed-dim" data-icon="mic">mic</span>
+<span class="font-data-mono text-data-mono text-on-surface-variant text-[12px]">Mic: glasses</span>
+</div>
+</div>
+<!-- Primary Action (Offline Amber styling) -->
+<button class="relative w-20 h-20 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center hover:bg-tertiary-fixed transition-all duration-300 shadow-[0_0_30px_rgba(255,185,97,0.2)] focus:outline-none focus:ring-4 focus:ring-tertiary-fixed-dim/50 active:scale-95 group">
+<div class="absolute inset-0 rounded-full border-2 border-tertiary-fixed-dim/50 scale-110 opacity-0 group-hover:opacity-100 transition-all duration-500 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
+<span class="material-symbols-outlined text-[32px] group-hover:scale-110 transition-transform" data-icon="mic" data-weight="fill">mic</span>
+</button>
+<!-- Secondary Action -->
+<button class="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-colors py-2 px-4 rounded-full border border-transparent hover:border-surface-variant focus:outline-none uppercase tracking-widest mt-4">
+                Type instead
+            </button>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface-container/80 fixed bottom-0 w-full rounded-t-xl backdrop-blur-xl border-t border-white/10 shadow-xl z-50 flex justify-around items-center px-gutter pb-4 pt-2 md:hidden">
+<!-- Live (Active) -->
+<a class="flex flex-col items-center justify-center text-primary-fixed-dim scale-110 transition-transform focus:outline-none" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="graphic_eq" data-weight="fill">graphic_eq</span>
+<span class="font-label-sm text-label-sm">Live</span>
+</a>
+<!-- Timeline -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed active:scale-95 transition-all duration-200 focus:outline-none group" href="#">
+<span class="material-symbols-outlined mb-1 group-hover:opacity-80" data-icon="history">history</span>
+<span class="font-label-sm text-label-sm group-hover:opacity-80">Timeline</span>
+</a>
+<!-- Gallery -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed active:scale-95 transition-all duration-200 focus:outline-none group" href="#">
+<span class="material-symbols-outlined mb-1 group-hover:opacity-80" data-icon="collections">collections</span>
+<span class="font-label-sm text-label-sm group-hover:opacity-80">Gallery</span>
+</a>
+<!-- Settings -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed active:scale-95 transition-all duration-200 focus:outline-none group" href="#">
+<span class="material-symbols-outlined mb-1 group-hover:opacity-80" data-icon="settings">settings</span>
+<span class="font-label-sm text-label-sm group-hover:opacity-80">Settings</span>
+</a>
+</nav>
+<!-- Web Navigation (Hidden on mobile) -->
+<nav class="hidden md:flex fixed top-0 right-0 h-16 items-center px-margin-desktop z-50 space-x-lg backdrop-blur-md">
+<a class="font-label-sm text-label-sm text-primary-fixed-dim border-b-2 border-primary-fixed-dim pb-1 uppercase tracking-wider" href="#">Live</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary-fixed transition-colors pb-1 uppercase tracking-wider" href="#">Timeline</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary-fixed transition-colors pb-1 uppercase tracking-wider" href="#">Gallery</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary-fixed transition-colors pb-1 uppercase tracking-wider" href="#">Settings</a>
+</nav>
+</body></html>

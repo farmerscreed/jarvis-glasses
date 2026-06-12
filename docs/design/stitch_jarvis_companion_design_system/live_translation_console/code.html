@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>JARVIS - Translate Mode</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary-fixed": "#dbe3f3",
+                        "on-error": "#690005",
+                        "surface": "#101419",
+                        "surface-dim": "#101419",
+                        "secondary-container": "#444c59",
+                        "on-secondary-container": "#b4bccc",
+                        "on-primary-fixed-variant": "#004e5d",
+                        "background": "#101419",
+                        "primary": "#bbefff",
+                        "on-surface-variant": "#bbc9ce",
+                        "surface-variant": "#31353b",
+                        "surface-bright": "#36393f",
+                        "outline": "#869397",
+                        "tertiary-container": "#ffbe6f",
+                        "on-surface": "#e0e2ea",
+                        "error-container": "#93000a",
+                        "surface-container-highest": "#31353b",
+                        "on-primary-fixed": "#001f26",
+                        "inverse-surface": "#e0e2ea",
+                        "surface-container": "#1c2025",
+                        "primary-fixed-dim": "#36d8fb",
+                        "error": "#ffb4ab",
+                        "surface-container-lowest": "#0a0e13",
+                        "on-secondary-fixed-variant": "#3f4754",
+                        "primary-fixed": "#aeecff",
+                        "on-secondary": "#29313d",
+                        "primary-container": "#3ddcff",
+                        "on-primary": "#003641",
+                        "surface-tint": "#36d8fb",
+                        "tertiary-fixed": "#ffddb9",
+                        "on-primary-container": "#005e6f",
+                        "on-tertiary-fixed": "#2b1700",
+                        "on-secondary-fixed": "#141c28",
+                        "inverse-on-surface": "#2d3136",
+                        "on-tertiary-container": "#794b00",
+                        "surface-container-high": "#262a30",
+                        "secondary": "#bfc7d7",
+                        "secondary-fixed-dim": "#bfc7d7",
+                        "inverse-primary": "#00687b",
+                        "on-error-container": "#ffdad6",
+                        "outline-variant": "#3c494d",
+                        "on-background": "#e0e2ea",
+                        "tertiary-fixed-dim": "#ffb961",
+                        "tertiary": "#ffe2c4",
+                        "surface-container-low": "#181c21",
+                        "on-tertiary": "#472a00",
+                        "on-tertiary-fixed-variant": "#663e00"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "xs": "4px",
+                        "lg": "24px",
+                        "margin-desktop": "64px",
+                        "unit": "4px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "sm": "8px",
+                        "margin-mobile": "24px",
+                        "xl": "40px"
+                    },
+                    fontFamily: {
+                        "display-lg": ["Space Grotesk"],
+                        "display-md": ["Space Grotesk"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Space Grotesk"],
+                        "data-mono": ["JetBrains Mono"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "body-lg": ["Inter"]
+                    },
+                    fontSize: {
+                        "display-lg": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "display-md": ["36px", { lineHeight: "44px", fontWeight: "600" }],
+                        "label-sm": ["12px", { lineHeight: "16px", letterSpacing: "0.1em", fontWeight: "600" }],
+                        "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "headline-lg": ["28px", { lineHeight: "36px", fontWeight: "500" }],
+                        "data-mono": ["14px", { lineHeight: "20px", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-lg-mobile": ["24px", { lineHeight: "32px", fontWeight: "500" }],
+                        "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(28, 32, 37, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            80%, 100% { transform: scale(2.5); opacity: 0; }
+        }
+        
+        .glow-active {
+            box-shadow: 0 0 20px rgba(61, 220, 255, 0.4), inset 0 0 10px rgba(61, 220, 255, 0.2);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md min-h-screen flex flex-col antialiased overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex items-center justify-between px-margin-mobile h-16 bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-b border-white/10 shadow-lg shadow-black/40">
+<div class="flex items-center gap-md">
+<button class="text-primary hover:opacity-80 transition-opacity active:scale-95 transition-transform flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings_input_svideo</span>
+</button>
+<h1 class="font-display-md text-display-md text-primary tracking-tighter">JARVIS</h1>
+</div>
+<div class="flex items-center">
+<div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant overflow-hidden flex items-center justify-center">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="A close-up portrait of a user serving as a profile avatar for a tech application. The image features a young professional with a neutral expression, softly lit against a dark, minimalist background. The photography style is modern and clean, fitting a futuristic 'Ethereal Sentinel' UI aesthetic with cool undertones and crisp details." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBYUuqzaJ4jLH7Znr7sU-Wj9ajtXFymYjAKfYeyoUmDK18lESOQfNGfZNmSFJzTPJQjLBOhR3EL-CqYalXc5xdLf5R1om5A0_w4lRq0gyBIAwQ-O7-ys1V3AcuP_YNYkI9-86s0ITDko2EX92O-7dnXy78zT8pzQPw9UEI8nqgpYnv2x7pgkNezflWgqA5CTkTF7aXJqj6FbjR-axm1Hik74x10MV9PMlJHMlooWtjG_DDnGh_Xce9HaY6_SUP3iguUpXTN-Yk-WM"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col pt-24 pb-32 px-margin-mobile md:px-margin-desktop max-w-[600px] mx-auto w-full relative z-10">
+<!-- Top Section: Static Result Card -->
+<section class="glass-panel rounded-[24px] p-lg mb-lg flex flex-col gap-md relative overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
+<div class="flex justify-between items-center mb-sm">
+<span class="font-data-mono text-data-mono text-primary flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                    ENGLISH
+                </span>
+<button class="p-2 rounded-full bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-primary group">
+<span class="material-symbols-outlined group-active:rotate-180 transition-transform duration-300">swap_vert</span>
+</button>
+<span class="font-data-mono text-data-mono text-secondary flex items-center gap-xs">
+                    JAPANESE
+                </span>
+</div>
+<div class="flex flex-col gap-xs border-b border-white/5 pb-md">
+<p class="font-body-lg text-body-lg text-on-surface">Could you please tell me where the nearest train station is?</p>
+</div>
+<div class="flex flex-col gap-xs pt-xs">
+<p class="font-body-lg text-body-lg text-primary">一番近い駅はどこか教えていただけますか？</p>
+<p class="font-data-mono text-data-mono text-on-surface-variant/50">Ichiban chikai eki wa doko ka oshiete itadakemasu ka?</p>
+</div>
+<!-- Decorative Accent -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+</section>
+<!-- Bottom Section: Live Conversation -->
+<section class="flex-1 flex flex-col gap-lg overflow-y-auto mb-xl hide-scrollbar relative">
+<div class="sticky top-0 z-10 pb-4 bg-gradient-to-b from-background to-transparent flex justify-center">
+<span class="font-label-sm text-label-sm text-on-surface-variant/60 bg-surface/80 px-4 py-1 rounded-full backdrop-blur-sm border border-white/5">LIVE CONVERSATION</span>
+</div>
+<!-- Chat Bubbles -->
+<div class="flex flex-col gap-md pb-20">
+<!-- Left Bubble (User / English) -->
+<div class="flex flex-col items-start max-w-[85%] self-start group">
+<div class="flex items-center gap-2 mb-1 px-1">
+<span class="font-label-sm text-label-sm text-primary">EN</span>
+</div>
+<div class="glass-panel px-md py-sm rounded-2xl rounded-tl-sm border-l-2 border-l-primary relative overflow-hidden">
+<p class="font-body-md text-body-md text-on-surface">I'm looking for the Shinkansen platform.</p>
+<div class="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none"></div>
+</div>
+</div>
+<!-- Right Bubble (Partner / Japanese) -->
+<div class="flex flex-col items-end max-w-[85%] self-end group">
+<div class="flex items-center gap-2 mb-1 px-1">
+<span class="font-label-sm text-label-sm text-secondary">JP</span>
+</div>
+<div class="bg-surface-container-high px-md py-sm rounded-2xl rounded-tr-sm border-r-2 border-r-secondary relative overflow-hidden">
+<p class="font-body-md text-body-md text-on-surface">新幹線のホームはあちらの階段を上がって右です。</p>
+<p class="font-data-mono text-[10px] text-on-surface-variant/50 mt-1">The Shinkansen platform is up those stairs and to the right.</p>
+</div>
+</div>
+<!-- Left Bubble (Active Listening) -->
+<div class="flex flex-col items-start max-w-[85%] self-start mt-4">
+<div class="flex items-center gap-2 mb-1 px-1">
+<span class="font-label-sm text-label-sm text-primary">EN</span>
+<div class="flex gap-1 items-end h-3">
+<div class="w-1 bg-primary rounded-full animate-[bounce_1s_infinite_0ms]"></div>
+<div class="w-1 bg-primary rounded-full animate-[bounce_1s_infinite_200ms]"></div>
+<div class="w-1 bg-primary rounded-full animate-[bounce_1s_infinite_400ms]"></div>
+</div>
+</div>
+<div class="glass-panel px-md py-sm rounded-2xl rounded-tl-sm border-l-2 border-l-primary glow-active text-on-surface/80 italic font-body-md text-body-md">
+                        Thank you, is it on...
+                    </div>
+</div>
+</div>
+</section>
+<!-- Controls (Absolute positioned at bottom of canvas area) -->
+<div class="fixed bottom-[88px] left-0 w-full flex justify-center items-end pointer-events-none z-20 pb-4">
+<!-- Listening Orb -->
+<div class="relative flex items-center justify-center pointer-events-auto">
+<div class="absolute w-24 h-24 bg-primary/20 rounded-full pulse-ring pointer-events-none"></div>
+<div class="absolute w-24 h-24 bg-primary/10 rounded-full pulse-ring pointer-events-none" style="animation-delay: 1s;"></div>
+<button class="w-16 h-16 rounded-full bg-surface-container-high border-2 border-primary glow-active flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(61,220,255,0.3)] z-10 group">
+<span class="material-symbols-outlined text-primary text-3xl group-hover:animate-pulse">graphic_eq</span>
+</button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-surface-container/90 dark:bg-surface-container/90 backdrop-blur-md border-t border-white/5 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] rounded-t-xl md:hidden">
+<button class="flex flex-col items-center justify-center text-on-secondary-container opacity-60 hover:text-primary-container transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined mb-1">mic_none</span>
+<span class="font-label-sm text-[10px] tracking-wide">Meetings</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container opacity-60 hover:text-primary-container transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined mb-1">screenshot_region</span>
+<span class="font-label-sm text-[10px] tracking-wide">OCR</span>
+</button>
+<!-- Active Tab -->
+<button class="flex flex-col items-center justify-center text-primary font-bold bg-secondary-container/30 rounded-full px-4 py-1 active:scale-90 duration-200">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">translate</span>
+<span class="font-label-sm text-[10px] tracking-wide">Translate</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container opacity-60 hover:text-primary-container transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined mb-1">task_alt</span>
+<span class="font-label-sm text-[10px] tracking-wide">Tasks</span>
+</button>
+</nav>
+<style>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</body></html>

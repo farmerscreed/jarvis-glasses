@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Permission to Assist - Companion Setup</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@500&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#e0e2ea",
+                        "on-secondary-container": "#b4bccc",
+                        "surface-tint": "#36d8fb",
+                        "primary-fixed": "#aeecff",
+                        "on-primary": "#003641",
+                        "on-tertiary-container": "#794b00",
+                        "on-secondary-fixed": "#141c28",
+                        "tertiary-container": "#ffbe6f",
+                        "error-container": "#93000a",
+                        "outline-variant": "#3c494d",
+                        "on-secondary-fixed-variant": "#3f4754",
+                        "inverse-surface": "#e0e2ea",
+                        "on-surface": "#e0e2ea",
+                        "on-error": "#690005",
+                        "tertiary-fixed": "#ffddb9",
+                        "surface-container-lowest": "#0a0e13",
+                        "primary": "#bbefff",
+                        "on-surface-variant": "#bbc9ce",
+                        "inverse-on-surface": "#2d3136",
+                        "on-tertiary": "#472a00",
+                        "surface-variant": "#31353b",
+                        "surface-container-low": "#181c21",
+                        "background": "#101419",
+                        "surface-container": "#1c2025",
+                        "on-tertiary-fixed": "#2b1700",
+                        "surface-container-highest": "#31353b",
+                        "inverse-primary": "#00687b",
+                        "secondary": "#bfc7d7",
+                        "tertiary": "#ffe2c4",
+                        "surface-dim": "#101419",
+                        "surface-container-high": "#262a30",
+                        "secondary-fixed": "#dbe3f3",
+                        "primary-fixed-dim": "#36d8fb",
+                        "on-primary-container": "#005e6f",
+                        "outline": "#869397",
+                        "on-primary-fixed": "#001f26",
+                        "tertiary-fixed-dim": "#ffb961",
+                        "surface-bright": "#36393f",
+                        "on-secondary": "#29313d",
+                        "error": "#ffb4ab",
+                        "surface": "#101419",
+                        "secondary-fixed-dim": "#bfc7d7",
+                        "on-tertiary-fixed-variant": "#663e00",
+                        "on-primary-fixed-variant": "#004e5d",
+                        "secondary-container": "#444c59",
+                        "primary-container": "#3ddcff",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "sm": "8px",
+                        "margin-mobile": "24px",
+                        "unit": "4px",
+                        "xl": "40px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "margin-desktop": "64px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Space Grotesk"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Space Grotesk"],
+                        "display-md": ["Space Grotesk"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "500" }],
+                        "data-mono": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "display-md": ["36px", { "lineHeight": "44px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #0B0F14; }
+        
+        .glass-card {
+            background-color: #1A222E;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        
+        .orb-pulse {
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 20px rgba(54, 216, 251, 0.2); }
+            100% { box-shadow: 0 0 40px rgba(54, 216, 251, 0.6); }
+        }
+
+        .ambient-shadow {
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .electric-cyan-btn {
+            background-color: #36d8fb;
+            color: #000;
+            box-shadow: 0 0 15px rgba(54, 216, 251, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .electric-cyan-btn:hover {
+            box-shadow: 0 0 25px rgba(54, 216, 251, 0.6);
+            transform: translateY(-2px);
+        }
+        
+        .electric-cyan-btn:active {
+            transform: translateY(0);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-background min-h-screen flex flex-col font-body-md antialiased overflow-hidden selection:bg-surface-tint selection:text-background relative">
+<!-- Ambient Background Effects -->
+<div class="fixed inset-0 z-0 pointer-events-none opacity-40">
+<div class="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-primary/10 blur-[100px]"></div>
+<div class="absolute bottom-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-surface-tint/5 blur-[120px]"></div>
+</div>
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full bg-background dark:bg-background flat no shadows flex items-center px-margin-mobile h-16 z-50">
+<button aria-label="Go back" class="mr-sm text-primary dark:text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/50">
+<span class="material-symbols-outlined" data-icon="arrow_back" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight">Companion Setup</h1>
+</header>
+<!-- Main Canvas -->
+<main class="flex-grow flex flex-col items-center justify-center pt-24 pb-32 px-margin-mobile z-10 w-full max-w-[600px] mx-auto">
+<!-- Step Indicator -->
+<div class="w-full mb-12 flex justify-center">
+<div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full border border-surface-tint/30 bg-surface-container-low/50 backdrop-blur-sm">
+<span class="font-data-mono text-data-mono text-on-surface-variant uppercase tracking-wider text-[10px]">Step 3/6</span>
+</div>
+</div>
+<div class="w-full flex flex-col items-center text-center mb-12 space-y-6">
+<div class="w-20 h-20 rounded-full bg-surface-container-low flex items-center justify-center mb-4 orb-pulse relative border border-surface-tint/20">
+<span class="material-symbols-outlined text-4xl text-surface-tint drop-shadow-[0_0_8px_rgba(54,216,251,0.5)]" style="font-variation-settings: 'FILL' 0;">admin_panel_settings</span>
+</div>
+<h2 class="font-display-md text-display-md text-on-surface m-0 tracking-tight">Permission to Assist</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-sm">
+                We only use these to bridge your glasses to your phone.
+            </p>
+</div>
+<!-- Permissions Container -->
+<div class="w-full space-y-4 mb-xl flex flex-col items-center">
+<!-- Microphone Permission -->
+<div class="glass-card rounded-xl p-6 w-full flex items-start space-x-6 ambient-shadow group hover:border-surface-tint/40 transition-colors duration-300">
+<div class="w-12 h-12 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline-variant group-hover:border-surface-tint/50 transition-colors">
+<span class="material-symbols-outlined text-surface-tint" style="font-variation-settings: 'FILL' 0;">mic</span>
+</div>
+<div class="flex-grow flex flex-col justify-center pt-1">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 text-[20px] leading-tight">Microphone</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">To hear your requests and translate in real-time.</p>
+</div>
+<div class="pt-3">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-surface-tint/70 transition-colors">check_circle</span>
+</div>
+</div>
+<!-- Nearby Devices Permission -->
+<div class="glass-card rounded-xl p-6 w-full flex items-start space-x-6 ambient-shadow group hover:border-surface-tint/40 transition-colors duration-300">
+<div class="w-12 h-12 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center border border-outline-variant group-hover:border-surface-tint/50 transition-colors">
+<span class="material-symbols-outlined text-surface-tint" style="font-variation-settings: 'FILL' 0;">devices</span>
+</div>
+<div class="flex-grow flex flex-col justify-center pt-1">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-1 text-[20px] leading-tight">Nearby Devices</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">To securely connect to your JARVIS glasses.</p>
+</div>
+<div class="pt-3">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-surface-tint/70 transition-colors">check_circle</span>
+</div>
+</div>
+</div>
+<!-- Primary Action -->
+<button class="electric-cyan-btn w-full md:w-auto min-w-[200px] h-14 rounded-full font-label-sm text-label-sm uppercase tracking-widest flex items-center justify-center px-8 mt-auto mx-auto focus:outline-none focus:ring-4 focus:ring-surface-tint/20">
+            Enable Access
+        </button>
+</main>
+<!-- BottomNavBar (Suppressed due to linear/transactional onboarding intent, but keeping structure commented out to show understanding of instructions) -->
+<!--
+    <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile bg-transparent pb-margin-mobile flat no shadows">
+        <button class="flex flex-col items-center justify-center text-on-secondary-container bg-secondary-container/20 backdrop-blur-md rounded-full px-lg py-sm hover:brightness-110 transition-all active:scale-98 duration-150">
+            <span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;" data-icon="help_outline">help_outline</span>
+            <span class="font-label-sm text-label-sm">Help</span>
+        </button>
+        <button class="flex flex-col items-center justify-center bg-primary text-on-primary rounded-full px-lg py-sm shadow-[0_0_20px_rgba(54,216,251,0.3)] hover:brightness-110 transition-all active:scale-98 duration-150">
+            <span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;" data-icon="arrow_forward">arrow_forward</span>
+            <span class="font-label-sm text-label-sm">Next</span>
+        </button>
+    </nav>
+    -->
+</body></html>

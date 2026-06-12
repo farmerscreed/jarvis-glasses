@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Help Center - Feature How-Tos</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error-container": "#ffdad6",
+                    "on-primary-fixed": "#001f26",
+                    "surface-bright": "#36393f",
+                    "on-secondary-fixed": "#141c28",
+                    "tertiary": "#ffe2c4",
+                    "surface": "#101419",
+                    "inverse-on-surface": "#2d3136",
+                    "on-secondary-fixed-variant": "#3f4754",
+                    "secondary": "#bfc7d7",
+                    "primary-fixed": "#aeecff",
+                    "primary": "#bbefff",
+                    "on-tertiary-container": "#794b00",
+                    "on-primary-fixed-variant": "#004e5d",
+                    "primary-fixed-dim": "#36d8fb",
+                    "on-surface": "#e0e2ea",
+                    "secondary-fixed-dim": "#bfc7d7",
+                    "tertiary-fixed-dim": "#ffb961",
+                    "surface-container-high": "#262a30",
+                    "outline": "#869397",
+                    "outline-variant": "#3c494d",
+                    "on-error": "#690005",
+                    "error": "#ffb4ab",
+                    "surface-container-lowest": "#0a0e13",
+                    "surface-variant": "#31353b",
+                    "on-tertiary-fixed-variant": "#663e00",
+                    "on-primary": "#003641",
+                    "secondary-container": "#444c59",
+                    "on-surface-variant": "#bbc9ce",
+                    "surface-container-low": "#181c21",
+                    "on-background": "#e0e2ea",
+                    "surface-tint": "#36d8fb",
+                    "on-tertiary": "#472a00",
+                    "on-primary-container": "#005e6f",
+                    "error-container": "#93000a",
+                    "secondary-fixed": "#dbe3f3",
+                    "primary-container": "#3ddcff",
+                    "tertiary-fixed": "#ffddb9",
+                    "tertiary-container": "#ffbe6f",
+                    "on-secondary": "#29313d",
+                    "surface-dim": "#101419",
+                    "inverse-surface": "#e0e2ea",
+                    "background": "#101419",
+                    "on-tertiary-fixed": "#2b1700",
+                    "inverse-primary": "#00687b",
+                    "surface-container": "#1c2025",
+                    "surface-container-highest": "#31353b",
+                    "on-secondary-container": "#b4bccc"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-mobile": "24px",
+                    "md": "16px",
+                    "gutter": "16px",
+                    "xs": "4px",
+                    "xl": "40px",
+                    "margin-desktop": "64px",
+                    "lg": "24px",
+                    "unit": "4px",
+                    "sm": "8px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Space Grotesk"],
+                    "label-sm": ["Inter"],
+                    "headline-lg-mobile": ["Space Grotesk"],
+                    "data-mono": ["JetBrains Mono"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "display-md": ["Space Grotesk"],
+                    "display-lg": ["Space Grotesk"]
+            },
+            "fontSize": {
+                    "headline-lg": ["28px", {"lineHeight": "36px", "fontWeight": "500"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "500"}],
+                    "data-mono": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-md": ["36px", {"lineHeight": "44px", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #0B0F14;
+            color: #e0e2ea;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(26, 34, 46, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .feature-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .feature-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .voice-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .7; transform: scale(1.05); }
+        }
+        .stepper-line::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 100%;
+            width: 100%;
+            height: 1px;
+            background: repeating-linear-gradient(90deg, #36d8fb, #36d8fb 4px, transparent 4px, transparent 8px);
+            z-index: 0;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-on-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-b border-white/20 shadow-sm flex items-center justify-between px-margin-mobile h-16">
+<div class="flex items-center gap-4">
+<button class="active:scale-95 duration-200 hover:bg-surface-variant/50 transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined text-primary-fixed-dim">arrow_back</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary dark:text-primary-fixed-dim">Help Center</h1>
+</div>
+<button class="active:scale-95 duration-200 hover:bg-surface-variant/50 transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined text-primary-fixed-dim">search</span>
+</button>
+</header>
+<main class="pt-24 pb-32 px-margin-mobile max-w-[600px] mx-auto">
+<!-- Welcome Hero -->
+<section class="mb-xl text-center">
+<div class="inline-flex items-center gap-2 mb-sm px-4 py-1 rounded-full border border-primary/30 bg-primary/10">
+<span class="material-symbols-outlined text-[16px] text-primary-fixed-dim voice-pulse" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-data-mono text-label-sm text-primary-fixed-dim uppercase tracking-widest">Tutorials</span>
+</div>
+<h2 class="font-display-md text-display-md text-on-surface mb-md">Master your Vision</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Step-by-step walkthroughs to unlock the full potential of your JARVIS smart glasses.</p>
+</section>
+<!-- Horizontal Scrollable Gallery -->
+<div class="feature-scroll flex overflow-x-auto gap-lg pb-lg snap-x snap-mandatory">
+<!-- Card: Read-it-to-me -->
+<div class="glass-card snap-center shrink-0 w-full rounded-[32px] p-lg flex flex-col gap-lg">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline-lg text-headline-lg text-primary-fixed-dim mb-xs">Read-it-to-me</h3>
+<p class="font-body-md text-on-surface-variant">Auditory transcription of physical text.</p>
+</div>
+<div class="w-12 h-12 rounded-2xl bg-primary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+</div>
+</div>
+<!-- Stepper -->
+<div class="grid grid-cols-3 gap-xs relative">
+<div class="flex flex-col items-center text-center group">
+<div class="relative z-10 w-10 h-10 rounded-full bg-primary text-on-primary font-bold flex items-center justify-center mb-sm border-4 border-surface shadow-[0_0_15px_rgba(54,216,251,0.4)]">1</div>
+<p class="font-label-sm text-label-sm text-on-surface">Look at text</p>
+</div>
+<div class="flex flex-col items-center text-center group">
+<div class="relative z-10 w-10 h-10 rounded-full bg-surface-variant text-on-surface font-bold flex items-center justify-center mb-sm border-4 border-surface">2</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Tap temple</p>
+</div>
+<div class="flex flex-col items-center text-center group">
+<div class="relative z-10 w-10 h-10 rounded-full bg-surface-variant text-on-surface font-bold flex items-center justify-center mb-sm border-4 border-surface">3</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">JARVIS reads</p>
+</div>
+<!-- Connecting Lines -->
+<div class="absolute top-5 left-[16.6%] right-[16.6%] h-[1px] bg-outline-variant -z-0"></div>
+</div>
+<div class="relative h-48 rounded-2xl overflow-hidden mt-sm">
+<img class="w-full h-full object-cover opacity-80" data-alt="A first-person point-of-view shot through augmented reality smart glasses, focusing on a printed book page where specific sentences are highlighted in a glowing electric cyan neon overlay. The surrounding environment is a cozy dimly lit library with warm wood textures, creating a futuristic yet intimate reading experience. The lighting is focused and soft, emphasizing the clarity of the HUD interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMPHn7CLmM15wyeQ5P6fsbvtKi6s0Psod-D9n2BUs4g6ZgCXxQL1QtrQjRNJ-67-25NnPGw0sMTo0bAdapG-LN_5fvp7xEWTq28e3LTr7aDdFfCHWFdwJQKy2NhJkFIAW_O_EKzmugJHKUvsFah9Yt-Q8Dneahu1F_h4UsIE8lN3OgeAjeI6C0SoZi-Lm7lgh3jH0e2x-7ruZ5PQxvTjc0Lv-GngQaEDpd7Ro-LDj1Hf6mh63dz-JPAEOPAkAvuWk8q4yy9Wfx50k"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent"></div>
+</div>
+</div>
+<!-- Card: Remember -->
+<div class="glass-card snap-center shrink-0 w-full rounded-[32px] p-lg flex flex-col gap-lg">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline-lg text-headline-lg text-primary-fixed-dim mb-xs">Remember</h3>
+<p class="font-body-md text-on-surface-variant">Visual memory anchoring system.</p>
+</div>
+<div class="w-12 h-12 rounded-2xl bg-secondary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-xs relative">
+<div class="flex flex-col items-center text-center">
+<div class="relative z-10 w-10 h-10 rounded-full bg-primary text-on-primary font-bold flex items-center justify-center mb-sm border-4 border-surface">1</div>
+<p class="font-label-sm text-label-sm text-on-surface">Target object</p>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="relative z-10 w-10 h-10 rounded-full bg-surface-variant text-on-surface font-bold flex items-center justify-center mb-sm border-4 border-surface">2</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Hold gesture</p>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="relative z-10 w-10 h-10 rounded-full bg-surface-variant text-on-surface font-bold flex items-center justify-center mb-sm border-4 border-surface">3</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Pin location</p>
+</div>
+<div class="absolute top-5 left-[16.6%] right-[16.6%] h-[1px] bg-outline-variant -z-0"></div>
+</div>
+<div class="relative h-48 rounded-2xl overflow-hidden mt-sm">
+<img class="w-full h-full object-cover opacity-80" data-alt="A cinematic close-up of a high-tech smart glasses display showing a digital pin being placed on a pair of keys sitting on a marble countertop. The digital interface features delicate glowing lines and a semi-transparent HUD in electric cyan and deep navy tones. The background is slightly blurred, focusing the viewer's attention on the precision of the object-tracking AI technology." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUOMVcXf1ndSiSU_vU0_1pJeEUHIqUdpVECSS5k1enpQPJEf9rtj97ctYgQ_DTNnGTID6DUuX57cf5J-hnJ7XDpfePP4C_AAGUasyh1ibRDLVKiylziiC8j_2dXweWIeVkJNCarGBJqacMGcyh1fHDXC9ZLXRiS9Oi3VUkYLOSjnG4j0mqE1YTqLZkbgpfghQlX51vCpDROUqIp30syuKvzGoC-YjkTWDMN9ODRFgiPYwEFD43C588tZS8BuvS57qE5nHDf4m8ejM"/>
+</div>
+</div>
+<!-- Card: Translate -->
+<div class="glass-card snap-center shrink-0 w-full rounded-[32px] p-lg flex flex-col gap-lg">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline-lg text-headline-lg text-primary-fixed-dim mb-xs">Translate</h3>
+<p class="font-body-md text-on-surface-variant">Real-time AR subtitle overlays.</p>
+</div>
+<div class="w-12 h-12 rounded-2xl bg-tertiary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">translate</span>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-xs relative">
+<div class="flex flex-col items-center text-center">
+<div class="relative z-10 w-10 h-10 rounded-full bg-primary text-on-primary font-bold flex items-center justify-center mb-sm border-4 border-surface">1</div>
+<p class="font-label-sm text-label-sm text-on-surface">Detect speech</p>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="relative z-10 w-10 h-10 rounded-full bg-surface-variant text-on-surface font-bold flex items-center justify-center mb-sm border-4 border-surface">2</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">AI Process</p>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="relative z-10 w-10 h-10 rounded-full bg-surface-variant text-on-surface font-bold flex items-center justify-center mb-sm border-4 border-surface">3</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Show Subs</p>
+</div>
+<div class="absolute top-5 left-[16.6%] right-[16.6%] h-[1px] bg-outline-variant -z-0"></div>
+</div>
+<div class="relative h-48 rounded-2xl overflow-hidden mt-sm">
+<img class="w-full h-full object-cover opacity-80" data-alt="A busy international airport scene viewed through the lens of AR glasses, where a person speaking is captured with floating text subtitles in a crisp, clean font hovering near their shoulder. The UI is minimalist, using white and electric cyan text against the bustling, slightly desaturated background of travelers and terminals. The mood is sophisticated, global, and highly functional." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCS0jt5Ie2m1oVm3shBSZdGrF7ee8QSaKLAD6-P_wqt-MOsJuRdrNtLdTXSljjxndMG_QdW1QYBEsilFlMWP_HGS45VvIhzi3FrjhPpnvgsP4ztiSD7oa7YSHmtJAKsk10pJ7lyky4rvOFwYMiM2GCsPXMC7WHTskLpgR8rFHCwhynI_zvcPU3rXSCA2mtneAh6uF_EWJ8_XcRVklbsv6A4UTUUGRSX6YIBJ-fwnzKy0rvN03Glf354CwquSEaEDE-xztmttDo-DDE"/>
+</div>
+</div>
+</div>
+<!-- Additional Features Bento -->
+<section class="mt-xl grid grid-cols-2 gap-md">
+<h4 class="col-span-2 font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-sm">Other Core Features</h4>
+<div class="glass-card rounded-[24px] p-md flex flex-col gap-sm active:scale-95 duration-200 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-primary text-[32px]">visibility</span>
+<span class="font-headline-lg text-[20px] leading-tight">Look &amp; Ask</span>
+<span class="font-body-md text-on-surface-variant text-sm">Visual search on the go.</span>
+</div>
+<div class="glass-card rounded-[24px] p-md flex flex-col gap-sm active:scale-95 duration-200 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-tertiary text-[32px]">groups</span>
+<span class="font-headline-lg text-[20px] leading-tight">Meeting</span>
+<span class="font-body-md text-on-surface-variant text-sm">Transcribe group talks.</span>
+</div>
+<div class="glass-card col-span-2 rounded-[24px] p-md flex items-center justify-between active:scale-95 duration-200 transition-all cursor-pointer border-primary/20">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
+<div class="w-8 h-8 rounded-full bg-primary-fixed-dim/40 blur-sm animate-pulse"></div>
+</div>
+<div>
+<span class="font-headline-lg text-[20px] leading-tight block">Ask Jarvis</span>
+<span class="font-body-md text-on-surface-variant text-sm">Your always-on companion.</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-primary">chevron_right</span>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-4 pb-safe bg-surface-container-low/90 dark:bg-surface-container-low/90 backdrop-blur-xl border-t border-white/10 shadow-xl rounded-t-xl">
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-label-sm text-label-sm">Hub</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined">visibility</span>
+<span class="font-label-sm text-label-sm">Hardware</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-primary-container/30 text-primary-fixed-dim rounded-full px-4 py-1 active:scale-90 duration-300">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">school</span>
+<span class="font-label-sm text-label-sm">Tutorials</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined">keyboard_command_key</span>
+<span class="font-label-sm text-label-sm">Commands</span>
+</div>
+</nav>
+<script>
+        // Micro-interaction for stepper progress
+        const scrollContainer = document.querySelector('.feature-scroll');
+        const cards = document.querySelectorAll('.glass-card');
+
+        scrollContainer.addEventListener('scroll', () => {
+            // Logic to update stepper colors based on active card if needed
+        });
+
+        // Simple touch feedback for cards
+        cards.forEach(card => {
+            card.addEventListener('touchstart', () => {
+                card.style.borderColor = 'rgba(54, 216, 251, 0.4)';
+            });
+            card.addEventListener('touchend', () => {
+                card.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Glasses Not Found - Companion Setup</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@500&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#e0e2ea",
+                        "on-secondary-container": "#b4bccc",
+                        "surface-tint": "#36d8fb",
+                        "primary-fixed": "#aeecff",
+                        "on-primary": "#003641",
+                        "on-tertiary-container": "#794b00",
+                        "on-secondary-fixed": "#141c28",
+                        "tertiary-container": "#ffbe6f",
+                        "error-container": "#93000a",
+                        "outline-variant": "#3c494d",
+                        "on-secondary-fixed-variant": "#3f4754",
+                        "inverse-surface": "#e0e2ea",
+                        "on-surface": "#e0e2ea",
+                        "on-error": "#690005",
+                        "tertiary-fixed": "#ffddb9",
+                        "surface-container-lowest": "#0a0e13",
+                        "primary": "#bbefff",
+                        "on-surface-variant": "#bbc9ce",
+                        "inverse-on-surface": "#2d3136",
+                        "on-tertiary": "#472a00",
+                        "surface-variant": "#31353b",
+                        "surface-container-low": "#181c21",
+                        "background": "#101419",
+                        "surface-container": "#1c2025",
+                        "on-tertiary-fixed": "#2b1700",
+                        "surface-container-highest": "#31353b",
+                        "inverse-primary": "#00687b",
+                        "secondary": "#bfc7d7",
+                        "tertiary": "#ffe2c4",
+                        "surface-dim": "#101419",
+                        "surface-container-high": "#262a30",
+                        "secondary-fixed": "#dbe3f3",
+                        "primary-fixed-dim": "#36d8fb",
+                        "on-primary-container": "#005e6f",
+                        "outline": "#869397",
+                        "on-primary-fixed": "#001f26",
+                        "tertiary-fixed-dim": "#ffb961",
+                        "surface-bright": "#36393f",
+                        "on-secondary": "#29313d",
+                        "error": "#ffb4ab",
+                        "surface": "#101419",
+                        "secondary-fixed-dim": "#bfc7d7",
+                        "on-tertiary-fixed-variant": "#663e00",
+                        "on-primary-fixed-variant": "#004e5d",
+                        "secondary-container": "#444c59",
+                        "primary-container": "#3ddcff",
+                        "on-error-container": "#ffdad6",
+                        // Adding semantic warning color requested in prompt
+                        "warning": "#FFB454",
+                        "warning-dim": "rgba(255, 180, 84, 0.2)"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "sm": "8px",
+                        "margin-mobile": "24px",
+                        "unit": "4px",
+                        "xl": "40px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "margin-desktop": "64px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Space Grotesk"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Space Grotesk"],
+                        "display-md": ["Space Grotesk"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "500" }],
+                        "data-mono": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "display-md": ["36px", { "lineHeight": "44px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0B0F14; /* Forced pure background as per Style Guidance Level 0 */
+            color: theme('colors.on-background');
+        }
+        
+        .pulse-amber {
+            animation: pulse-glow-amber 2s infinite alternate ease-in-out;
+        }
+
+        @keyframes pulse-glow-amber {
+            0% {
+                box-shadow: 0 0 20px 0 rgba(255, 180, 84, 0.2);
+                border-color: rgba(255, 180, 84, 0.3);
+            }
+            100% {
+                box-shadow: 0 0 40px 10px rgba(255, 180, 84, 0.5);
+                border-color: rgba(255, 180, 84, 0.8);
+            }
+        }
+        
+        /* Glassmorphism utility */
+        .glass-panel {
+            background-color: #1A222E;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col font-body-md antialiased overflow-hidden selection:bg-warning selection:text-background relative">
+<!-- TopAppBar -->
+<header class="flex items-center px-margin-mobile h-16 w-full z-50 bg-background fixed top-0 w-full flat no shadows">
+<button aria-label="Go back" class="text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200 mr-gutter flex items-center justify-center w-10 h-10 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight">Companion Setup</h1>
+</header>
+<!-- Main Content Canvas (Transactional/Linear flow, BottomNavBar suppressed) -->
+<main class="flex-grow flex flex-col items-center justify-center px-margin-mobile pt-20 pb-24 w-full max-w-[600px] mx-auto relative z-10">
+<!-- Ambient Background Glow for Failure State -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-warning rounded-full opacity-10 blur-[80px] pointer-events-none"></div>
+<!-- Failure Orb / Icon -->
+<div class="mb-10 relative flex justify-center items-center">
+<div class="w-32 h-32 rounded-full glass-panel pulse-amber flex items-center justify-center relative z-10 transition-all duration-300">
+<span class="material-symbols-outlined text-[64px] text-warning" style="font-variation-settings: 'FILL' 1;">error</span>
+</div>
+<!-- Ripple rings -->
+<div class="absolute w-40 h-40 border border-warning rounded-full opacity-20"></div>
+<div class="absolute w-48 h-48 border border-warning rounded-full opacity-10"></div>
+</div>
+<!-- Headline & Context -->
+<div class="text-center mb-xl w-full">
+<h2 class="font-display-md text-display-md text-on-background mb-md">Glasses Not Found</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md mx-auto">
+                We couldn't detect your smart glasses nearby. Please review the checklist below to ensure they are ready to pair.
+            </p>
+</div>
+<!-- Troubleshooting Checklist (Glassmorphism Card) -->
+<div class="glass-panel rounded-xl w-full p-lg mb-xl shadow-[0_10px_40px_rgba(0,0,0,0.3)]">
+<ul class="space-y-md">
+<li class="flex items-start gap-md">
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0 mt-1 border border-outline-variant">
+<span class="material-symbols-outlined text-warning text-[18px]">bluetooth</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-background font-medium">Is Bluetooth enabled?</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-1">Ensure Bluetooth is active on your device.</p>
+</div>
+</li>
+<li class="w-full h-px bg-outline-variant/30"></li>
+<li class="flex items-start gap-md">
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0 mt-1 border border-outline-variant">
+<span class="material-symbols-outlined text-warning text-[18px]">battery_charging_full</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-background font-medium">Are glasses charged?</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-1">Place them in the case if battery is critically low.</p>
+</div>
+</li>
+<li class="w-full h-px bg-outline-variant/30"></li>
+<li class="flex items-start gap-md">
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center flex-shrink-0 mt-1 border border-outline-variant">
+<span class="material-symbols-outlined text-warning text-[18px]">settings_input_antenna</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-background font-medium">Are they within range?</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-1">Keep them within 10 feet of your device during setup.</p>
+</div>
+</li>
+</ul>
+</div>
+<!-- Action Area -->
+<div class="w-full flex flex-col gap-md mt-auto">
+<button class="w-full py-md px-lg rounded-full bg-warning text-background font-label-sm text-label-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all duration-200 shadow-[0_0_15px_rgba(255,180,84,0.4)] focus:outline-none focus:ring-2 focus:ring-warning focus:ring-offset-2 focus:ring-offset-background">
+                Try Again
+            </button>
+<button class="w-full py-md px-lg rounded-full bg-transparent border border-outline text-on-background font-label-sm text-label-sm uppercase tracking-widest hover:bg-surface-container-high active:scale-95 transition-all duration-200 focus:outline-none">
+                Contact Support
+            </button>
+</div>
+</main>
+<!-- BottomNavBar Suppressed: Page intent is Linear/Transactional (Setup Flow) -->
+</body></html>

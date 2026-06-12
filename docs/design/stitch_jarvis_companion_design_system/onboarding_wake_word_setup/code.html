@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SAY JARVIS - Companion Setup</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@500&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-background": "#e0e2ea",
+                      "on-secondary-container": "#b4bccc",
+                      "surface-tint": "#36d8fb",
+                      "primary-fixed": "#aeecff",
+                      "on-primary": "#003641",
+                      "on-tertiary-container": "#794b00",
+                      "on-secondary-fixed": "#141c28",
+                      "tertiary-container": "#ffbe6f",
+                      "error-container": "#93000a",
+                      "outline-variant": "#3c494d",
+                      "on-secondary-fixed-variant": "#3f4754",
+                      "inverse-surface": "#e0e2ea",
+                      "on-surface": "#e0e2ea",
+                      "on-error": "#690005",
+                      "tertiary-fixed": "#ffddb9",
+                      "surface-container-lowest": "#0a0e13",
+                      "primary": "#bbefff",
+                      "on-surface-variant": "#bbc9ce",
+                      "inverse-on-surface": "#2d3136",
+                      "on-tertiary": "#472a00",
+                      "surface-variant": "#31353b",
+                      "surface-container-low": "#181c21",
+                      "background": "#101419",
+                      "surface-container": "#1c2025",
+                      "on-tertiary-fixed": "#2b1700",
+                      "surface-container-highest": "#31353b",
+                      "inverse-primary": "#00687b",
+                      "secondary": "#bfc7d7",
+                      "tertiary": "#ffe2c4",
+                      "surface-dim": "#101419",
+                      "surface-container-high": "#262a30",
+                      "secondary-fixed": "#dbe3f3",
+                      "primary-fixed-dim": "#36d8fb",
+                      "on-primary-container": "#005e6f",
+                      "outline": "#869397",
+                      "on-primary-fixed": "#001f26",
+                      "tertiary-fixed-dim": "#ffb961",
+                      "surface-bright": "#36393f",
+                      "on-secondary": "#29313d",
+                      "error": "#ffb4ab",
+                      "surface": "#101419",
+                      "secondary-fixed-dim": "#bfc7d7",
+                      "on-tertiary-fixed-variant": "#663e00",
+                      "on-primary-fixed-variant": "#004e5d",
+                      "secondary-container": "#444c59",
+                      "primary-container": "#3ddcff",
+                      "on-error-container": "#ffdad6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "gutter": "16px",
+                      "sm": "8px",
+                      "margin-mobile": "24px",
+                      "unit": "4px",
+                      "xl": "40px",
+                      "md": "16px",
+                      "xs": "4px",
+                      "margin-desktop": "64px",
+                      "lg": "24px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Space Grotesk"
+                      ],
+                      "data-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Space Grotesk"
+                      ],
+                      "display-md": [
+                              "Space Grotesk"
+                      ],
+                      "headline-lg-mobile": [
+                              "Space Grotesk"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "data-mono": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "display-md": [
+                              "36px",
+                              {
+                                      "lineHeight": "44px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        .ripple-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .orb {
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle at 30% 30%, #3ddcff, #005e6f);
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(61, 220, 255, 0.4), inset 0 0 20px rgba(255,255,255,0.2);
+            position: relative;
+            z-index: 10;
+            animation: pulse-slow 4s ease-in-out infinite;
+        }
+
+        .ripple {
+            position: absolute;
+            border: 2px solid rgba(61, 220, 255, 0.6);
+            border-radius: 50%;
+            animation: ripple-out 3s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+            opacity: 0;
+            box-shadow: 0 0 10px rgba(61, 220, 255, 0.2);
+        }
+
+        .ripple:nth-child(2) {
+            animation-delay: 1s;
+        }
+        
+        .ripple:nth-child(3) {
+            animation-delay: 2s;
+        }
+
+        @keyframes pulse-slow {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(61, 220, 255, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 0 45px rgba(61, 220, 255, 0.6); }
+        }
+
+        @keyframes ripple-out {
+            0% {
+                width: 80px;
+                height: 80px;
+                opacity: 0.8;
+                border-width: 3px;
+            }
+            100% {
+                width: 250px;
+                height: 250px;
+                opacity: 0;
+                border-width: 0px;
+            }
+        }
+        
+        .glass-panel {
+            background: rgba(26, 34, 46, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .success-chip {
+            background: transparent;
+            border: 1px solid #36d8fb;
+            box-shadow: 0 0 10px rgba(54, 216, 251, 0.2), inset 0 0 10px rgba(54, 216, 251, 0.1);
+        }
+        
+        .cyan-glow:hover {
+            box-shadow: 0 0 20px rgba(61, 220, 255, 0.4);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-body-md overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full bg-background dark:bg-background flex items-center px-margin-mobile h-16 z-50 flat no shadows">
+<button aria-label="Go back" class="text-primary dark:text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200 mr-gutter flex items-center justify-center w-10 h-10 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight font-bold">Companion Setup</h1>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col items-center justify-center px-margin-mobile pt-24 pb-32 max-w-[600px] mx-auto w-full relative">
+<!-- Ambient Background Glow -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary-container/5 rounded-full blur-[100px] pointer-events-none"></div>
+<div class="flex flex-col items-center text-center w-full z-10 gap-xl">
+<!-- Step Indicator -->
+<div class="font-data-mono text-data-mono text-on-surface-variant uppercase tracking-widest opacity-80">
+                Step 6 / 6
+            </div>
+<!-- Listening Presence Orb -->
+<div class="ripple-container my-8">
+<div class="ripple"></div>
+<div class="ripple"></div>
+<div class="ripple"></div>
+<div class="orb"></div>
+</div>
+<!-- Typography Cluster -->
+<div class="space-y-sm">
+<p class="font-body-lg text-body-lg text-on-secondary-container">Now, just say...</p>
+<h2 class="font-display-md text-display-md text-on-background tracking-tight">"Hey JARVIS"</h2>
+</div>
+<!-- Success State Indicator -->
+<div class="success-chip rounded-full px-lg py-sm flex items-center gap-sm mt-md animate-[pulse-slow_3s_ease-in-out_infinite]">
+<span class="material-symbols-outlined text-surface-tint text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="font-data-mono text-data-mono text-surface-tint">Voice Profile Active</span>
+</div>
+</div>
+</main>
+<!-- Action Area (Bottom Pinned for Transactional Flow) -->
+<div class="fixed bottom-0 w-full px-margin-mobile pb-margin-mobile pt-lg bg-gradient-to-t from-background via-background to-transparent z-40 max-w-[600px] left-1/2 -translate-x-1/2 flex flex-col gap-sm">
+<button class="w-full bg-surface-tint text-on-primary font-label-sm text-label-sm uppercase tracking-widest rounded-full py-md px-lg transition-all active:scale-[0.98] cyan-glow shadow-[0_0_15px_rgba(54,216,251,0.2)] font-semibold flex items-center justify-center gap-xs">
+            Take the 60-second tour
+            <span class="material-symbols-outlined text-[18px]">play_circle</span>
+</button>
+<button class="w-full glass-panel text-on-surface-variant font-label-sm text-label-sm uppercase tracking-widest rounded-full py-md px-lg hover:bg-surface-variant hover:text-on-background transition-all active:scale-[0.98] flex items-center justify-center gap-xs">
+            Go to Live Console
+            <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+<!-- BottomNavBar Suppressed: This is a linear transactional/onboarding flow ending screen -->
+</body></html>

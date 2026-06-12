@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>JARVIS Help Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error-container": "#ffdad6",
+                    "on-primary-fixed": "#001f26",
+                    "surface-bright": "#36393f",
+                    "on-secondary-fixed": "#141c28",
+                    "tertiary": "#ffe2c4",
+                    "surface": "#101419",
+                    "inverse-on-surface": "#2d3136",
+                    "on-secondary-fixed-variant": "#3f4754",
+                    "secondary": "#bfc7d7",
+                    "primary-fixed": "#aeecff",
+                    "primary": "#bbefff",
+                    "on-tertiary-container": "#794b00",
+                    "on-primary-fixed-variant": "#004e5d",
+                    "primary-fixed-dim": "#36d8fb",
+                    "on-surface": "#e0e2ea",
+                    "secondary-fixed-dim": "#bfc7d7",
+                    "tertiary-fixed-dim": "#ffb961",
+                    "surface-container-high": "#262a30",
+                    "outline": "#869397",
+                    "outline-variant": "#3c494d",
+                    "on-error": "#690005",
+                    "error": "#ffb4ab",
+                    "surface-container-lowest": "#0a0e13",
+                    "surface-variant": "#31353b",
+                    "on-tertiary-fixed-variant": "#663e00",
+                    "on-primary": "#003641",
+                    "secondary-container": "#444c59",
+                    "on-surface-variant": "#bbc9ce",
+                    "surface-container-low": "#181c21",
+                    "on-background": "#e0e2ea",
+                    "surface-tint": "#36d8fb",
+                    "on-tertiary": "#472a00",
+                    "on-primary-container": "#005e6f",
+                    "error-container": "#93000a",
+                    "secondary-fixed": "#dbe3f3",
+                    "primary-container": "#3ddcff",
+                    "tertiary-fixed": "#ffddb9",
+                    "tertiary-container": "#ffbe6f",
+                    "on-secondary": "#29313d",
+                    "surface-dim": "#101419",
+                    "inverse-surface": "#e0e2ea",
+                    "background": "#101419",
+                    "on-tertiary-fixed": "#2b1700",
+                    "inverse-primary": "#00687b",
+                    "surface-container": "#1c2025",
+                    "surface-container-highest": "#31353b",
+                    "on-secondary-container": "#b4bccc"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-mobile": "24px",
+                    "md": "16px",
+                    "gutter": "16px",
+                    "xs": "4px",
+                    "xl": "40px",
+                    "margin-desktop": "64px",
+                    "lg": "24px",
+                    "unit": "4px",
+                    "sm": "8px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Space Grotesk"],
+                    "label-sm": ["Inter"],
+                    "headline-lg-mobile": ["Space Grotesk"],
+                    "data-mono": ["JetBrains Mono"],
+                    "body-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "display-md": ["Space Grotesk"],
+                    "display-lg": ["Space Grotesk"]
+            },
+            "fontSize": {
+                    "headline-lg": ["28px", {"lineHeight": "36px", "fontWeight": "500"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "500"}],
+                    "data-mono": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "display-md": ["36px", {"lineHeight": "44px", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #0B0F14;
+            color: #e0e2ea;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        .glass-card {
+            background: rgba(26, 34, 46, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            border-color: #36d8fb;
+            box-shadow: 0 0 20px rgba(54, 216, 251, 0.15);
+            transform: translateY(-4px);
+        }
+
+        .voice-orb-glow {
+            filter: drop-shadow(0 0 15px #36d8fb);
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        @keyframes pulse-cyan {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        .animate-pulse-cyan {
+            animation: pulse-cyan 3s infinite ease-in-out;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background min-h-screen pb-32">
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-b border-white/20 shadow-sm flex items-center justify-between px-margin-mobile h-16">
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-primary-fixed dark:text-primary-fixed-dim hover:bg-surface-variant/50 transition-colors p-2 rounded-full active:scale-95 duration-200">
+                arrow_back
+            </button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary dark:text-primary-fixed-dim">Help Center</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="material-symbols-outlined text-primary-fixed dark:text-primary-fixed-dim hover:bg-surface-variant/50 transition-colors p-2 rounded-full active:scale-95 duration-200">
+                search
+            </button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 px-margin-mobile max-w-[600px] mx-auto space-y-xl">
+<!-- Hero Section -->
+<section class="relative overflow-hidden rounded-[2rem] p-lg bg-surface-container-low border border-white/5">
+<div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
+<div class="relative z-10 space-y-md">
+<div class="flex items-center gap-sm">
+<div class="w-2 h-2 rounded-full bg-primary-fixed-dim voice-orb-glow"></div>
+<span class="font-label-sm text-label-sm text-primary-fixed-dim tracking-widest uppercase">Ethereal Sentinel</span>
+</div>
+<h2 class="font-display-md text-display-md text-on-surface leading-tight">How JARVIS Works</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Master the future of ambient intelligence. Learn how to interact with your environment through the lens of JARVIS.</p>
+<button class="mt-lg px-lg py-sm bg-primary-container text-on-primary-container rounded-full font-label-sm text-label-sm flex items-center gap-sm active:scale-95 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_circle</span>
+                    WATCH OVERVIEW
+                </button>
+</div>
+<!-- Subtle Decorative WebGL/Shader Placeholder -->
+<div class="absolute inset-0 -z-0 pointer-events-none opacity-20">
+
+</div>
+</section>
+<!-- Bento Grid Categories -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Gestures & Buttons -->
+<div class="glass-card p-lg rounded-[2rem] flex flex-col justify-between group cursor-pointer h-[240px]">
+<div class="space-y-sm">
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center border border-white/10 group-hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-primary-fixed-dim text-3xl">gesture</span>
+</div>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Gestures &amp; Buttons</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant font-normal">Physical and air-gesture controls for seamless navigation.</p>
+</div>
+<div class="flex justify-end">
+<span class="material-symbols-outlined text-primary-fixed-dim opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+</div>
+<!-- Voice Commands -->
+<div class="glass-card p-lg rounded-[2rem] flex flex-col justify-between group cursor-pointer h-[240px]">
+<div class="space-y-sm">
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center border border-white/10 group-hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-primary-fixed-dim text-3xl">mic_none</span>
+</div>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Voice Commands</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant font-normal">Command your world with simple, natural language prompts.</p>
+</div>
+<div class="flex justify-end">
+<span class="material-symbols-outlined text-primary-fixed-dim opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+</div>
+<!-- Feature Walkthroughs -->
+<div class="glass-card p-lg rounded-[2rem] flex flex-col justify-between group cursor-pointer h-[240px]">
+<div class="space-y-sm">
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center border border-white/10 group-hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-primary-fixed-dim text-3xl">explore</span>
+</div>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Walkthroughs</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant font-normal">Step-by-step guides for every JARVIS module.</p>
+</div>
+<div class="flex justify-end">
+<span class="material-symbols-outlined text-primary-fixed-dim opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+</div>
+<!-- Safety & Privacy -->
+<div class="glass-card p-lg rounded-[2rem] flex flex-col justify-between group cursor-pointer h-[240px]">
+<div class="space-y-sm">
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center border border-white/10 group-hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-primary-fixed-dim text-3xl">security</span>
+</div>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Safety &amp; Privacy</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant font-normal">How we protect your data and ensure safe smart usage.</p>
+</div>
+<div class="flex justify-end">
+<span class="material-symbols-outlined text-primary-fixed-dim opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+</div>
+</section>
+<!-- Dynamic Tip Section -->
+<section class="glass-card rounded-[2.5rem] p-lg border-l-4 border-l-primary-fixed-dim relative overflow-hidden">
+<div class="flex items-start gap-lg relative z-10">
+<div class="bg-primary/10 p-md rounded-full">
+<span class="material-symbols-outlined text-primary-fixed-dim">lightbulb</span>
+</div>
+<div>
+<h4 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-sm">Pro Tip</h4>
+<p class="font-body-md text-body-md text-on-surface-variant italic">"You can summon the Voice Hub anytime by double-tapping the right temple button or saying 'Hello JARVIS'."</p>
+</div>
+</div>
+<!-- Interactive Background Mesh -->
+<div class="absolute inset-0 -z-10 bg-gradient-to-br from-primary/5 to-transparent"></div>
+</section>
+<!-- Visual Guides Carousel -->
+<section class="space-y-lg">
+<div class="flex justify-between items-end">
+<h3 class="font-headline-lg text-headline-lg text-on-surface">Visual Guides</h3>
+<a class="font-label-sm text-label-sm text-primary-fixed-dim hover:underline" href="#">VIEW ALL</a>
+</div>
+<div class="flex gap-gutter overflow-x-auto no-scrollbar pb-lg -mx-margin-mobile px-margin-mobile">
+<div class="flex-shrink-0 w-64 space-y-md">
+<div class="aspect-video rounded-xl bg-surface-container overflow-hidden border border-white/10 relative group">
+<img class="w-full h-full object-cover grayscale transition-all duration-500 group-hover:grayscale-0 group-hover:scale-110" data-alt="A close up detailed shot of futuristic augmented reality glasses resting on a sleek dark surface. The lens reflect a complex digital interface with cyan and white data visualizations. The lighting is moody and cinematic, emphasizing the premium glass and metal materials of the smart device in a high-tech laboratory setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnI9LxZTht4M5leVsD-2zNHQQuSR39x56zm4b1RkcYIir-LOT9A45u_-_dtXsQULcX-2v1En5DwCH9kbklp5C1Q4rQoYjUIA5tWJwOIIrCvvP80gmYR7UMopeXJ25CH_LZG_DVKlbJZh5acG1SGnzjpSTV6aTvSOsUrTtsDY9OuBf5W4836hM2nFExF0_nDt23TTUROBdvmdgnmFvd0uIbMZUVztHu494GtwyinRRqKSRV75eAjY2e8Y3A5sjZmwmribUZhr3cWKU"/>
+<div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white text-4xl">play_circle</span>
+</div>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface font-medium uppercase tracking-wider">Lens Calibration</p>
+</div>
+<div class="flex-shrink-0 w-64 space-y-md">
+<div class="aspect-video rounded-xl bg-surface-container overflow-hidden border border-white/10 relative group">
+<img class="w-full h-full object-cover grayscale transition-all duration-500 group-hover:grayscale-0 group-hover:scale-110" data-alt="A stunning digital visualization of neural network pathways flowing in a dark void. Glowing threads of electric cyan and deep blue light weave together into a complex web, representing artificial intelligence processing. The atmosphere is ethereal and vast, suggesting the depth of knowledge and speed of a modern sentient digital assistant." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBg5FyuhBPpbJDJHYgn6wDsikZLsAetQtZz6oF-84CK7RrDeZCUBVeTkke4hv_u7BPP8mNo4YUJ3iMjk6fcdRI61-Z0gY2u6tDcrfzo7JQJBld5JTqppYwqHnrxqUl3FTqRWCT2Qn-J2SxmB2OolU-fvb_FecZYGL-hkuoOkS8lHybVff9DzvI0LOhX-ciUjijVcWaA2GD5DCqRMNRrdcwctKbkSHE9WOKM9dIF2psNb02aJ7gr9JEaiamR3kfs8LIFa-bTUa4hLHc"/>
+<div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white text-4xl">play_circle</span>
+</div>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface font-medium uppercase tracking-wider">AI Training Flow</p>
+</div>
+<div class="flex-shrink-0 w-64 space-y-md">
+<div class="aspect-video rounded-xl bg-surface-container overflow-hidden border border-white/10 relative group">
+<img class="w-full h-full object-cover grayscale transition-all duration-500 group-hover:grayscale-0 group-hover:scale-110" data-alt="Macro photography of a highly advanced microchip glowing with internal blue light. The intricate circuitry is visible on a dark matte motherboard, symbolizing the hardware power of a next-generation wearable computer. Soft ambient light from the side creates long shadows, emphasizing the precision engineering and futuristic design language." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlI1Nx_dnAcB0XPTyPPz3DabPkt04dMmkSMnSBymH9RY8_1vfnBAIaD0rdelfQ9sGvLYHmvAlc9utiTgcPr3Unlc1wzic-tNbh08FrbOilm3EVPsQ7syJ1irTPIcCx7WJceua0nuTD-SmssTReJ7K4NJ111ssx9ReBavFfaIfTSxP3XgLQp6Gm8bS1A-t5KNv6RmrU7amZFLr4efxL1XOfKHX7mL-6FF3NlQwNvxaGpnAfSGF80RcwW6kAk3DWVKxQdbSyzZeE3zE"/>
+<div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white text-4xl">play_circle</span>
+</div>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface font-medium uppercase tracking-wider">Hardware Care</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button (Voice Summon) -->
+<div class="fixed bottom-28 right-margin-mobile z-40">
+<button class="w-16 h-16 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(54,216,251,0.4)] active:scale-90 transition-transform group relative">
+<div class="absolute inset-0 rounded-full border-2 border-primary-fixed-dim animate-pulse-cyan"></div>
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">graphic_eq</span>
+</button>
+</div>
+<!-- Bottom Navigation Shell -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-4 pb-safe bg-surface-container-low/90 dark:bg-surface-container-low/90 backdrop-blur-xl border-t border-white/10 shadow-xl rounded-t-xl">
+<!-- Active: Hub -->
+<a class="flex flex-col items-center justify-center bg-primary-container/30 text-primary-fixed-dim rounded-full px-4 py-1 hover:text-primary-fixed transition-all active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-label-sm text-label-sm">Hub</span>
+</a>
+<!-- Inactive: Hardware -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-all active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined">visibility</span>
+<span class="font-label-sm text-label-sm">Hardware</span>
+</a>
+<!-- Inactive: Tutorials -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-all active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-label-sm text-label-sm">Tutorials</span>
+</a>
+<!-- Inactive: Commands -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-fixed transition-all active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined">keyboard_command_key</span>
+<span class="font-label-sm text-label-sm">Commands</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions for glass cards
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                const icon = card.querySelector('.material-symbols-outlined');
+                if (icon) {
+                    icon.style.transition = 'transform 0.4s ease';
+                    icon.style.transform = 'scale(1.1) rotate(-5deg)';
+                }
+            });
+            card.addEventListener('mouseleave', () => {
+                const icon = card.querySelector('.material-symbols-outlined');
+                if (icon) {
+                    icon.style.transform = 'scale(1) rotate(0deg)';
+                }
+            });
+        });
+
+        // Atmospheric parallax on scroll
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const hero = document.querySelector('section.relative.overflow-hidden');
+            if(hero) {
+                hero.style.transform = `translateY(${scrolled * 0.05}px)`;
+            }
+        });
+    </script>
+</body></html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>JARVIS - Gallery</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #0B0F14;
+            color: #e0e2ea;
+            -webkit-font-smoothing: antialiased;
+        }
+        .glass-card {
+            background: rgba(26, 34, 46, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .selection-glow {
+            box-shadow: 0 0 15px rgba(54, 216, 251, 0.3);
+        }
+        .voice-orb-mini {
+            width: 32px;
+            height: 32px;
+            background: radial-gradient(circle, #36d8fb 0%, #005e6f 100%);
+            border-radius: 50%;
+            filter: blur(2px);
+            animation: pulse 3s infinite ease-in-out;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 1; }
+        }
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 4px;
+        }
+        @media (min-width: 768px) {
+            .gallery-grid {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 12px;
+            }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#262a30",
+                        "secondary": "#bfc7d7",
+                        "secondary-fixed-dim": "#bfc7d7",
+                        "inverse-on-surface": "#2d3136",
+                        "on-tertiary-container": "#794b00",
+                        "on-secondary-fixed": "#141c28",
+                        "on-primary-container": "#005e6f",
+                        "on-tertiary-fixed": "#2b1700",
+                        "tertiary-fixed": "#ffddb9",
+                        "surface-tint": "#36d8fb",
+                        "primary-container": "#3ddcff",
+                        "on-primary": "#003641",
+                        "on-tertiary-fixed-variant": "#663e00",
+                        "tertiary": "#ffe2c4",
+                        "surface-container-low": "#181c21",
+                        "on-tertiary": "#472a00",
+                        "tertiary-fixed-dim": "#ffb961",
+                        "on-background": "#e0e2ea",
+                        "outline-variant": "#3c494d",
+                        "inverse-primary": "#00687b",
+                        "on-error-container": "#ffdad6",
+                        "surface-variant": "#31353b",
+                        "surface-bright": "#36393f",
+                        "outline": "#869397",
+                        "on-primary-fixed-variant": "#004e5d",
+                        "background": "#101419",
+                        "primary": "#bbefff",
+                        "on-surface-variant": "#bbc9ce",
+                        "on-secondary-container": "#b4bccc",
+                        "surface-dim": "#101419",
+                        "secondary-container": "#444c59",
+                        "on-error": "#690005",
+                        "surface": "#101419",
+                        "secondary-fixed": "#dbe3f3",
+                        "primary-fixed": "#aeecff",
+                        "on-secondary": "#29313d",
+                        "on-secondary-fixed-variant": "#3f4754",
+                        "surface-container": "#1c2025",
+                        "primary-fixed-dim": "#36d8fb",
+                        "error": "#ffb4ab",
+                        "surface-container-lowest": "#0a0e13",
+                        "inverse-surface": "#e0e2ea",
+                        "on-primary-fixed": "#001f26",
+                        "surface-container-highest": "#31353b",
+                        "tertiary-container": "#ffbe6f",
+                        "on-surface": "#e0e2ea",
+                        "error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "lg": "24px",
+                        "unit": "4px",
+                        "margin-desktop": "64px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "gutter": "16px",
+                        "xl": "40px",
+                        "margin-mobile": "24px"
+                    },
+                    "fontFamily": {
+                        "data-mono": ["JetBrains Mono"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Space Grotesk"],
+                        "display-md": ["Space Grotesk"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "data-mono": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "500"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "display-md": ["36px", {"lineHeight": "44px", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["28px", {"lineHeight": "36px", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-on-surface">
+<!-- Top AppBar (Mobile/Desktop Shared Structure) -->
+<header class="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-xl dark:bg-background/80 border-b border-white/20 flex items-center justify-between px-margin-mobile py-sm">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary hover:opacity-80 transition-opacity cursor-pointer active:scale-95 transition-transform">close</span>
+<span class="font-display-md text-headline-lg-mobile tracking-tighter text-primary">3 Selected</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant hover:opacity-80 transition-opacity cursor-pointer">deselect</span>
+<div class="voice-orb-mini"></div>
+</div>
+</header>
+<main class="pt-24 pb-32 px-margin-mobile max-w-[1200px] mx-auto min-h-screen">
+<!-- Gallery Section: October 2023 -->
+<section class="mb-12">
+<header class="flex items-center justify-between mb-6">
+<h2 class="font-display-md text-headline-lg text-primary tracking-tight">October 2023</h2>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">12 Items</span>
+</header>
+<div class="gallery-grid">
+<!-- Selected Item 1 -->
+<div class="relative group aspect-square rounded-xl overflow-hidden selection-glow ring-2 ring-primary-container">
+<img class="w-full h-full object-cover" data-alt="A POV perspective of a dense pine forest viewed through smart glasses, with a slight digital overlay. The sunlight filters through the tall, dark green trees creating atmospheric rays. The mood is serene and technologically integrated, using deep shadows and vibrant forest greens." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1GhGcHjjyRTgeyqwfZENKFh4n7XMrS3AWa44UWQxZMAI8yfgeIYLKjwh1gopTqkLN1wMlmDFuD2pxwy3YS3pJsM4yNr0N_oVzuvHxW5ovhusRcpnPhcwK155-cPbx9rglGWKfKFH66Q6V5Lwi5bsnjj80gB9ylEwRFyLbWgDsF7uMGcMZjspyhkWbUWjNCgGDhR29KuECQqcTFZBaExD-lnpdaPpLlpgwL193Ker2T8FDbcpLox9LIzbmDzk9S6asZ1vRmxaELtI"/>
+<div class="absolute inset-0 bg-primary/20 pointer-events-none"></div>
+<div class="absolute top-2 right-2 z-10">
+<div class="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center border-2 border-primary">
+<span class="material-symbols-outlined text-on-primary-container text-[16px] font-bold" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+</div>
+</div>
+<!-- Selected Item 2 -->
+<div class="relative group aspect-square rounded-xl overflow-hidden selection-glow ring-2 ring-primary-container">
+<img class="w-full h-full object-cover" data-alt="A close-up of a futuristic architectural facade made of glass and steel, reflecting a twilight sky. The colors are dominated by deep navy blue and electric cyan accents. The style is modern corporate mixed with glassmorphism, appearing sharp and structurally complex." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADVXslAK3F1oKF-oSCz_v7GfNARA5ATgXb-HToH7eXHOl8qE4bxfR1w3r4HPGm-4XDejRH5NuEs4JMAyrdTeALr7BStaA8WlOS09PzGlwuNfoA3TnzyEsEXtyltzZw_LZ0T6k1jV7s1o9PmyO8iJAOa8RzSUfdBWxwPnGonsPFEpXhNvWr1HXs2SRIdNVNuUpos7J-muemovQrZH8ug_qAKVpwuXE_SP5aOYJ1MngPMw9Odev2U-afiN9q4U-Pr7KhP-iFE6OZ2u4"/>
+<div class="absolute inset-0 bg-primary/20 pointer-events-none"></div>
+<div class="absolute top-2 right-2 z-10">
+<div class="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center border-2 border-primary">
+<span class="material-symbols-outlined text-on-primary-container text-[16px] font-bold" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+</div>
+</div>
+<!-- Unselected Item -->
+<div class="relative group aspect-square rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/20 transition-all">
+<img class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" data-alt="A collection of vintage tech items like circuit boards and wires arranged artistically on a dark surface. The lighting is moody and focused, highlighting metallic textures. The visual style is tech-noir with a palette of deep slate, amber, and charcoal." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBaD6u_Lmsyajciqmfysjk4BjEWgBYQd9C4CR1bqoH2BvOff_AVQI5DHQAnh9tEYoleehrCSBEpsgRfQbmPLcvCzCHVLpSemRREPfvmReRTdRZG72a7bCnf4_Rk1ErWUugZ03jjt8gP9WlcyEakaeN8EtDGQBLy6TildSHeopevvSTpIWnxl5dbsxXmMpN0UISJF5CtI13M9YC9ZQuvG_KMbqd0XufZGk2mrktL3RBFdrBWBpETcWLRnv3NlcZDYNkfjuzuX_8GSKw"/>
+<div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<div class="w-6 h-6 rounded-full border-2 border-white/40 bg-black/20 backdrop-blur-sm"></div>
+</div>
+</div>
+<!-- Selected Item 3 -->
+<div class="relative group aspect-square rounded-xl overflow-hidden selection-glow ring-2 ring-primary-container">
+<img class="w-full h-full object-cover" data-alt="A stylized satellite view of Earth at night with glowing network connections spanning continents. The colors are deep space black and electric cyan. The mood is grand and technologically advanced, suggesting a global sentinel presence watching from above." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBUl-CnExE2lKhpnisvZj01yTrLHYV4yIO4zY207N7yHlSzI8aeoK_CjhGkJSIhW1TPZubh7BOA2ZW5h9DHCMtLIlgrPl1-Vv4jbtdR8V5bayOk6gTzEtBqQADMh08TH06njou1DpMAFOmXE0XNAwj8FqdyEmJsRaEhJKMEn4jiXbKk67UQPXaHEnAhnrv5YkWqyWz6B2UT-p6r2D_y145MDvtUzTuJ5ZE8-blfTUTW_k_tkMMyBTms5cUqb6S0QeNaNKnssSPFNSY"/>
+<div class="absolute inset-0 bg-primary/20 pointer-events-none"></div>
+<div class="absolute top-2 right-2 z-10">
+<div class="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center border-2 border-primary">
+<span class="material-symbols-outlined text-on-primary-container text-[16px] font-bold" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+</div>
+</div>
+<!-- More grid items -->
+<div class="relative group aspect-square rounded-xl overflow-hidden cursor-pointer">
+<img class="w-full h-full object-cover opacity-80" data-alt="A macro shot of digital code glowing on a monitor in a dark room. The light from the screen illuminates the surrounding dust particles. The style is data-focused, with electric cyan typography on a pure black background, giving an ethereal sentinel aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9YBma23-dUCN3LOU9vFHJy8UIspYNuptLuRqi1hSZfUqTs9EVSe1KzVxG2Et9Ir9w-nvNF6fTPJsxiMEuYR_JeQaQvBZnY7l0wNEbPDmmefuZ1TfUmIm7iUgaxcSf5Mb_5p8TAZI5b8cO1a2a-YWlYrN8OrgLQsjmaV92T3exaC40eooGEvFIksubeN1evA9csvexzkA414i2vrWXu8lokmV45u4sz2J4PgUSPtUWkBTF_0oKt0X3jIxwYeyaHJG3ttN1CVfTDTs"/>
+</div>
+<div class="relative group aspect-square rounded-xl overflow-hidden cursor-pointer">
+<img class="w-full h-full object-cover opacity-80" data-alt="A minimalist laboratory setting with clean white surfaces and blue glowing diagnostic equipment. The atmosphere is clinical yet sophisticated. High-key lighting emphasizes the premium, futuristic tech environment of the JARVIS sentinel project." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0GhDiWXV8YmWdvuQtDalc_0qOGluzAU9NXJyQlNALsH0XXo65-e42J_FGbDVthjkgjTuBaemSgCnjdadaUQcGy5LTkS_II0SdKoHzBubXlVrsL0d8bcDcFv4l9zaRNshK0LhOpRNDwwLJqHyk_LcvjbnyyJA6On8q77foQH7tCw41HUuxpoWwzwENQr8SA08mJAuz9KVzOTn5MeVSq7rsQl7--gE0633UcAd3gVZBbYw9LZT3zrV0Mo1q4YLv-Dkci5KnLwSfSAk"/>
+</div>
+</div>
+</section>
+<!-- Gallery Section: September 2023 -->
+<section>
+<header class="flex items-center justify-between mb-6">
+<h2 class="font-display-md text-headline-lg text-primary tracking-tight">September 2023</h2>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">24 Items</span>
+</header>
+<div class="gallery-grid">
+<div class="relative group aspect-square rounded-xl overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="A humanoid robot hand reaching towards a human hand in a minimalist, dark studio space. The robot's casing is matte charcoal with electric cyan light emanating from the joints. The mood is poignant, bridging the gap between high-tech sentinel and human warmth." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnXNBBDJUA_nKTvXhTwR76BMIgnSsFb0x74SDHwwo_ax_qg_kMShvxddQqqMIvsxyxBbGZQ11g8XNicXMDG1G5567-iNOQJ4sFg03160HhJXGqzT4YGAmpaFINxxylgcLnXYu38eXokLD4JErli5HS0OiFiTcePxr85vURooRSF0aKC1qyzXztpEnHAfWWeoeT1z4PVcWzVpQvSHZQLVzK8_XaiDj0U9TDZLTYQtzR6hCjy7keRCWkwJTeO7X5aM432szknHXcMWk"/>
+</div>
+<div class="relative group aspect-square rounded-xl overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="Abstract light trails in a dark city tunnel captured with a long exposure. The streaks are vibrant cyan and amber against a pitch black backdrop. The aesthetic is fast-paced, urban, and futuristic, representing the fluid flow of data through the sentinel system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWRsq3ugzorMveutSnlHJH7I0RIerlqwp3gSSl0HaYYXTvfxSlXmayO8t6LmWx5z-FD0dEs06Mhx4XQBDRKjn207Aua0dvwXu9DiqEMSk6m63scI4uI-7vhYRUIBZPXo7dbb5oJZyW5qp4U-7mSRzB5B46mZbJ0wrdIlLcbr4Qc_L-A6kN6FwkM63bHoHSMM7u_FQsBs6DUiFzv-_hkwv0bztaK54yZsp0xXyPYOcACjH7Hz3gXV4Rh32zJoaw41THxoPy5zWiGDc"/>
+</div>
+<div class="relative group aspect-square rounded-xl overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="A clean data visualization dashboard showing multiple graphs and metrics in a glowing electric cyan. The background is a very dark navy. The design is modern corporate with Material 3 foundations, looking restrained and premium for smart glass display." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVEeARPYDrVW39VXWl6dOtCZM9_8rsdaBJRl-Y1yf2rxEdCTcXJG8d-Xqz6MSDy5gdKnOc8uiGneVypixQmyJGtF7L6f18po1VqrEK5c2LV_jn9fExK66mnlpRE6d4qk1GOm8u6riUCCMSAGw1JG7w4CBuhpQfKIrrKtGKmSr5wjiXzyxUj8G376SjuQTE7Xrm0x6Ux70c0TSUFo7bagt7Wd0gsZCji3xMFn8n7Xv3_V2r6cGMqZDURb6pYDyNGOT0DUpCKqoHxFU"/>
+</div>
+<div class="relative group aspect-square rounded-xl overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="An artistic view of a circuit board illuminated by a blue neon glow. The focus is sharp on a central processor chip. The visual style merges technology with atmosphere, creating a deep sense of mystery and advanced capability in a dark theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5TfF8ap_arFb4-btNI3XsUL_7XuzrlePCOhcHLqJ02vVWeXNUVpkqzP6-hbHkm-5xN28bz_U05bvzQMXNZyyGsohQq4Y88Qk-ZHSmiTS9bGqJRjBubZ4EjKxznpPyejXT1-nwtPutLBzUHU24Bqr5UB3IeWSZUtanUw0enR1IZ0lXAPqjDbwZ5nbssYqpcW8VGjNOiu0PrdK0KRWz9nbLZ9GRQgNs_gHziOjU4GNhIGi1fgAri4PJuK-6Qg9tbTZapqPAGiQfNDA"/>
+</div>
+<div class="relative group aspect-square rounded-xl overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="A minimalist portrait of a futuristic city skyline shrouded in fog at night. Only a few blue and white lights pierce the gloom. The atmosphere is calm and confident, echoing the ethereal sentinel personality of the JARVIS brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPYoo7YHu1u4PgkT8YTjOp-mRS9BGyVD9dXBQwPI2ILjQ0hZ0stwpPTlWU4_9TgOeKqIyheEOwriK8UtdjIdsKLVtqq9MKZPkhb7UoF5mbBBvjisXdiDz1eFG34zWB1jZEGm_NLBCiapP9jeCGpFzJMZQRYtpEL9q1Xbi1KPXNtzZ9djkfd8lxnEOpw_RDm4kjaI3fYi7bzhwV46dguS_uCSm0zSJ0CArFF1WArUBfl0QGd4Y8h4VRfbj42HIts-Tj55m3JKIi0Us"/>
+</div>
+<div class="relative group aspect-square rounded-xl overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="A high-tech research facility with engineers wearing smart glasses, looking at a holographic projection. The room is dark with semi-transparent surfaces. The scene uses glassmorphism and futuristic elements to depict a calm, approachable yet advanced workspace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAioiYwepl-stg0auM0PQJppBxzIg2T01FlKJ1HIB9RFZaqK-c4AvtQf7tI0laeIL6HGo2Vs7tmJecGyu9pQI4OxctvaMIP9-JuhqlzNJ4MXhHCcU785bmWPKImfhVEgCQ6vv6qGts6I9-1F-kw-H1E7H2RFuOxUcS9ex_WaWKnqSaxB2qaR88rVux12AuD-eN-drJv3KDcnkxp4aUO29-CC8kUySM9eKqXjyxOTR6CZUNxFyWnZmXubSHLqOYWVhmLlkNEOw8CnBo"/>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Bar (Selection Active) -->
+<div class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-[400px]">
+<div class="glass-card rounded-full px-6 py-3 flex items-center justify-between shadow-2xl shadow-black/50">
+<button class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors active:scale-95">
+<span class="material-symbols-outlined">share</span>
+<span class="font-label-sm text-label-sm">Share</span>
+</button>
+<div class="w-px h-6 bg-white/10 mx-2"></div>
+<button class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors active:scale-95">
+<span class="material-symbols-outlined">archive</span>
+<span class="font-label-sm text-label-sm">Archive</span>
+</button>
+<div class="w-px h-6 bg-white/10 mx-2"></div>
+<button class="flex items-center gap-2 text-error hover:opacity-80 transition-opacity active:scale-95">
+<span class="material-symbols-outlined">delete</span>
+<span class="font-label-sm text-label-sm">Delete</span>
+</button>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full z-50 bg-surface-container-low/90 backdrop-blur-lg dark:bg-surface-container-low/90 rounded-t-xl shadow-lg shadow-black/30 flex justify-around items-center h-16 px-4 pb-safe">
+<!-- Live -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">sensors</span>
+<span class="font-label-sm text-label-sm">Live</span>
+</a>
+<!-- Timeline -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-sm text-label-sm">Timeline</span>
+</a>
+<!-- Gallery (ACTIVE) -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+<span class="font-label-sm text-label-sm">Gallery</span>
+</a>
+<!-- Settings -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-sm text-label-sm">Settings</span>
+</a>
+</nav>
+<!-- Background Subtle Glow -->
+<div class="fixed top-0 left-0 w-full h-full pointer-events-none -z-10">
+<div class="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-on-primary-container/5 rounded-full blur-[120px]"></div>
+</div>
+<script>
+        // Micro-interactions for selection toggling (mock)
+        document.querySelectorAll('.gallery-grid > div').forEach(item => {
+            item.addEventListener('click', () => {
+                // Since this is a UI design, we just visualize the state
+                // In a real app, this would toggle checkboxes and counter
+            });
+        });
+    </script>
+</body></html>

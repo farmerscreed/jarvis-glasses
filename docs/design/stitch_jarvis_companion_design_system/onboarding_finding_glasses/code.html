@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Companion Setup - Finding Glasses</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#e0e2ea",
+                        "on-secondary-container": "#b4bccc",
+                        "surface-tint": "#36d8fb",
+                        "primary-fixed": "#aeecff",
+                        "on-primary": "#003641",
+                        "on-tertiary-container": "#794b00",
+                        "on-secondary-fixed": "#141c28",
+                        "tertiary-container": "#ffbe6f",
+                        "error-container": "#93000a",
+                        "outline-variant": "#3c494d",
+                        "on-secondary-fixed-variant": "#3f4754",
+                        "inverse-surface": "#e0e2ea",
+                        "on-surface": "#e0e2ea",
+                        "on-error": "#690005",
+                        "tertiary-fixed": "#ffddb9",
+                        "surface-container-lowest": "#0a0e13",
+                        "primary": "#bbefff",
+                        "on-surface-variant": "#bbc9ce",
+                        "inverse-on-surface": "#2d3136",
+                        "on-tertiary": "#472a00",
+                        "surface-variant": "#31353b",
+                        "surface-container-low": "#181c21",
+                        "background": "#101419",
+                        "surface-container": "#1c2025",
+                        "on-tertiary-fixed": "#2b1700",
+                        "surface-container-highest": "#31353b",
+                        "inverse-primary": "#00687b",
+                        "secondary": "#bfc7d7",
+                        "tertiary": "#ffe2c4",
+                        "surface-dim": "#101419",
+                        "surface-container-high": "#262a30",
+                        "secondary-fixed": "#dbe3f3",
+                        "primary-fixed-dim": "#36d8fb",
+                        "on-primary-container": "#005e6f",
+                        "outline": "#869397",
+                        "on-primary-fixed": "#001f26",
+                        "tertiary-fixed-dim": "#ffb961",
+                        "surface-bright": "#36393f",
+                        "on-secondary": "#29313d",
+                        "error": "#ffb4ab",
+                        "surface": "#101419",
+                        "secondary-fixed-dim": "#bfc7d7",
+                        "on-tertiary-fixed-variant": "#663e00",
+                        "on-primary-fixed-variant": "#004e5d",
+                        "secondary-container": "#444c59",
+                        "primary-container": "#3ddcff",
+                        "on-error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "sm": "8px",
+                        "margin-mobile": "24px",
+                        "unit": "4px",
+                        "xl": "40px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "margin-desktop": "64px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Space Grotesk"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Space Grotesk"],
+                        "display-md": ["Space Grotesk"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "500" }],
+                        "data-mono": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "display-md": ["36px", { "lineHeight": "44px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0B0F14; /* Forced background based on prompt, overrides tailwind bg-background if slightly different */
+        }
+        .pulse-text {
+            animation: pulse-opacity 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-opacity {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="text-on-background min-h-screen flex flex-col items-center justify-center relative overflow-hidden font-body-md">
+<!-- TopAppBar (From JSON) -->
+<header class="fixed top-0 w-full bg-background flex items-center px-margin-mobile h-16 z-50">
+<button aria-label="Back" class="text-primary dark:text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200 mr-gutter flex items-center justify-center w-10 h-10 rounded-full">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary font-bold tracking-tight">Companion Setup</h1>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full max-w-[600px] flex flex-col items-center justify-center px-margin-mobile pt-16 pb-32 z-10">
+<!-- Radar Animation Container -->
+<div class="relative w-64 h-64 mb-xl flex items-center justify-center">
+<!-- Glow effect behind radar -->
+<div class="absolute inset-0 bg-primary/20 blur-[40px] rounded-full mix-blend-screen"></div>
+<!-- STITCH_SHADER_START:ANIMATION_22 class="absolute inset-0 w-full h-full rounded-full overflow-hidden" -->
+<div class="absolute inset-0 w-full h-full rounded-full overflow-hidden" style="display:block;">
+<canvas id="shader-canvas-ANIMATION_22" style="display:block;width:100%;height:100%"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_22');
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+uniform float u_time;
+uniform vec2 u_resolution;
+varying vec2 v_texCoord;
+
+void main() {
+    vec2 uv = v_texCoord;
+    vec2 center = vec2(0.5, 0.5);
+    float dist = distance(uv, center);
+    
+    // Radar rings
+    float ring1 = abs(sin(dist * 20.0 - u_time * 3.0));
+    ring1 = smoothstep(0.95, 1.0, ring1) * (1.0 - dist * 2.0);
+    
+    // Pulsing core
+    float core = 1.0 - smoothstep(0.0, 0.3, dist);
+    core *= 0.2 + 0.1 * sin(u_time * 2.0);
+    
+    // Sweeping beam
+    float angle = atan(uv.y - center.y, uv.x - center.x);
+    float sweep = fract((angle / 6.28318) + u_time * 0.5);
+    sweep = pow(sweep, 8.0) * (1.0 - step(0.45, dist));
+    
+    vec3 color = vec3(0.239, 0.863, 1.0); // #3DDCFF Electric Cyan
+    vec3 finalColor = color * (ring1 + core + sweep);
+    
+    gl_FragColor = vec4(finalColor, finalColor.r * 0.5);
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_22 -->
+<!-- Fallback/Overlay static UI if shader takes a moment -->
+<div class="absolute inset-0 rounded-full border border-primary/30 flex items-center justify-center z-10 pointer-events-none">
+<span class="material-symbols-outlined text-primary text-[48px] opacity-80 animate-pulse" data-icon="bluetooth_searching">bluetooth_searching</span>
+</div>
+<!-- Decorative HUD elements -->
+<div class="absolute -top-4 -left-4 w-8 h-8 border-t border-l border-primary/50"></div>
+<div class="absolute -top-4 -right-4 w-8 h-8 border-t border-r border-primary/50"></div>
+<div class="absolute -bottom-4 -left-4 w-8 h-8 border-b border-l border-primary/50"></div>
+<div class="absolute -bottom-4 -right-4 w-8 h-8 border-b border-r border-primary/50"></div>
+</div>
+<!-- Typography -->
+<div class="text-center space-y-sm mb-xl max-w-sm">
+<h2 class="font-display-md text-display-md text-on-surface">Searching for Glasses</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Make sure your glasses are powered on and nearby.</p>
+</div>
+<!-- Status Details (HUD Style) -->
+<div class="bg-surface-container/50 backdrop-blur-md rounded-xl border border-white/5 p-lg w-full max-w-xs space-y-md">
+<div class="flex justify-between items-center font-data-mono text-data-mono">
+<span class="text-on-surface-variant">FREQUENCY</span>
+<span class="text-primary pulse-text">2.4 GHz</span>
+</div>
+<div class="flex justify-between items-center font-data-mono text-data-mono">
+<span class="text-on-surface-variant">PROTOCOL</span>
+<span class="text-on-surface">BLE 5.3</span>
+</div>
+<div class="w-full bg-surface-variant h-1 mt-sm rounded-full overflow-hidden">
+<div class="bg-primary h-full w-full origin-left animate-[scale-x_2s_ease-in-out_infinite]"></div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (From JSON) - Modified for Transactional Page -->
+<!-- Note: Following the rule "Automatic Suppression: You MUST exclude the navigation shell if the page intent is: Linear/Transactional: Login, Sign-up, Onboarding..." -->
+<!-- We suppress the standard bottom nav, but provide the contextually required disabled 'Scanning...' button as requested by the prompt -->
+<footer class="fixed bottom-0 w-full pb-margin-mobile px-margin-mobile flex justify-center z-50 bg-gradient-to-t from-background via-background to-transparent pt-xl">
+<button class="w-full max-w-[600px] bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider py-lg rounded-full flex items-center justify-center space-x-sm opacity-70 cursor-not-allowed border border-outline-variant/30" disabled="">
+<span class="material-symbols-outlined text-[18px] animate-spin" data-icon="sync">sync</span>
+<span>Scanning...</span>
+</button>
+</footer>
+<script>
+        // Simple progress bar animation style for the HUD element
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes scale-x {
+                0% { transform: scaleX(0); transform-origin: left; }
+                49% { transform: scaleX(1); transform-origin: left; }
+                50% { transform: scaleX(1); transform-origin: right; }
+                100% { transform: scaleX(0); transform-origin: right; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body></html>

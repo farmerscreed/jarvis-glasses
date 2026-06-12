@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>JARVIS Notifications - Design Sheet</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary": "#bfc7d7",
+                      "on-primary-fixed-variant": "#004e5d",
+                      "on-primary-container": "#005e6f",
+                      "on-tertiary": "#472a00",
+                      "on-secondary": "#29313d",
+                      "on-tertiary-fixed-variant": "#663e00",
+                      "tertiary": "#ffe2c4",
+                      "on-secondary-fixed-variant": "#3f4754",
+                      "tertiary-fixed": "#ffddb9",
+                      "primary-container": "#3ddcff",
+                      "primary": "#bbefff",
+                      "on-secondary-container": "#b4bccc",
+                      "background": "#101419",
+                      "surface-variant": "#31353b",
+                      "surface-container": "#1c2025",
+                      "outline-variant": "#3c494d",
+                      "on-background": "#e0e2ea",
+                      "surface-container-low": "#181c21",
+                      "primary-fixed": "#aeecff",
+                      "secondary-fixed": "#dbe3f3",
+                      "tertiary-fixed-dim": "#ffb961",
+                      "surface": "#101419",
+                      "on-surface": "#e0e2ea",
+                      "error-container": "#93000a",
+                      "on-error-container": "#ffdad6",
+                      "secondary-fixed-dim": "#bfc7d7",
+                      "surface-bright": "#36393f",
+                      "surface-container-high": "#262a30",
+                      "primary-fixed-dim": "#36d8fb",
+                      "surface-tint": "#36d8fb",
+                      "on-tertiary-container": "#794b00",
+                      "inverse-surface": "#e0e2ea",
+                      "inverse-on-surface": "#2d3136",
+                      "on-secondary-fixed": "#141c28",
+                      "surface-dim": "#101419",
+                      "on-error": "#690005",
+                      "error": "#ffb4ab",
+                      "secondary-container": "#444c59",
+                      "on-tertiary-fixed": "#2b1700",
+                      "on-surface-variant": "#bbc9ce",
+                      "tertiary-container": "#ffbe6f",
+                      "on-primary-fixed": "#001f26",
+                      "inverse-primary": "#00687b",
+                      "surface-container-highest": "#31353b",
+                      "outline": "#869397",
+                      "surface-container-lowest": "#0a0e13",
+                      "on-primary": "#003641"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "sm": "8px",
+                      "gutter": "16px",
+                      "xs": "4px",
+                      "xl": "40px",
+                      "unit": "4px",
+                      "margin-desktop": "64px",
+                      "margin-mobile": "24px",
+                      "lg": "24px",
+                      "md": "16px"
+              },
+              "fontFamily": {
+                      "display-md": [
+                              "Space Grotesk"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Space Grotesk"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Space Grotesk"
+                      ],
+                      "data-mono": [
+                              "JetBrains Mono"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Space Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "display-md": [
+                              "36px",
+                              {
+                                      "lineHeight": "44px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "data-mono": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0B0F14;
+            color: #e0e2ea;
+        }
+        .glass-card {
+            background-color: #1A222E;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+        }
+        .pulse-border-active {
+            animation: pulseBorder 2s infinite;
+        }
+        @keyframes pulseBorder {
+            0% { border-color: rgba(61, 220, 255, 0.2); }
+            50% { border-color: rgba(61, 220, 255, 0.8); }
+            100% { border-color: rgba(61, 220, 255, 0.2); }
+        }
+        .ambient-shadow {
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        .glow-button:hover {
+            box-shadow: 0 0 15px rgba(61, 220, 255, 0.5);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen p-margin-desktop bg-[#0B0F14] font-body-lg text-body-lg text-on-background flex flex-col items-center">
+<header class="w-full max-w-4xl mb-xl">
+<h1 class="font-display-lg text-display-lg text-primary-fixed-dim mb-sm">Notification States</h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">Expanded and collapsed states for JARVIS notifications, utilizing Material 3 Android patterns with an Ethereal Sentinel dark theme.</p>
+</header>
+<main class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-xl">
+<!-- Column 1: Collapsed States -->
+<section class="flex flex-col gap-lg">
+<h2 class="font-headline-lg text-headline-lg text-surface-tint border-b border-white/10 pb-xs mb-md">Collapsed</h2>
+<!-- 1. AI Answer - Collapsed -->
+<div class="glass-card rounded-xl p-md flex items-center gap-md ambient-shadow cursor-pointer hover:bg-surface-container-high transition-colors">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-fixed-dim" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div class="flex-1">
+<p class="font-label-sm text-label-sm text-primary-fixed-dim mb-xs uppercase tracking-widest">JARVIS</p>
+<p class="font-body-md text-body-md text-on-surface line-clamp-1">I've found the answer...</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">expand_more</span>
+</div>
+<!-- 2. Sync Status - Collapsed -->
+<div class="glass-card rounded-xl p-md flex items-center gap-md ambient-shadow cursor-pointer hover:bg-surface-container-high transition-colors">
+<div class="w-10 h-10 rounded-full bg-surface-container/50 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary-fixed" style="font-variation-settings: 'FILL' 1;">cloud_sync</span>
+</div>
+<div class="flex-1">
+<p class="font-label-sm text-label-sm text-secondary-fixed mb-xs uppercase tracking-widest">System</p>
+<p class="font-body-md text-body-md text-on-surface line-clamp-1">4 Memories Synced</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">expand_more</span>
+</div>
+<!-- 3. Proactive Nudge - Collapsed -->
+<div class="glass-card rounded-xl p-md flex items-center gap-md ambient-shadow cursor-pointer hover:bg-surface-container-high transition-colors">
+<div class="w-10 h-10 rounded-full bg-surface-container/50 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-tertiary-fixed" style="font-variation-settings: 'FILL' 1;">local_parking</span>
+</div>
+<div class="flex-1">
+<p class="font-label-sm text-label-sm text-tertiary-fixed mb-xs uppercase tracking-widest">Location</p>
+<p class="font-body-md text-body-md text-on-surface line-clamp-1">Parking Reminder</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">expand_more</span>
+</div>
+</section>
+<!-- Column 2: Expanded States -->
+<section class="flex flex-col gap-lg">
+<h2 class="font-headline-lg text-headline-lg text-surface-tint border-b border-white/10 pb-xs mb-md">Expanded</h2>
+<!-- 1. AI Answer - Expanded -->
+<div class="glass-card rounded-xl p-md flex flex-col gap-md ambient-shadow pulse-border-active">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary-fixed-dim" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-primary-fixed-dim uppercase tracking-widest">JARVIS</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Just now</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm cursor-pointer hover:text-on-surface">expand_less</span>
+</div>
+<div class="bg-surface-container-low/50 rounded-lg p-md">
+<p class="font-body-md text-body-md text-on-surface">The bookshop is open until 8 PM tonight. It is currently a 15-minute walk from your location.</p>
+</div>
+<div class="flex justify-end gap-sm mt-xs">
+<button class="px-4 py-2 rounded-full border border-outline-variant font-label-sm text-label-sm text-on-surface hover:bg-surface-variant transition-colors">Dismiss</button>
+<button class="px-4 py-2 rounded-full bg-[#3ddcff] font-label-sm text-label-sm text-black glow-button transition-all">Ask Follow-up</button>
+</div>
+</div>
+<!-- 2. Sync Status - Expanded -->
+<div class="glass-card rounded-xl p-md flex flex-col gap-md ambient-shadow">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container/50 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary-fixed" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-secondary-fixed uppercase tracking-widest">System</p>
+<p class="font-body-md text-body-md text-on-surface font-medium">4 Memories Synced</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm cursor-pointer hover:text-on-surface">expand_less</span>
+</div>
+<div class="bg-surface-container-low/50 rounded-lg p-md flex flex-col gap-sm">
+<div class="flex justify-between items-center">
+<span class="font-body-md text-body-md text-on-surface-variant flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">photo_library</span> 2 Photos</span>
+<span class="font-body-md text-body-md text-on-surface-variant flex items-center gap-xs"><span class="material-symbols-outlined text-[16px]">mic</span> 2 Voice Notes</span>
+</div>
+<div class="mt-xs">
+<div class="flex justify-between font-label-sm text-label-sm text-on-surface-variant mb-1">
+<span>Storage Usage</span>
+<span>45%</span>
+</div>
+<div class="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-secondary-fixed w-[45%]"></div>
+</div>
+</div>
+</div>
+<div class="flex justify-end mt-xs">
+<button class="px-4 py-2 rounded-full border border-outline-variant font-label-sm text-label-sm text-on-surface hover:bg-surface-variant transition-colors flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">grid_view</span> View Gallery
+                    </button>
+</div>
+</div>
+<!-- 3. Proactive Nudge - Expanded -->
+<div class="glass-card rounded-xl p-md flex flex-col gap-md ambient-shadow">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container/50 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-tertiary-fixed" style="font-variation-settings: 'FILL' 1;">local_parking</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-tertiary-fixed uppercase tracking-widest">Location</p>
+<p class="font-body-md text-body-md text-on-surface font-medium">Parking Reminder</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-sm cursor-pointer hover:text-on-surface">expand_less</span>
+</div>
+<div class="bg-surface-container-low/50 rounded-lg p-md flex items-center gap-md">
+<div class="w-12 h-12 rounded-lg bg-surface-variant flex items-center justify-center border border-white/5">
+<span class="font-display-md text-display-md text-on-surface">3B</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface">You parked on Level 3, Section B.</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-xs">2 hours ago at City Center Mall</p>
+</div>
+</div>
+<div class="flex justify-end gap-sm mt-xs">
+<button class="px-4 py-2 rounded-full border border-outline-variant font-label-sm text-label-sm text-on-surface hover:bg-surface-variant transition-colors">Dismiss</button>
+<button class="px-4 py-2 rounded-full border border-[#3ddcff] font-label-sm text-label-sm text-[#3ddcff] hover:bg-[#3ddcff]/10 transition-colors flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">map</span> Show Map
+                    </button>
+</div>
+</div>
+</section>
+</main>
+</body></html>

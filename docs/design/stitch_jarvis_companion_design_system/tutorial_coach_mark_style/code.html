@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Timeline Coach-Mark Overlay</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        @keyframes pulse-cyan {
+            0% { box-shadow: 0 0 0 0 rgba(54, 216, 251, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(54, 216, 251, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(54, 216, 251, 0); }
+        }
+        .animate-pulse-ring {
+            animation: pulse-cyan 2s infinite;
+        }
+        .glass-panel {
+            background: rgba(26, 34, 46, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed": "#001f26",
+                        "surface-bright": "#36393f",
+                        "on-secondary-fixed": "#141c28",
+                        "tertiary": "#ffe2c4",
+                        "surface": "#101419",
+                        "inverse-on-surface": "#2d3136",
+                        "on-secondary-fixed-variant": "#3f4754",
+                        "secondary": "#bfc7d7",
+                        "primary-fixed": "#aeecff",
+                        "primary": "#bbefff",
+                        "on-tertiary-container": "#794b00",
+                        "on-primary-fixed-variant": "#004e5d",
+                        "primary-fixed-dim": "#36d8fb",
+                        "on-surface": "#e0e2ea",
+                        "secondary-fixed-dim": "#bfc7d7",
+                        "tertiary-fixed-dim": "#ffb961",
+                        "surface-container-high": "#262a30",
+                        "outline": "#869397",
+                        "outline-variant": "#3c494d",
+                        "on-error": "#690005",
+                        "error": "#ffb4ab",
+                        "surface-container-lowest": "#0a0e13",
+                        "surface-variant": "#31353b",
+                        "on-tertiary-fixed-variant": "#663e00",
+                        "on-primary": "#003641",
+                        "secondary-container": "#444c59",
+                        "on-surface-variant": "#bbc9ce",
+                        "surface-container-low": "#181c21",
+                        "on-background": "#e0e2ea",
+                        "surface-tint": "#36d8fb",
+                        "on-tertiary": "#472a00",
+                        "on-primary-container": "#005e6f",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#dbe3f3",
+                        "primary-container": "#3ddcff",
+                        "tertiary-fixed": "#ffddb9",
+                        "tertiary-container": "#ffbe6f",
+                        "on-secondary": "#29313d",
+                        "surface-dim": "#101419",
+                        "inverse-surface": "#e0e2ea",
+                        "background": "#101419",
+                        "on-tertiary-fixed": "#2b1700",
+                        "inverse-primary": "#00687b",
+                        "surface-container": "#1c2025",
+                        "surface-container-highest": "#31353b",
+                        "on-secondary-container": "#b4bccc"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "24px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "xs": "4px",
+                        "xl": "40px",
+                        "margin-desktop": "64px",
+                        "lg": "24px",
+                        "unit": "4px",
+                        "sm": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Space Grotesk"],
+                        "label-sm": ["Inter"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "display-md": ["Space Grotesk"],
+                        "display-lg": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["28px", {"lineHeight": "36px", "fontWeight": "500"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "500"}],
+                        "data-mono": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "display-md": ["36px", {"lineHeight": "44px", "fontWeight": "600"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md min-h-screen selection:bg-primary/30">
+<!-- Screen 17 Content (Timeline Background) -->
+<header class="fixed top-0 w-full z-40 bg-surface/80 backdrop-blur-xl border-b border-white/10 px-margin-mobile h-16 flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-on-surface-variant">arrow_back</span>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary">Timeline</h1>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">search</span>
+</header>
+<main class="pt-24 px-margin-mobile pb-32 max-w-[600px] mx-auto space-y-lg opacity-40">
+<!-- Date Marker -->
+<div class="flex items-center gap-md">
+<div class="h-px flex-1 bg-outline-variant"></div>
+<span class="font-data-mono text-label-sm text-on-surface-variant">OCTOBER 14, 2024</span>
+<div class="h-px flex-1 bg-outline-variant"></div>
+</div>
+<!-- Focused Memory Card Placeholder (Visual Anchor) -->
+<div class="relative">
+<div class="p-lg bg-surface-container rounded-3xl border border-white/5 space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-data-mono text-label-sm text-primary-fixed-dim">14:30 PM</span>
+<span class="material-symbols-outlined text-on-surface-variant" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Design Strategy Meeting</h3>
+<p class="text-on-surface-variant">Discussed the upcoming smart glasses UI paradigm shift towards ethereal sentinel branding...</p>
+<div class="flex gap-sm">
+<span class="px-3 py-1 rounded-full border border-primary-fixed-dim/30 text-xs font-data-mono text-primary-fixed-dim bg-primary-fixed-dim/5">WORK</span>
+<span class="px-3 py-1 rounded-full border border-primary-fixed-dim/30 text-xs font-data-mono text-primary-fixed-dim bg-primary-fixed-dim/5">STRATEGY</span>
+</div>
+</div>
+</div>
+<!-- Other Cards -->
+<div class="p-lg bg-surface-container rounded-3xl border border-white/5 space-y-md">
+<div class="flex justify-between items-start">
+<span class="font-data-mono text-label-sm text-on-surface-variant">10:15 AM</span>
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</div>
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Morning Coffee Chat</h3>
+<p class="text-on-surface-variant">Casual conversation about neural-link interfaces and the future of human interaction...</p>
+</div>
+</main>
+<!-- COACH-MARK OVERLAY -->
+<div class="fixed inset-0 z-50 flex flex-col items-center justify-start pt-24">
+<!-- Semi-transparent Backdrop -->
+<div class="absolute inset-0 bg-surface-container-lowest/80 backdrop-blur-[2px]"></div>
+<!-- Highlight Content Area -->
+<div class="relative w-full max-w-[600px] px-margin-mobile">
+<!-- Pulsing Ring over the "Memory Card" position -->
+<div class="absolute top-0 left-margin-mobile right-margin-mobile h-[200px] border-2 border-primary-fixed-dim rounded-3xl animate-pulse-ring pointer-events-none"></div>
+<!-- Tooltip Positioning Container -->
+<div class="relative mt-[220px] flex justify-center">
+<!-- Arrow -->
+<div class="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 rotate-45 glass-panel border-b-0 border-r-0"></div>
+<!-- Glassmorphic Tooltip -->
+<div class="glass-panel w-full max-w-[340px] p-lg rounded-2xl shadow-2xl space-y-lg relative">
+<div class="flex items-start gap-md">
+<div class="mt-1 p-2 bg-primary-fixed-dim/20 rounded-xl">
+<span class="material-symbols-outlined text-primary-fixed-dim" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+</div>
+<div class="space-y-sm">
+<h4 class="font-headline-lg-mobile text-[18px] text-on-surface font-bold">Deep Insights</h4>
+<p class="text-on-surface-variant leading-relaxed text-sm">
+                                Tap any memory to view the full transcript and AI-generated insights.
+                            </p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-sm">
+<button class="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-widest px-2 py-1">
+                            Skip Tour
+                        </button>
+<button class="bg-primary-fixed-dim text-on-primary-fixed px-lg py-sm rounded-full font-label-sm text-label-sm shadow-[0_0_15px_rgba(54,216,251,0.4)] active:scale-95 transition-all">
+                            GOT IT
+                        </button>
+</div>
+<!-- Progress Dots -->
+<div class="flex justify-center gap-xs pt-2">
+<div class="h-1 w-4 rounded-full bg-primary-fixed-dim"></div>
+<div class="h-1 w-1.5 rounded-full bg-outline-variant"></div>
+<div class="h-1 w-1.5 rounded-full bg-outline-variant"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation (Shared Component) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-4 pb-safe bg-surface-container-low/90 backdrop-blur-xl border-t border-white/10 rounded-t-xl opacity-20">
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-label-sm text-label-sm mt-1">Hub</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-primary-container/30 text-primary-fixed-dim rounded-full px-4 py-1">
+<span class="material-symbols-outlined">visibility</span>
+<span class="font-label-sm text-label-sm">Hardware</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">school</span>
+<span class="font-label-sm text-label-sm mt-1">Tutorials</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">keyboard_command_key</span>
+<span class="font-label-sm text-label-sm mt-1">Commands</span>
+</div>
+</nav>
+<!-- Background Subtle Atmospheric Glow -->
+<div class="fixed top-1/4 -right-1/4 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] -z-10"></div>
+<div class="fixed -bottom-1/4 -left-1/4 w-[600px] h-[600px] bg-primary-container/5 rounded-full blur-[120px] -z-10"></div>
+<script>
+        // Micro-interaction for closing the overlay
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const overlay = document.querySelector('.fixed.inset-0.z-50');
+                const mainContent = document.querySelector('main');
+                const nav = document.querySelector('nav');
+                
+                overlay.style.opacity = '0';
+                overlay.style.transition = 'opacity 0.5s ease-out';
+                
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    mainContent.classList.remove('opacity-40');
+                    mainContent.classList.add('transition-opacity', 'duration-700');
+                    mainContent.style.opacity = '1';
+                    nav.style.opacity = '1';
+                    nav.classList.add('transition-opacity', 'duration-700');
+                }, 500);
+            });
+        });
+    </script>
+</body></html>

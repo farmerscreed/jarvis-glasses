@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Memory Detail - JARVIS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(26, 34, 46, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .scrim-bottom {
+            background: linear-gradient(to top, rgba(16, 20, 25, 1) 0%, rgba(16, 20, 25, 0) 100%);
+        }
+        .voice-pulse {
+            animation: pulse-cyan 2s infinite ease-in-out;
+        }
+        @keyframes pulse-cyan {
+            0% { box-shadow: 0 0 0 0 rgba(187, 239, 255, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(187, 239, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(187, 239, 255, 0); }
+        }
+        body {
+            background-color: #101419;
+            color: #e0e2ea;
+            -webkit-font-smoothing: antialiased;
+        }
+        ::-webkit-scrollbar { display: none; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#262a30",
+                        "secondary": "#bfc7d7",
+                        "on-primary-container": "#005e6f",
+                        "primary-container": "#3ddcff",
+                        "on-primary": "#003641",
+                        "background": "#101419",
+                        "primary": "#bbefff",
+                        "on-surface-variant": "#bbc9ce",
+                        "surface-container-low": "#181c21",
+                        "surface-container": "#1c2025",
+                        "on-surface": "#e0e2ea",
+                        "outline": "#869397",
+                        "outline-variant": "#3c494d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1.25rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "xl": "40px",
+                        "margin-mobile": "24px"
+                    },
+                    "fontFamily": {
+                        "data-mono": ["JetBrains Mono"],
+                        "headline-lg-mobile": ["Space Grotesk"],
+                        "body-lg": ["Inter"],
+                        "display-md": ["Space Grotesk"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="font-body-md text-on-surface">
+<!-- Top AppBar (from JSON context) -->
+<header class="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-xl flex items-center justify-between px-margin-mobile py-sm border-b border-white/10">
+<button class="active:scale-95 transition-transform text-primary">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<span class="font-display-md text-[20px] tracking-tighter text-primary">JARVIS</span>
+<button class="active:scale-95 transition-transform text-on-surface-variant">
+<span class="material-symbols-outlined">help</span>
+</button>
+</header>
+<main class="pb-32">
+<!-- Hero Photo Section -->
+<section class="relative h-[530px] w-full overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A breathtaking cinematic wide shot of a futuristic neon city under a deep violet and electric cyan sky. The architecture is sharp and monolithic, with holographic signs casting a soft glow on a wet, reflective street. The overall mood is ethereal and high-tech, following a minimalist and sophisticated dark-mode aesthetic with high-contrast lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAx2Cm58fD9R2zVeLvHuWE2USOKmm6FqWhCKevoZAu5YSiQzPCm2zYwK0EnqP_Nzn085tu3J54GuE6dhiZq7LvYgol9juuHtx3u9E3c4WWnXVax-13UbxyBG0iyf89scqR648UFVHbL7pm3vgjDGX2pk9COF4dTQvtA1s34jg9WBebk0NriE4-Zm1_awsiDPi6GNOFTHVKvfWmHZk22imEJojzQrlSukrebBk4WCCxp2GQzrVyv1LYkSaxsh83ngH2T4eWJ9aE8jHg"/>
+<div class="absolute inset-0 scrim-bottom"></div>
+<!-- Contextual Chips -->
+<div class="absolute bottom-6 left-6 flex flex-wrap gap-2">
+<div class="glass-panel px-3 py-1.5 rounded-full flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">calendar_today</span>
+<span class="font-data-mono text-[12px] uppercase">Oct 12, 2024 • 18:42</span>
+</div>
+<div class="glass-panel px-3 py-1.5 rounded-full flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">location_on</span>
+<span class="font-data-mono text-[12px] uppercase">Neo-Tokyo District</span>
+</div>
+</div>
+</section>
+<!-- AI Description & Content -->
+<section class="px-margin-mobile -mt-4 relative z-10 space-y-lg">
+<div class="glass-panel p-lg rounded-2xl">
+<div class="flex items-center gap-2 mb-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
+<h2 class="font-label-sm text-primary uppercase tracking-widest">AI Observation</h2>
+</div>
+<p class="font-body-lg text-on-surface leading-relaxed italic">
+                    "The lighting in this memory captured a specific moment of urban solitude. Notice how the electric cyan hues reflect off the moisture on the pavement—it highlights the contrast between the cold technology and the organic atmosphere of the evening rain."
+                </p>
+</div>
+<!-- Mini Map Preview -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+<div class="space-y-sm">
+<h3 class="font-label-sm text-on-surface-variant uppercase ml-2">Location Context</h3>
+<div class="h-40 rounded-2xl overflow-hidden border border-white/10 group cursor-pointer relative">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="A minimalist, stylized digital map of a city grid with glowing cyan navigation lines on a deep charcoal background. The map looks high-tech and fits the sentinel aesthetic, with subtle depth and clean typography for street names." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBc9fuxRMqPz8oy4KEOObQ6zQ5GpP8SEbx968ZXCwZoOoiwjMgBzi2gBd_8A89-7xXyttIvKg1DSd2F9Fg4C90zbBJaA-9X_0EgncNUQa55La4tIJV0eQEhawfqQmHTUQoR1grz3w-qax8w7Jx2YTrcX_oi7xttvVOi_i4SvwVMMMKqOzyLVxIihYeYcUmyjhf2qIFntAHJig0rIzUWRptEfuLEAZshCMBPyUJx__-YCxdt16DAQHjTKG7WLeE2j8EF1M-_ICWx6Tk"/>
+<div class="absolute inset-0 bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-4xl">explore</span>
+</div>
+</div>
+</div>
+<!-- Tags Section -->
+<div class="space-y-sm">
+<h3 class="font-label-sm text-on-surface-variant uppercase ml-2">Identified Elements</h3>
+<div class="flex flex-wrap gap-2">
+<span class="px-4 py-2 bg-surface-container-high rounded-xl border border-outline-variant font-data-mono text-[12px] text-on-surface-variant">#UrbanAtmosphere</span>
+<span class="px-4 py-2 bg-surface-container-high rounded-xl border border-outline-variant font-data-mono text-[12px] text-on-surface-variant">#NeonCyan</span>
+<span class="px-4 py-2 bg-surface-container-high rounded-xl border border-outline-variant font-data-mono text-[12px] text-on-surface-variant">#RainyEvening</span>
+<span class="px-4 py-2 bg-surface-container-high rounded-xl border border-outline-variant font-data-mono text-[12px] text-on-surface-variant">#Solitude</span>
+</div>
+</div>
+</div>
+<!-- Related Memories -->
+<div class="space-y-md">
+<div class="flex justify-between items-end px-2">
+<h3 class="font-label-sm text-on-surface-variant uppercase">Temporal Connections</h3>
+<button class="text-primary font-label-sm text-[11px] uppercase tracking-wider">View All</button>
+</div>
+<div class="flex overflow-x-auto gap-md pb-4 -mx-2 px-2 snap-x">
+<div class="flex-none w-48 snap-start">
+<div class="h-32 rounded-xl overflow-hidden border border-white/5 mb-sm">
+<img class="w-full h-full object-cover" data-alt="Detailed close-up of a high-tech glass surface with digital readouts in cyan, glowing against a dark blue and black background. The style is modern corporate combined with futuristic sentinel vibes, clean and sharp." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBzNUOkvtCDJeDUZ8RIUO9Uvqx7RLVhI8_QDZRvUAGAfpn1SblKsNt5kZ9uzlPPOrPERMRUn2SImZ4zKTybG0FZ4-99Sax6Sk15IgQBIBkhYokpl4MIAELfue8ugy3QfWFJ_swNxTLBB4N3BLHFclGq9OAcbswsiwfnEBCUca9xnvfz98UFrKBLNDA-GCmiKmk9DoIb6CwLMZn0hFp_L3nRG43NL1OJ-2yt6jqcp_N5T9SFMpv5JTuB4I462XCik1ULP9kKCUDNs5Y"/>
+</div>
+<p class="font-label-sm text-[10px] text-on-surface-variant uppercase">3 Hours Later</p>
+</div>
+<div class="flex-none w-48 snap-start">
+<div class="h-32 rounded-xl overflow-hidden border border-white/5 mb-sm">
+<img class="w-full h-full object-cover" data-alt="Ethereal landscape with a dark, serene river reflecting a crescent moon and neon city lights in the distance. The mood is calm and sentinel-like, using a deep navy and electric cyan palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHz-tvdSICPUBQdhAOwITFK7Pasuv-Gn-RElWlB9IefgbrWXyt9C0GsV8efKFk-Pdq1MnYjnMPfYik3dsv69MnT6DutmyTds_x2C2wYwx0lgnDSg8sGMD5L2epAw3lRIeKd5MjOc-9GAsEDwTHXNMVv1PeYSYCiDhCg6lwn1gbDlInm-ptYuqU3cI_2Fnibs8qNFPZmtR7BDZ5PnL4G8_JuvKFjp2OAWEWkhD7byLD5e6UCqkYog8aAMngleDhCkF9gCFLYKlufx8"/>
+</div>
+<p class="font-label-sm text-[10px] text-on-surface-variant uppercase">Same Location, 2023</p>
+</div>
+<div class="flex-none w-48 snap-start">
+<div class="h-32 rounded-xl overflow-hidden border border-white/5 mb-sm">
+<img class="w-full h-full object-cover" data-alt="A futuristic AI interface floating in a dark space, showing biometric data and neural networks in glowing cyan lines. The image is clean and minimal, emphasizing technological sophistication." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCG8O32VuQc69BhUi0zkJDIzk0VPMEk113qCLjjGK2foPG52GL0UoZexiJ9Fr7ipYeicf9pm1tcJN9XVGwjOq25C4Oc9hm3v5eEpOrpFbAAvSFWG8JpEIy-68LoqBRqqkiTJPliofHMH7tdXdMRZlVfop--fc9fdlAQqXyaDDmDb1H1ymtG3k2z0U3cj4V3Euf2e67HwzLHf0pfVTyy0pWS5Gj-EEuuWYY-sDZgKbU4fJZMFpS91venIEUb_Cw5kTDLc8zIHrEpLg8"/>
+</div>
+<p class="font-label-sm text-[10px] text-on-surface-variant uppercase">Similar Aesthetic</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Fixed Action Bottom Bar -->
+<div class="fixed bottom-0 w-full z-50 bg-surface-container-low/90 backdrop-blur-lg px-margin-mobile py-lg border-t border-white/5 flex flex-col gap-md">
+<!-- Floating Voice Orb Action -->
+<div class="flex items-center gap-md bg-surface-container-high rounded-full p-2 border border-outline-variant shadow-lg">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center voice-pulse">
+<span class="material-symbols-outlined text-on-primary text-[20px]">mic</span>
+</div>
+<div class="flex-1">
+<p class="text-on-surface-variant text-[13px] italic font-medium">"Ask about this memory..."</p>
+</div>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+<div class="flex gap-md">
+<button class="flex-1 bg-primary text-on-primary py-4 rounded-2xl font-label-sm uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]">share</span>
+                Share
+            </button>
+<button class="px-6 py-4 rounded-2xl bg-surface-container-high text-on-surface-variant border border-outline-variant flex items-center justify-center active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Background Atmospheric Effect -->
+<div class="fixed inset-0 -z-10 pointer-events-none opacity-20">
+
+</div>
+<script>
+        // Micro-interaction: Header opacity on scroll
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 50) {
+                header.classList.add('bg-background/95');
+                header.classList.add('shadow-xl');
+            } else {
+                header.classList.remove('bg-background/95');
+                header.classList.remove('shadow-xl');
+            }
+        });
+
+        // Toggle delete button interaction (simulated)
+        const deleteBtn = document.querySelector('button .material-symbols-outlined[content="delete"]')?.parentElement;
+        if(deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                if(confirm('Delete this memory?')) {
+                    alert('Memory archived.');
+                }
+            });
+        }
+    </script>
+</body></html>

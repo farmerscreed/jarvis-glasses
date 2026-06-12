@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>JARVIS | Timeline</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Space+Grotesk:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#262a30",
+                    "secondary": "#bfc7d7",
+                    "secondary-fixed-dim": "#bfc7d7",
+                    "inverse-on-surface": "#2d3136",
+                    "on-tertiary-container": "#794b00",
+                    "on-secondary-fixed": "#141c28",
+                    "on-primary-container": "#005e6f",
+                    "on-tertiary-fixed": "#2b1700",
+                    "tertiary-fixed": "#ffddb9",
+                    "surface-tint": "#36d8fb",
+                    "primary-container": "#3ddcff",
+                    "on-primary": "#003641",
+                    "on-tertiary-fixed-variant": "#663e00",
+                    "tertiary": "#ffe2c4",
+                    "surface-container-low": "#181c21",
+                    "on-tertiary": "#472a00",
+                    "tertiary-fixed-dim": "#ffb961",
+                    "on-background": "#e0e2ea",
+                    "outline-variant": "#3c494d",
+                    "inverse-primary": "#00687b",
+                    "on-error-container": "#ffdad6",
+                    "surface-variant": "#31353b",
+                    "surface-bright": "#36393f",
+                    "outline": "#869397",
+                    "on-primary-fixed-variant": "#004e5d",
+                    "background": "#101419",
+                    "primary": "#bbefff",
+                    "on-surface-variant": "#bbc9ce",
+                    "on-secondary-container": "#b4bccc",
+                    "surface-dim": "#101419",
+                    "secondary-container": "#444c59",
+                    "on-error": "#690005",
+                    "surface": "#101419",
+                    "secondary-fixed": "#dbe3f3",
+                    "primary-fixed": "#aeecff",
+                    "on-secondary": "#29313d",
+                    "on-secondary-fixed-variant": "#3f4754",
+                    "surface-container": "#1c2025",
+                    "primary-fixed-dim": "#36d8fb",
+                    "error": "#ffb4ab",
+                    "surface-container-lowest": "#0a0e13",
+                    "inverse-surface": "#e0e2ea",
+                    "on-primary-fixed": "#001f26",
+                    "surface-container-highest": "#31353b",
+                    "tertiary-container": "#ffbe6f",
+                    "on-surface": "#e0e2ea",
+                    "error-container": "#93000a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "2xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "xs": "4px",
+                    "lg": "24px",
+                    "unit": "4px",
+                    "margin-desktop": "64px",
+                    "md": "16px",
+                    "sm": "8px",
+                    "gutter": "16px",
+                    "xl": "40px",
+                    "margin-mobile": "24px"
+            },
+            "fontFamily": {
+                    "data-mono": ["JetBrains Mono"],
+                    "headline-lg-mobile": ["Space Grotesk"],
+                    "body-lg": ["Inter"],
+                    "display-lg": ["Space Grotesk"],
+                    "display-md": ["Space Grotesk"],
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Space Grotesk"]
+            },
+            "fontSize": {
+                    "data-mono": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "display-md": ["36px", {"lineHeight": "44px", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg": ["28px", {"lineHeight": "36px", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(26, 34, 46, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .voice-wave {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            height: 24px;
+        }
+        .wave-bar {
+            width: 3px;
+            background: #36d8fb;
+            border-radius: 2px;
+            animation: wave-pulse 1.2s ease-in-out infinite;
+        }
+        @keyframes wave-pulse {
+            0%, 100% { height: 4px; }
+            50% { height: 20px; }
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #31353b; border-radius: 10px; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-xl border-b border-white/20 flex items-center justify-between px-margin-mobile py-sm">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary active:scale-95 transition-transform cursor-pointer">menu</span>
+<h1 class="font-display-md text-display-md tracking-tighter text-primary">JARVIS</h1>
+</div>
+<span class="material-symbols-outlined text-primary hover:opacity-80 transition-opacity cursor-pointer">help</span>
+</header>
+<main class="pt-24 px-margin-mobile max-w-[600px] mx-auto">
+<!-- Natural Language Search -->
+<div class="mb-xl relative group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">search</span>
+</div>
+<input class="w-full bg-surface-container-lowest border-b border-outline focus:border-primary-fixed-dim focus:ring-0 text-body-lg font-body-lg pl-12 pr-4 py-4 transition-all duration-300 placeholder:text-outline-variant outline-none" placeholder="the bookshop with the green door..." type="text"/>
+</div>
+<!-- Timeline List -->
+<div class="space-y-xl">
+<!-- Group: Today -->
+<section>
+<div class="flex items-center gap-md mb-lg">
+<h2 class="font-headline-lg text-headline-lg-mobile text-on-surface">Today</h2>
+<div class="h-px flex-1 bg-outline-variant/30"></div>
+</div>
+<div class="space-y-md">
+<!-- Photo Memory Card -->
+<article class="glass-card rounded-2xl overflow-hidden p-md group hover:border-primary/40 transition-colors">
+<div class="flex gap-md">
+<div class="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A moody, high-end photography of a quaint bookshop exterior with a prominent, deep forest green wooden door. Warm incandescent light spills out of large glass windows onto a wet cobblestone street at dusk. The overall atmosphere is cozy, atmospheric, and highly detailed with a professional cinematic color grade including deep shadows and vibrant emerald accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-9qsQTdJ5YVuEDl2tAu4e9lG5OUHhpiXBSK2_Nz3EZxTyQqYcEk_bXOFNqd867xlPsqoqoj3C5PceZvlrBLh2UX8gOXDFot2lh_dDzkc0tcfmzaky9RjwfKoI_e7kB8qBiFL9gtxnxfvzxtrOzDEoY1vLHDBWt2KWEGZ9LWQ2JrV420h0G_WwSrG7NNiRVAWXb3teKgjF_WQ_Mc_QkiYfr8d5hmF3Ng3CyAwU64QvJgjfxQ9WCU9t_1wOm1sfJc-TomJfPlMca08"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-data-mono text-data-mono text-outline">14:42</span>
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[16px]" style="font-variation-settings: 'FILL' 1;" title="on phone">check_circle</span>
+</div>
+<p class="text-on-surface-variant font-body-md line-clamp-2">Visual match for 'Green Door Books'. Cataloged as a high-frequency destination with architectural interest.</p>
+<div class="mt-sm flex gap-xs">
+<span class="px-sm py-[2px] bg-secondary-container/30 border border-outline-variant rounded-full text-[10px] font-label-sm uppercase tracking-wider text-secondary">Architecture</span>
+<span class="px-sm py-[2px] bg-secondary-container/30 border border-outline-variant rounded-full text-[10px] font-label-sm uppercase tracking-wider text-secondary">Retail</span>
+</div>
+</div>
+</div>
+</article>
+<!-- Voice Note Card -->
+<article class="glass-card rounded-2xl p-md">
+<div class="flex items-center justify-between mb-sm">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">mic</span>
+<span class="font-data-mono text-data-mono text-outline">12:15 • 0:42</span>
+</div>
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[16px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="voice-wave mb-md">
+<div class="wave-bar" style="animation-delay: 0.1s; height: 12px;"></div>
+<div class="wave-bar" style="animation-delay: 0.2s; height: 18px;"></div>
+<div class="wave-bar" style="animation-delay: 0.3s; height: 8px;"></div>
+<div class="wave-bar" style="animation-delay: 0.4s; height: 22px;"></div>
+<div class="wave-bar" style="animation-delay: 0.5s; height: 14px;"></div>
+<div class="wave-bar" style="animation-delay: 0.6s; height: 19px;"></div>
+<div class="wave-bar" style="animation-delay: 0.7s; height: 10px;"></div>
+<div class="wave-bar" style="animation-delay: 0.8s; height: 16px;"></div>
+<div class="wave-bar" style="animation-delay: 0.9s; height: 24px;"></div>
+</div>
+<p class="font-body-md italic text-on-surface-variant">"...remember to check the first edition section for the gift for Sarah, specifically the leather-bound ones..."</p>
+</article>
+</div>
+</section>
+<!-- Group: Yesterday -->
+<section>
+<div class="flex items-center gap-md mb-lg">
+<h2 class="font-headline-lg text-headline-lg-mobile text-on-surface">Yesterday</h2>
+<div class="h-px flex-1 bg-outline-variant/30"></div>
+</div>
+<div class="space-y-md">
+<!-- Q&A Exchange Card -->
+<article class="glass-card rounded-2xl p-md">
+<div class="flex justify-between items-center mb-md">
+<span class="font-data-mono text-data-mono text-outline">21:04</span>
+<span class="material-symbols-outlined text-primary text-[18px]">cloud_done</span>
+</div>
+<div class="space-y-md">
+<div class="flex flex-col items-end">
+<div class="bg-primary-container text-on-primary-container px-md py-sm rounded-2xl rounded-tr-xs max-w-[85%] text-body-md">
+                                    JARVIS, what's the history of the green door bookstore we passed?
+                                </div>
+</div>
+<div class="flex flex-col items-start">
+<div class="bg-surface-variant text-on-surface-variant px-md py-sm rounded-2xl rounded-tl-xs max-w-[85%] text-body-md border border-white/5">
+                                    Established in 1924, it was originally a clandestine printer for revolutionary pamphlets. The green door was painted by the current owner's grandfather in 1952.
+                                </div>
+</div>
+</div>
+</article>
+<!-- Place Memory Card -->
+<article class="glass-card rounded-2xl p-md">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">location_on</span>
+<div>
+<h4 class="font-body-lg text-on-surface font-semibold">Green Door Books</h4>
+<p class="font-label-sm text-outline">London, WC2E</p>
+</div>
+</div>
+<span class="font-data-mono text-data-mono text-outline">14:10</span>
+</div>
+<div class="w-full h-32 rounded-xl overflow-hidden relative border border-white/10">
+<img class="w-full h-full object-cover grayscale opacity-60" data-location="London" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUGRSEz2OiVz3LUJmLxsaDYo4mnRFt8qzeWKZfvds2-V50npsOnddE1cCOrQ7K1AIoSD6xHGjMDEBlAN8Cd4cGImoQNRePl5ws41MLGmDMNAwE-GUuYuZa8gOyQ5XjrYQSX5u8nzoiT6WpWOQPsz-1PLTJ0cpWVfhuBYvWCgd8WHCZVQ4xFgB1THHeRwBrY1d_4VO-CQ33OBFPV3hF0J0NDsYn8FWi0qH75Cv-Gwo88rzjUW8xs9ek8s2uimfWCws_VbeJwS3Tf-0"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-4 h-4 bg-primary rounded-full animate-ping opacity-75"></div>
+<div class="w-2 h-2 bg-primary rounded-full absolute"></div>
+</div>
+</div>
+</article>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface-container-low/90 backdrop-blur-lg shadow-lg shadow-black/30 flex justify-around items-center h-16 px-4 pb-safe">
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined">sensors</span>
+<span class="font-label-sm text-label-sm">Live</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-sm text-label-sm">Timeline</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="font-label-sm text-label-sm">Gallery</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-90 duration-200">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-sm text-label-sm">Settings</span>
+</button>
+</nav>
+<!-- Voice Orb (Atmospheric Micro-interaction) -->
+<div class="fixed bottom-24 right-margin-mobile z-40">
+<div class="w-12 h-12 rounded-full bg-primary/20 backdrop-blur-md flex items-center justify-center border border-primary/30 group cursor-pointer hover:scale-110 transition-transform">
+<div class="w-6 h-6 bg-primary rounded-full animate-pulse blur-[4px]"></div>
+<div class="absolute w-6 h-6 bg-primary/40 rounded-full animate-ping"></div>
+</div>
+</div>
+<script>
+        // Simple micro-interaction for the search bar pulse
+        const searchInput = document.querySelector('input');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('scale-[1.01]');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('scale-[1.01]');
+        });
+
+        // Dynamic Waveform heights
+        const bars = document.querySelectorAll('.wave-bar');
+        bars.forEach(bar => {
+            bar.style.animationDuration = (0.6 + Math.random() * 0.8) + 's';
+        });
+    </script>
+</body></html>
