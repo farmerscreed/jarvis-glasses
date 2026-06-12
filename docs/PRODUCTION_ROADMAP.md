@@ -101,6 +101,14 @@ offline, and Android TTS is on-device. Only two things currently require the clo
 (Gemini) and the brain (Claude). So we re-architect around a local-first core and treat the cloud
 as an enhancer, not a dependency.*
 
+> **Status — C1 DONE & device-verified (2026-06-12):** local-first write path + outbox + idempotency
+> shipped (Room `local_memories`, `MemoryStore`, `ConnectivityGovernor` FULL/OFF_GRID, server
+> `client_id` dedupe, "Cloud: …" chip). Captures are durable offline and drain on reconnect with no
+> duplicates. **Still to build in C:** background drain when the app is killed (WorkManager + the
+> Phase B foreground service), on-device embeddings for *semantic* offline recall (§4.2 — C1 ships
+> only a naive keyword fallback), the LEAN tier RTT probe (§4.4), Jarvis Lite (§4.3), and the
+> type-to-Jarvis modality fallback (§4.5).
+
 ### 4.1 The three-tier capability model
 
 A `ConnectivityGovernor` continuously scores the link (reachability + RTT probe to our API +
