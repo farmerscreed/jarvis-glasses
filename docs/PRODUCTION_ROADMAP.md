@@ -260,18 +260,28 @@ everything: **~$15–35/mo**; light use stays **under $10/mo**.
 *Current: fixed 5 s recording + sequential STT→LLM→TTS ≈ 10–15 s. Target: ≤3 s from end-of-speech
 to first spoken word on FULL tier.*
 
-1. **VAD endpointing (do first, biggest win/effort ratio):** stop recording on ~700 ms of trailing
-   silence instead of a fixed 5 s (WebRTC VAD or Silero-VAD tflite). Saves up to ~4 s alone.
+> **Measured baseline (D1, on device 2026-06-12, `EchoLatency` log):**
+> `record≈6.6 s` (1.5 s SCO setup + VAD window) · `stt≈3.7 s` (Gemini) · `llm≈5.1 s` (Claude RAG) ·
+> **time-to-speak≈15.5 s** on a no-speech run. This data directs the rest of the phase: STT and LLM
+> (≈8.8 s combined) are the streaming targets; SCO setup (1.5 s) is the warm-path target.
+
+1. ~~**VAD endpointing**~~ **DONE (D1):** `BtAudioEngine.recordUntilSilence()` — energy VAD,
+   endpoints on ~700 ms trailing silence; 4 s no-speech timeout; 12 s cap. Replaces the fixed 5 s.
 2. **Streaming STT:** stream audio chunks as they record (Gemini Live API, or swap STT to a
-   streaming provider) so the transcript is ready ~instantly at end-of-speech.
-3. **Streaming LLM → sentence-chunked TTS:** stream Claude tokens; speak sentence 1 while sentences
-   2+ generate. Perceived latency = time-to-first-sentence.
-4. **Warm paths:** keep SCO pre-negotiated while in "hands-free" mode; reuse HTTP/2 connections;
-   pre-fetch top-K recall *while the user is still speaking* (embed partial transcript).
-5. **Earcons:** a soft "listening" / "thinking" sound so silence never feels like failure — cheap,
-   huge perceived-latency win.
-- **Instrument it:** log per-stage timings (record / stt / recall / llm-first-token / tts-start) to
-  a local trace; you can't win a war you can't measure.
+   streaming provider) so the transcript is ready ~instantly at end-of-speech. *(next)*
+3. **Streaming LLM → sentence-chunked TTS:** **infrastructure built & server-verified (D2), live
+   wiring deferred.** `chat-stream` Edge Function (RAG → SSE: `memories`/`{t}`/`done`,
+   persist via `EdgeRuntime.waitUntil`), `EchoBackend.chatStream`, `SentenceChunker`,
+   `TtsEngine.beginStream/enqueue` all exist; curl reconstructs the full streamed answer. **Kept
+   out of the live loop** because the in-app SSE path delivered `memories` but not the token deltas
+   reliably through the **local Kong gateway** (a local-dev proxy buffering quirk). The live
+   voice/ask loop stays on non-streaming `backend.chat` for now. **Finish this against cloud
+   Supabase in Phase E**, where SSE isn't behind the local Kong proxy.
+4. **Warm paths:** keep SCO pre-negotiated while in "hands-free" mode (kills the 1.5 s setup on the
+   hot path); reuse HTTP/2 connections; pre-fetch top-K recall *while the user is still speaking*.
+5. ~~**Earcons**~~ **DONE (D1):** `BtAudioEngine.earcon(LISTENING/THINKING)` in-ear tones.
+- ~~**Instrument it**~~ **DONE (D1):** per-stage timings to `EchoLatency` + "Done · Nms to first
+  word" in the UI. You can't win a war you can't measure — and now we can.
 
 ## 6. Phase E — Real users (auth, onboarding, cloud)
 

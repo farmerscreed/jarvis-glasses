@@ -79,7 +79,7 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
    - **C5** deferred vision/transcribe re-run — off-grid captures save a placeholder (held back from sync), then get real Claude/Gemini content on reconnect. Verified: off-grid Look & Ask → placeholder → reconnect → real description synced.
    - **C6** LEAN tier — RTT probe (FULL/LEAN/OFF_GRID), "online · slow" chip, `ask()` fails fast to on-device answer on a slow link.
    **Deferred by design:** the optional large on-device LLM ("Offline Pack", ~1–2 GB) — the rule-based floor makes the product offline-complete without it; the pack is a download-gated quality enhancement. **Small follow-ups (not blockers):** refresh-token rotation for long-lived background auth; on-device dictation (Vosk) for true off-grid voice. Phase C is also the cost lever (§4.7).
-4. Phase D latency (VAD + streaming); then auth/onboarding/cloud Supabase; hardening; release.
+4. **Phase D — latency war (in progress).** **D1 DONE & on-device:** VAD endpointing (`recordUntilSilence` — stop ~0.7 s after you stop talking vs fixed 5 s), earcons, per-stage `EchoLatency` instrumentation. Measured baseline (no-speech): record≈6.6 s · stt≈3.7 s · llm≈5.1 s. **D2 streaming chat — built & server-verified (curl), live wiring deferred:** `chat-stream` SSE function + `chatStream`/`SentenceChunker`/streaming-TTS exist, but the in-app SSE path flaked through the local Kong proxy, so the live loop stays on non-streaming chat; finish against cloud Supabase in Phase E. Then auth/onboarding/cloud; hardening; release.
 5. Polish: 16 KB-aligned native libs (Vosk).
 
 **Settled decisions (2026-06-12, see `docs/PRODUCTION_ROADMAP.md`):**
