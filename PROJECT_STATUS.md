@@ -71,9 +71,14 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
 *Full start-to-finish production plan (incl. offline-first architecture + UI/UX design workflow): `docs/PRODUCTION_ROADMAP.md`.*
 1. ~~**Glasses-button reactions**~~ **DONE in-app (2026-06-12):** protocol decoded + reactions live (see §3 row). Remaining for Phase B: (a) live-press verification of the AI gesture + audio route by the director (BLE-cmd capture path verified end-to-end), (b) `ConnectedCompanionService` foreground service so reactions work with the app backgrounded/killed. **Gotchas discovered (documented in `Glasses_Controls.md` §4):** glasses delete their files + emit a zero-inventory event after each sync (only an inventory *increase* = new capture); `BC 41` frames are command-ACK echoes, never events (parsing them as events causes a capture storm); audio records as `.opus` (route as `audio/ogg`); Wi-Fi-start ACK leaks SSID+passphrase.
 2. ~~**Persist images**~~ **DONE (2026-06-11, server-verified):** private `media`/`audio` buckets + owner RLS (migration); `EchoBackend.uploadMedia()`/`signedMediaUrl()`; `media_path` now actually sent by `IngestRequest` (was silently dropped); Look&Ask uploads the photo and stores its storage key. **Verified on device (2026-06-12):** glasses capture → sync → Look & Ask → memory row carries the storage key → signed URL serves the real JPEG (695 KB) → anon read blocked. Gallery/timeline UI deferred to the design-integration phase (`docs/PRODUCTION_ROADMAP.md` §11).
-3. **Auto-sync on capture** + dedup (don't re-pull already-imported files); P2P reliability (retries/timeouts like the stock app).
-4. Streaming STT/TTS for latency; real auth UI; **cloud Supabase migration** (`supabase db push`); productionize (no cleartext, no hardcoded login).
-5. Polish: 16 KB-aligned native libs (Vosk); V2 video processing.
+3. **← NOW: Phase C — offline-first rebuild** (`docs/PRODUCTION_ROADMAP.md` §4). Local-first memory core (Room + outbox), on-device embeddings for offline recall, 3-tier connectivity governor (FULL/LEAN/OFF-GRID), Jarvis Lite (on-device brain), modality fallback (type-to-Jarvis when voice fails). This is also the cost lever (§4.7).
+4. Phase D latency (VAD + streaming); then auth/onboarding/cloud Supabase; hardening; release.
+5. Polish: 16 KB-aligned native libs (Vosk).
+
+**Settled decisions (2026-06-12, see `docs/PRODUCTION_ROADMAP.md`):**
+- **Two-Speed Brain** (§1): fast reflexive lane (voice, Phases C/D) + deliberate lane (capture-anchored, tool-using, patient — V2).
+- **Cost & auth** (§4.7): API-only (the Claude subscription cannot back the app — rejected); cost controlled by tiered models + prompt caching + Batch API + offline-first. Est. **$3–10/mo** core, **~$15–35/mo** power use.
+- **"Ask Jarvis" deliberate lane** (§10a): price-check / research / count-materials from a photo. **GATE: brainstorm the screenless multi-turn-with-a-photo UX puzzle BEFORE building it.**
 
 ## 9. Environment (this machine)
 Windows 11. Android SDK at `%LOCALAPPDATA%\Android\Sdk` (platforms 36), JDK 17 (Adoptium), Docker Desktop, Supabase CLI, Node 24, adb. Test device: Pixel 8 (Android 16). Full recon tooling (decompiled stock app, APKs, evidence) lives locally in `..\Jarvis Glasses\` (not committed — too large).

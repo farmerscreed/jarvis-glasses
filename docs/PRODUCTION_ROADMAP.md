@@ -36,8 +36,16 @@ Everything below ladders into those five pillars.
         G. Release engineering     (signing, R8, 16KB, Play listing, beta)
         H. Ops & cost              (monitoring, quotas, kill switches)
         UI ─ runs in parallel from C onward (design externally, integrate after engine)
-        V2 ─ video, meeting capture, translation, OCR (out of scope here, noted at end)
+        V2 ─ "Ask Jarvis" (agentic vision+tools), video, meeting capture, translation, OCR (noted at end)
 ```
+
+**The Two-Speed Brain (the architecture every phase serves).** JARVIS has two brains, and almost
+every decision below follows from keeping them separate:
+- **Fast / reflexive lane** — wake word → RAG answer → spoken in ~3 s. Latency-bound. Sonnet/Haiku,
+  no tools, on-device fallback. This is what Phases C and D build.
+- **Deliberate lane** — capture-anchored, multi-turn, tool-using (web search, code-assisted vision),
+  *not* latency-bound, so it may think 10–30 s. Runs on the patient/batched path. This is the V2
+  "Ask Jarvis" headliner (§10) and the legitimate home for "heavy tasks that aren't time-conscious."
 
 Suggested ordering rationale: **A** is half-done (storage migration exists uncommitted; `media_path`
 is silently dropped in `IngestRequest`). **B** is the riskiest unknown (BLE notification recon) and
@@ -193,6 +201,33 @@ missing, the user is in a meeting and can't speak, or simply has no voice that d
 - Throttle to 2G (or `adb` network shaping) → voice question answers within 10 s via fallback, no
   hang, no crash.
 
+### 4.7 Cost & auth — settled decision (2026-06-12)
+
+**The Claude subscription (Pro/Max) cannot be the app's backend — API only.** The subscription and
+the Developer API are separate products; the subscription entitles *interactive* use (claude.ai
+apps, Claude Code for the developer), not app-serving. Driving app requests through a headless
+Claude Code / Agent SDK carrying the subscription token is outside intended use, hits interactive
+rate limits, risks the account, and is a dead end for a shippable product — **rejected.** The
+subscription stays for what it's for: building this (Claude Code) and the user's own thinking.
+
+Cost is controlled by architecture, not by avoiding the API:
+- **Tiered models:** Haiku 4.5 ($1/$5 per MTok) for captions/classification/intent; Sonnet 4.6
+  ($3/$15) for the everyday brain; Opus 4.8 ($5/$25) rarely. Default Sonnet, route the easy stuff
+  to Haiku, reach for Opus almost never.
+- **Prompt caching:** cache the stable system+persona+memory prefix → repeat reads ~0.1× input
+  price (up to ~90% off). Biggest single lever for a constantly-calling companion.
+- **Batch API (50% off) = the legitimate "patient lane"** for non-real-time work (auto-captions,
+  research, deliberate-lane tasks). This is where the user's "heavy tasks that aren't
+  time-conscious" instinct lands — batched API, not the subscription.
+- **Offline-first (this phase) is also the cost lever:** on-device embeddings make recall free;
+  Jarvis Lite answers simple turns for $0; the cloud only sees genuinely hard work.
+
+**Monthly estimate (single daily-driver user):** core companion (voice + Look & Ask + captions),
+all-cloud ≈ **$6–10/mo** (vision dominates); with offline-first offload ≈ **$3–6/mo**. Adding the
+agentic deliberate-lane features (research/count, ~3–8 heavy tasks/day, web search + bigger
+reasoning) adds ≈ **$5–20/mo** (confirm web-search per-call fee). All-in for a power user using
+everything: **~$15–35/mo**; light use stays **under $10/mo**.
+
 ## 5. Phase D — The latency war (12 s → ~3 s perceived)
 
 *Current: fixed 5 s recording + sequential STT→LLM→TTS ≈ 10–15 s. Target: ≤3 s from end-of-speech
@@ -296,6 +331,29 @@ to first spoken word on FULL tier.*
 Video processing (firmware already captures it; we preserve files), Meeting Capture (audio bucket
 already exists in the storage migration), Read-it-to-me / OCR (Look & Ask + OCR prompt — nearly
 free once C/D land), Translation (sign + live conversation), iOS.
+
+### 10a. "Ask Jarvis" — the deliberate lane (V2 headliner)
+
+The destination the whole engine is building toward: **a capture you can have a conversation with,
+where Jarvis can reach for tools.** Reuses every existing pipeline (capture → sync → vision) and
+adds: tool use (web search/fetch, code-assisted vision) + a multi-turn thread anchored on the
+capture + the memory index as context. Runs on the **deliberate lane** (patient/batched, not
+latency-bound — may think 10–30 s). Target use cases from the director (2026-06-12):
+- **"Check this price online"** — vision identifies the product → web search → spoken summary.
+- **"Research this"** — web fetch + reasoning → a briefing in your ear, stored as a recallable memory.
+- **"Count these"** (rods, blocks, materials on a site) — high-res vision + a **code-assisted
+  grid-and-sum** pass (crop into cells, count each, total) for reliability. Honest framing:
+  counting many small repeated objects is hard — present it as "Jarvis's count," let the user
+  correct it, and store the correction as a memory.
+
+> **GATE — brainstorm the UX puzzle BEFORE building "Ask Jarvis."** These glasses have **no screen**,
+> so "having a discussion with a photo" is an unsolved interaction-design problem, not just an
+> engineering one: how do you anchor a multi-turn conversation to a specific capture, by voice
+> alone? How does the user know *which* photo Jarvis is talking about? How are tool results
+> (prices, counts, research) delivered in the ear without a list to read? How do you confirm/correct
+> a count hands-free? **Do not start the build until this UX is brainstormed and decided** (and run
+> through the external design loop in §11 where a screen surface is involved). The pipelines are
+> ready; the experience is not — solve the experience first.
 
 ### The North Star beyond V2: a quiet Machine of One (the *Person of Interest* direction)
 
