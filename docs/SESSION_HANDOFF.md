@@ -256,10 +256,12 @@ before building (roadmap §10a).
   now surface GoTrue's real message. **Watch for the encodeDefaults trap in every new request DTO.**
 - **Capture/upload paths not yet exercised against cloud** (remember/photo/audio sync) — next
   glasses session; also still owed: voice-path `EchoLatency` numbers with streaming on.
-- **UI screens that need read-only engine queries to go real** (deliberately NOT added during the
-  UI pass — needs director sign-off): Timeline browse-by-day river (a `MemoryDao`/`MemoryStore`
-  "recent memories" query + ViewModel exposure), Gallery grid + memory detail (a media listing).
-  Today Timeline shows the last recall results; Gallery shows the designed empty state.
+- ~~UI read-only engine queries~~ **DONE (director-approved, 2026-06-12):** `MemoryStore.recent()`
+  / `.mediaMemories()` (+ `MemoryDao.recentMedia`), `toMemory()` carries createdAt + syncState/
+  localMediaPath via `Memory.metadata`. Timeline is the real day-grouped river with read-only
+  semantic search (never speaks); Gallery is a 3-up local-thumbnail grid. Device-verified.
+  Memory **detail** screens (memory_detail_photo/_voice_note) still unbuilt — needs signed-URL
+  media viewing; build when tackling that.
 - **Designed screens not yet built** (features don't exist yet): onboarding wizard, Help & Learn
   center (the "?" shows a stub dialog), translation/OCR/meeting consoles, Ask-Jarvis (V2),
   notification showcase. Build each alongside its feature.
