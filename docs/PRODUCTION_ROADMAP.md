@@ -101,13 +101,20 @@ offline, and Android TTS is on-device. Only two things currently require the clo
 (Gemini) and the brain (Claude). So we re-architect around a local-first core and treat the cloud
 as an enhancer, not a dependency.*
 
-> **Status — C1 DONE & device-verified (2026-06-12):** local-first write path + outbox + idempotency
-> shipped (Room `local_memories`, `MemoryStore`, `ConnectivityGovernor` FULL/OFF_GRID, server
-> `client_id` dedupe, "Cloud: …" chip). Captures are durable offline and drain on reconnect with no
-> duplicates. **Still to build in C:** background drain when the app is killed (WorkManager + the
-> Phase B foreground service), on-device embeddings for *semantic* offline recall (§4.2 — C1 ships
-> only a naive keyword fallback), the LEAN tier RTT probe (§4.4), Jarvis Lite (§4.3), and the
-> type-to-Jarvis modality fallback (§4.5).
+> **Status — C1+C2+C3 DONE & device-verified (2026-06-12):**
+> - **C1** local-first write path + outbox + `client_id` idempotency (Room `local_memories`,
+>   `MemoryStore`, `ConnectivityGovernor` FULL/OFF_GRID, "Cloud: …" chip).
+> - **C2** background drain via WorkManager (survives app kill) + persisted session token
+>   (`SyncWorker`/`SyncScheduler`; verified by killing the process and watching a fresh
+>   WorkManager-woken process drain with no UI).
+> - **C3** on-device embeddings for *semantic* offline recall (bundled USE model via MediaPipe;
+>   `Embedder`/`MediaPipeEmbedder`, `LocalMemory.embedding` BLOB, cosine search in `MemoryStore`).
+>   Dual-embedding preserved (local off-grid-only; Gemini 1536-dim canonical online).
+>
+> **Still to build in C:** the LEAN tier RTT probe + degraded behaviour (§4.4), Jarvis Lite to phrase
+> real off-grid answers (§4.3 — C3 returns the closest memory, not yet a composed answer), the
+> type-to-Jarvis modality fallback (§4.5), deferred-vision/transcribe re-run for rows tagged
+> `needs_vision`/`needs_transcribe`, and refresh-token rotation for long-lived background auth.
 
 ### 4.1 The three-tier capability model
 
