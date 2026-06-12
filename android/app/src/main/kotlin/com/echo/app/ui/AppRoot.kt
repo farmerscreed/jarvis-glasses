@@ -3,15 +3,11 @@ package com.echo.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -21,6 +17,7 @@ import com.echo.app.ui.components.JarvisBottomBar
 import com.echo.app.ui.components.JarvisTab
 import com.echo.app.ui.components.JarvisTopBar
 import com.echo.app.ui.dev.DevConsoleScreen
+import com.echo.app.ui.help.HelpScreen
 import com.echo.app.ui.screens.GalleryScreen
 import com.echo.app.ui.screens.LiveConsoleScreen
 import com.echo.app.ui.screens.SettingsScreen
@@ -36,7 +33,12 @@ fun AppRoot() {
     val vm: HomeViewModel = hiltViewModel()
     var tab by rememberSaveable { mutableStateOf(JarvisTab.Live) }
     var devConsole by rememberSaveable { mutableStateOf(false) }
-    var helpDialog by remember { mutableStateOf(false) }
+    var showHelp by rememberSaveable { mutableStateOf(false) }
+
+    if (showHelp) {
+        HelpScreen(onClose = { showHelp = false })
+        return
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -49,7 +51,7 @@ fun AppRoot() {
                     navigateBack = true,
                 )
             } else {
-                JarvisTopBar(onHelp = { helpDialog = true })
+                JarvisTopBar(onHelp = { showHelp = true })
             }
         },
         bottomBar = {
@@ -73,20 +75,4 @@ fun AppRoot() {
         }
     }
 
-    if (helpDialog) {
-        AlertDialog(
-            onDismissRequest = { helpDialog = false },
-            confirmButton = {
-                TextButton(onClick = { helpDialog = false }) { Text("OK") }
-            },
-            title = { Text("Help & Learn") },
-            text = {
-                Text(
-                    "Say “Jarvis” or press the glasses button to talk. Photos and voice notes " +
-                        "captured on the glasses sync automatically. The full Help & Learn center " +
-                        "ships in a later phase.",
-                )
-            },
-        )
-    }
 }
