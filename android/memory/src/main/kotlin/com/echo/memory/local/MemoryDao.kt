@@ -28,6 +28,14 @@ interface MemoryDao {
     @Query("UPDATE local_memories SET embedding = :embedding WHERE clientId = :clientId")
     suspend fun setEmbedding(clientId: String, embedding: ByteArray)
 
+    /** Replace text/tags/embedding after deferred AI (vision/transcribe) finally runs. */
+    @Query("UPDATE local_memories SET text = :text, tags = :tags, embedding = :embedding, updatedAt = :now WHERE clientId = :clientId")
+    suspend fun updateContent(clientId: String, text: String, tags: String, embedding: ByteArray?, now: Long)
+
+    /** Off-grid captures whose AI step (vision/transcribe) still owes a run, with a local file. */
+    @Query("SELECT * FROM local_memories WHERE localMediaPath IS NOT NULL AND (tags LIKE '%needs_vision%' OR tags LIKE '%needs_transcribe%')")
+    suspend fun needingReprocess(): List<LocalMemory>
+
     /** All memories that have a local embedding — the corpus for offline cosine search. */
     @Query("SELECT * FROM local_memories WHERE embedding IS NOT NULL")
     suspend fun withEmbeddings(): List<LocalMemory>

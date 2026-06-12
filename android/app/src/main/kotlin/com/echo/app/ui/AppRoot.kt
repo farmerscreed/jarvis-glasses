@@ -56,8 +56,13 @@ fun HomeScreen(vm: HomeViewModel) {
                 Text(vm.status, style = MaterialTheme.typography.bodyMedium)
             }
 
+            val cloudState = when {
+                !vm.online -> "OFF-GRID"
+                vm.tier == "lean" -> "online · slow"
+                else -> "online"
+            }
             Text(
-                "Cloud: ${if (vm.online) "online" else "OFF-GRID"}" +
+                "Cloud: $cloudState" +
                     if (vm.pendingSync > 0) " · ${vm.pendingSync} to sync" else " · all synced",
                 style = MaterialTheme.typography.bodySmall,
             )

@@ -55,8 +55,9 @@ class HomeViewModel @Inject constructor(
     var syncStatus by mutableStateOf("Pull captured media off the glasses"); private set
     var handsFree by mutableStateOf(false); private set
 
-    /** Offline-first surface: live online state + count of memories not yet pushed to the cloud. */
+    /** Offline-first surface: live online state, tier, + count of memories not yet pushed. */
     var online by mutableStateOf(true); private set
+    var tier by mutableStateOf("full"); private set
     var pendingSync by mutableStateOf(0); private set
 
     /** Set by the AI gesture (double-click BACK): the next synced photo gets full Look & Ask. */
@@ -68,8 +69,9 @@ class HomeViewModel @Inject constructor(
     init {
         // Restore sign-in from the persisted session token (survives app restarts).
         if (backend.isLoggedIn) { loggedIn = true; status = "Signed in (restored)" }
-        // Offline-first: mirror connectivity + outbox depth into Compose state.
+        // Offline-first: mirror connectivity + tier + outbox depth into Compose state.
         viewModelScope.launch { governor.online.collect { online = it } }
+        viewModelScope.launch { governor.tier.collect { tier = it.name.lowercase() } }
         viewModelScope.launch { store.pendingCount().collect { pendingSync = it } }
         // Mirror the BLE manager's status into Compose state (declared after the state it sets).
         viewModelScope.launch { ble.status.collect { bleStatus = it } }
@@ -174,19 +176,29 @@ class HomeViewModel @Inject constructor(
 
     fun ask() = run("Thinking…") {
         if (online) {
-            val result = backend.chat(question)
-            answer = result.answer
-            recalled = result.memoriesUsed
-            status = "Answered"
+            // Adaptive timeout (§4.4): on a slow/LEAN link, fail fast to the on-device answer
+            // rather than hanging on Claude.
+            val result = withTimeoutOrNull(12_000) { backend.chat(question) }
+            if (result != null) {
+                answer = result.answer
+                recalled = result.memoriesUsed
+                status = "Answered"
+            } else {
+                val hits = store.recall(question, limit = 3)
+                recalled = hits
+                answer = "Your connection's too slow right now, so here's what I have on-device:\n\n" +
+                    JarvisLite.answer(question, hits)
+                status = "Answered from memory (slow connection)"
+                tts.speak(answer)
+            }
         } else {
-            // Off-grid: no Claude, but we can still find the most relevant memory on-device
-            // (semantic search over local embeddings). Jarvis Lite will phrase a real answer later.
+            // Off-grid: no Claude, but Jarvis Lite phrases an answer from on-device semantic recall.
             status = "Off-grid — searching your memories…"
             val hits = store.recall(question, limit = 3)
             recalled = hits
-            answer = hits.firstOrNull()?.text
-                ?.let { "Off-grid. Your closest memory:\n\n$it" }
-                ?: "Off-grid, and I couldn't find a matching memory."
+            answer = JarvisLite.answer(question, hits)
+            status = "Speaking…"
+            tts.speak(answer)
             status = "Off-grid answer"
         }
     }
@@ -207,8 +219,17 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun doTalk() {
         val rec = audio.record(5000)
+        // Off-grid: cloud STT (Gemini) is unavailable and on-device dictation isn't wired yet, so
+        // fall back to the text path (modality fallback §4.5) rather than failing silently.
+        if (!online) {
+            val msg = "I can't transcribe speech while we're off-grid yet. Type your question and " +
+                "I'll answer from your memories."
+            answer = msg; status = "Off-grid — type to ask"
+            tts.speak("I can't hear you in detail off-grid yet. Type your question.")
+            return
+        }
         status = "Transcribing…"
-        val heard = backend.transcribe(WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate))
+        val heard = runCatching { backend.transcribe(WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)) }.getOrDefault("")
         question = heard.ifBlank { "(didn't catch that)" }
         if (heard.isNotBlank()) {
             status = "Thinking…"
@@ -292,18 +313,26 @@ class HomeViewModel @Inject constructor(
         if (photo == null) { status = "No synced photo — Sync from glasses first"; return@run }
         status = "Claude is looking at ${photo.name}…"
         val bytes = photo.readBytes()
-        val desc = backend.describeImage(
-            bytes,
-            "You are JARVIS. Say what's in this photo in one or two natural spoken sentences.",
-        )
-        answer = desc
+        // Offline-resilient: if vision can't run (off-grid), save the photo with a placeholder +
+        // needs_vision so it's never lost; the deferred re-run describes it once we're back online.
+        val visioned = runCatching {
+            backend.describeImage(bytes, "You are JARVIS. Say what's in this photo in one or two natural spoken sentences.")
+        }.getOrNull()
         recalled = emptyList()
         status = "Saving photo + memory…"
-        // Local-first: store the photo + description now (durable); the outbox uploads + ingests.
-        store.rememberLocal(Memory(type = MemoryType.PHOTO, text = desc), photo, "media")
-        status = "Speaking…"
-        tts.speak(desc)
-        status = "Look & Ask done"
+        if (visioned != null) {
+            answer = visioned
+            store.rememberLocal(Memory(type = MemoryType.PHOTO, text = visioned), photo, "media")
+            status = "Speaking…"; tts.speak(visioned); status = "Look & Ask done"
+        } else {
+            answer = "Off-grid — I saved the photo and I'll describe it when we're back online."
+            store.rememberLocal(
+                Memory(type = MemoryType.PHOTO, text = "(photo captured — description pending)", tags = listOf("needs_vision")),
+                photo, "media",
+            )
+            status = "Off-grid — photo saved, description pending"
+            tts.speak("Saved. I'll describe it when we're back online.")
+        }
     }
 
     private fun run(busyMsg: String, block: suspend () -> Unit) {

@@ -29,8 +29,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             .fromApplication(applicationContext, SyncEntryPoint::class.java)
             .memoryStore()
         return try {
-            val drained = store.drain(force = true)
-            Log.i("EchoSync", "background drain: fullyDrained=$drained")
+            val drained = store.syncAll(force = true) // deferred AI re-run + outbox drain
+            Log.i("EchoSync", "background sync: fullyDrained=$drained")
             if (drained) Result.success() else Result.retry() // retry until the outbox is empty
         } catch (e: Exception) {
             Log.w("EchoSync", "background drain failed: ${e.message}")

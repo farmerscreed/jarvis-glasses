@@ -60,7 +60,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideConnectivityGovernor(@ApplicationContext ctx: Context): ConnectivityGovernor =
-        ConnectivityGovernor(ctx)
+        ConnectivityGovernor(ctx, DevConfig.SUPABASE_URL + "/auth/v1/health")
 
     @Provides
     @Singleton

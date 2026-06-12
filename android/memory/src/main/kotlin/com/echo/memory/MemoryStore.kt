@@ -39,11 +39,17 @@ class MemoryStore(
     var onNeedsSync: (() -> Unit)? = null
 
     init {
-        // Drain on reconnect, and once at startup in case we were offline when memories were saved.
-        // Startup uses force=true: a freshly-started process's governor may not have validated the
-        // network yet, so don't let the cached online flag skip the attempt.
-        governor.onConnected = { scope.launch { drain() } }
-        scope.launch { drain(force = true) }
+        // On reconnect / at startup: first re-run any AI that was deferred while off-grid
+        // (vision/transcribe), then drain. Startup uses force=true: a freshly-started process's
+        // governor may not have validated the network yet, so don't let a cold flag skip it.
+        governor.onConnected = { scope.launch { syncAll() } }
+        scope.launch { syncAll(force = true) }
+    }
+
+    /** Catch up everything owed to the cloud: deferred AI first, then the outbox. */
+    suspend fun syncAll(force: Boolean = false): Boolean {
+        reprocessDeferred(force)
+        return drain(force)
     }
 
     /** Text-only memory (note / Q&A). */
@@ -93,10 +99,40 @@ class MemoryStore(
     suspend fun drain(force: Boolean = false): Boolean = drainMutex.withLock {
         if (!force && !governor.online.value) return false
         for (row in dao.pending()) {
+            // Don't sync a placeholder: rows still owing vision/transcribe wait for reprocessDeferred.
+            if (row.tags.contains("needs_vision") || row.tags.contains("needs_transcribe")) continue
             runCatching { syncOne(row) }
                 .onFailure { dao.markFailed(row.clientId, it.message ?: "sync error", System.currentTimeMillis()) }
         }
-        dao.pending().isEmpty()
+        dao.pending().none { !it.tags.contains("needs_vision") && !it.tags.contains("needs_transcribe") }
+    }
+
+    /**
+     * Re-run AI that was deferred while off-grid: a photo saved without a Claude description, or a
+     * voice clip without a transcript. Updates the memory's text + embedding and clears the
+     * needs_* tag, so the next drain syncs the *real* content (not the placeholder).
+     */
+    private suspend fun reprocessDeferred(force: Boolean = false) {
+        if (!force && !governor.online.value) return
+        for (row in dao.needingReprocess()) {
+            val file = row.localMediaPath?.let { java.io.File(it) } ?: continue
+            if (!file.exists()) continue
+            val tags = row.tags.split("\n").filter { it.isNotBlank() }
+            runCatching {
+                val newText = when {
+                    "needs_vision" in tags -> backend.describeImage(
+                        file.readBytes(),
+                        "One short sentence: caption this photo for a personal memory index.",
+                    )
+                    "needs_transcribe" in tags -> backend.transcribe(file.readBytes(), EchoBackend.mimeFor(file.name))
+                    else -> return@runCatching
+                }
+                if (newText.isBlank()) return@runCatching
+                val newTags = tags - "needs_vision" - "needs_transcribe"
+                val emb = embedder?.embed(newText)?.let { VectorUtil.toBytes(it) }
+                dao.updateContent(row.clientId, newText, newTags.joinToString("\n"), emb, System.currentTimeMillis())
+            }
+        }
     }
 
     private suspend fun syncOne(row: LocalMemory) {
