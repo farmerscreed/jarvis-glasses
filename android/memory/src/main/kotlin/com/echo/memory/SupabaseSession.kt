@@ -38,6 +38,13 @@ class SupabaseSession(
 
     val isLoggedIn: Boolean get() = accessToken != null
 
+    /** Forget the signed-in user (sign-out): wipes tokens + uid from memory and prefs. */
+    fun clear() {
+        accessToken = null
+        refreshToken = null
+        userId = null
+    }
+
     private companion object {
         const val KEY_TOKEN = "access_token"
         const val KEY_REFRESH = "refresh_token"

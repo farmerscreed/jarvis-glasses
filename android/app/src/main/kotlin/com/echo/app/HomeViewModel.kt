@@ -200,6 +200,14 @@ class HomeViewModel @Inject constructor(
         status = "Signed in as ${email.trim()}"
     }
 
+    fun signOut() = run("Signing out…") {
+        backend.signOut()
+        loggedIn = false
+        otpSent = false
+        otpCode = ""
+        status = "Not signed in"
+    }
+
     fun remember() = run("Saving memory…") {
         store.remember(Memory(type = MemoryType.NOTE, text = memoryText))
         status = if (online) "Remembered" else "Saved on phone — will sync when back online"

@@ -69,6 +69,21 @@ class EchoBackend(
         return true
     }
 
+    /** Sign out: best-effort server-side revoke, then always drop the local session. */
+    suspend fun signOut(): Unit = withContext(Dispatchers.IO) {
+        runCatching {
+            val token = session.accessToken ?: return@runCatching
+            val req = Request.Builder()
+                .url(session.baseUrl + "/auth/v1/logout")
+                .addHeader("apikey", session.anonKey)
+                .addHeader("Authorization", "Bearer $token")
+                .post(ByteArray(0).toRequestBody(null))
+                .build()
+            http.newCall(req).execute().close()
+        }
+        session.clear()
+    }
+
     private fun adopt(auth: AuthResponse, fallbackRefreshToken: String? = null) {
         session.accessToken = auth.access_token
         session.refreshToken = auth.refresh_token ?: fallbackRefreshToken

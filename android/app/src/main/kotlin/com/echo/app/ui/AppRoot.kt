@@ -192,6 +192,10 @@ fun HomeScreen(vm: HomeViewModel) {
                         Text("• ${m.text}", style = MaterialTheme.typography.bodySmall)
                     }
                 }
+
+                HorizontalDivider()
+
+                Button(onClick = vm::signOut, enabled = !vm.busy) { Text("Sign out") }
             }
         }
     }
