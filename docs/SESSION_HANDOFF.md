@@ -164,10 +164,13 @@ finishing the streaming latency work and is the prerequisite for everything user
 - ✅ **Cloud deployed (director-authorized, 2026-06-12):** all 3 migrations pushed, provider keys
   set as function secrets, all 6 Edge Functions deployed. Verified: auth health OK; every function
   answers **401 without a user JWT** (verify_jwt on). Prod-flavor build installed on the Pixel.
-- ⛔ **Director dashboard step (blocks OTP sign-in):** Auth → Email Templates → **Magic Link** must
-  include `{{ .Token }}` — the default template only has a link; the app's OTP flow needs the
-  6-digit code. Built-in SMTP is rate-limited (a few emails/hour) — fine personally; custom SMTP
-  is a Phase F/G item.
+- ✅ **Auth email: custom SMTP via the director's Resend (domain `leiko.app`)** — no dashboard step
+  needed. Pushed with `supabase config push` from `config.toml`: SMTP `smtp.resend.com:465` as
+  `Jarvis <jarvis@leiko.app>` (key = `RESEND_API_KEY` in gitignored `supabase/.env`, referenced via
+  `env()`), Magic Link template = 6-digit `{{ .Token }}` (`supabase/templates/magic_link.html`),
+  OTP length 8→6 (matches the app), email rate limit 2→30/h, site_url → `https://leiko.app`.
+  **Verified:** `/auth/v1/otp` for the director's email returned 200 → real code email delivered
+  through Resend (2026-06-12).
 - **PITR: skipped by decision (no paid features).** Backup story instead: if the org is on Pro,
   daily automated backups are already included; additionally a local logical dump any time:
   `supabase db dump -f backups/jarvis.sql --password <pw>` (+ `--data-only` variant for rows).
@@ -238,7 +241,11 @@ before building (roadmap §10a).
 ## 9. Open issues / risks to carry forward
 
 - In-app **SSE streaming** wired but unverified (local Kong buffers SSE; verify against cloud).
-- **Email-OTP sign-in** unverified; needs the Magic Link template edited to include `{{ .Token }}`.
+- **Email-OTP sign-in**: server side verified (code email delivered via Resend); the in-app flow
+  still needs one live run by the director.
+- `supabase config push` / local `supabase start` need `RESEND_API_KEY` exported from
+  `supabase/.env` first, or the `env()` substitution comes up empty (local dev never sends email,
+  so only config push really cares).
 - **No foreground service** yet → button reactions need the app foregrounded to be reliable.
 - **Off-grid voice** has no on-device dictation → falls back to typing.
 - **Dev flavor** keeps the hardcoded login + cleartext to 127.0.0.1 by design; prod compiles both out.
