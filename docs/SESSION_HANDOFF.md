@@ -69,8 +69,8 @@ pgvector) every feature reads/writes. Built offline-first: it must work in a tun
 
 **Cloud (Phase E, created 2026-06-12):** Supabase project **`jarvis-prod`**, ref
 `agtuimnppqbrjocuzqsk`, West EU (Ireland), org `bfpprerlkqqhoktadliq`. CLI is `supabase link`ed.
-DB password + ref live in gitignored `supabase/.env`. Migrations/functions/secrets **not pushed
-yet** (needs director-run commands, §6). App flavors: **dev** = local stack (cleartext +
+DB password + ref live in gitignored `supabase/.env`. Migrations, function secrets, and all 6
+functions are **deployed** (2026-06-12). App flavors: **dev** = local stack (cleartext +
 "Sign in (dev)"), **prod** = `https://agtuimnppqbrjocuzqsk.supabase.co` (TLS only, OTP sign-in only).
 
 **AI providers** (keys in `supabase/functions/.env`, gitignored): embeddings = Gemini
@@ -161,19 +161,21 @@ finishing the streaming latency work and is the prerequisite for everything user
   ✅ **refresh-token rotation** (persisted, rotated on any 401 — fixes long-lived background auth);
   ✅ **streaming LLM→TTS wired into the live loop** (ask + voice path, FULL tier, with one-shot
   fallback). All compile; none device-verified against cloud yet.
-- ⛔ **Blocked on director-run cloud deploy** (the agent's permission mode won't push to prod):
-  ```powershell
-  $pw = ((Get-Content supabase\.env) -match '^DB_PASSWORD=')[0].Substring(12)
-  supabase db push --password $pw
-  supabase secrets set --env-file supabase\functions\.env
-  supabase functions deploy
-  ```
-  Then in the dashboard: **Auth → Email Templates → Magic Link** must include `{{ .Token }}`
-  (default template only has the link; the app's OTP flow needs the 6-digit code), and decide on
-  **PITR** (paid add-on — not enabled silently).
-- **Still to do:** verify e2e on device (prod flavor), Google One-Tap (needs an OAuth client),
-  rate limits on functions, **onboarding + pairing wizard** (lands with the design integration;
-  the 35-screen Stitch design system arrived + committed this session — `docs/design/`).
+- ✅ **Cloud deployed (director-authorized, 2026-06-12):** all 3 migrations pushed, provider keys
+  set as function secrets, all 6 Edge Functions deployed. Verified: auth health OK; every function
+  answers **401 without a user JWT** (verify_jwt on). Prod-flavor build installed on the Pixel.
+- ⛔ **Director dashboard step (blocks OTP sign-in):** Auth → Email Templates → **Magic Link** must
+  include `{{ .Token }}` — the default template only has a link; the app's OTP flow needs the
+  6-digit code. Built-in SMTP is rate-limited (a few emails/hour) — fine personally; custom SMTP
+  is a Phase F/G item.
+- **PITR: skipped by decision (no paid features).** Backup story instead: if the org is on Pro,
+  daily automated backups are already included; additionally a local logical dump any time:
+  `supabase db dump -f backups/jarvis.sql --password <pw>` (+ `--data-only` variant for rows).
+  Take one after any schema change.
+- **Still to do:** device e2e verify (OTP sign-in → remember/ask → streaming voice turn),
+  Google One-Tap (needs an OAuth client), rate limits on functions. **Onboarding wizard + all
+  UI/UX integration is parked until after this version** (director decision 2026-06-12); the
+  35-screen Stitch design system is committed at `docs/design/` for when that starts.
 
 **Carried-over small, high-leverage items (can do anytime):**
 - **`ConnectedCompanionService` foreground service** — so glasses-button reactions + sync work with
@@ -235,8 +237,6 @@ before building (roadmap §10a).
 
 ## 9. Open issues / risks to carry forward
 
-- **Cloud deploy not yet run** (db push / secrets / functions deploy are director-gated) — until
-  then the prod flavor points at an empty project and nothing Phase E is device-verified.
 - In-app **SSE streaming** wired but unverified (local Kong buffers SSE; verify against cloud).
 - **Email-OTP sign-in** unverified; needs the Magic Link template edited to include `{{ .Token }}`.
 - **No foreground service** yet → button reactions need the app foregrounded to be reliable.
