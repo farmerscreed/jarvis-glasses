@@ -4,6 +4,15 @@
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
 *Last updated: 2026-06-12. Keep this current at the end of every working session.*
 
+**Repo is PUBLIC since 2026-06-12:** https://github.com/farmerscreed/jarvis-glasses (director's
+call). History was secret-swept before the flip — real keys live only in gitignored `.env` files;
+the committed `sb_*` keys are the CLI's shared local-dev defaults + the cloud anon key (public by
+design). Never commit a real key; remember `git push` now publishes immediately.
+
+**Branding (2026-06-12):** `/branding` — presence-orb logomark + JARVIS lockup SVGs (dark/light,
+Space Grotesk embedded), `play_store_icon_512.png`. Adaptive launcher icon wired in the manifest
+(`ic_launcher` vector foreground + `#0B0F14` background + monochrome layer).
+
 **Deeper docs (this file points to them; don't duplicate their depth here):**
 `PROJECT_STATUS.md` (feature status) · `docs/PRODUCTION_ROADMAP.md` (the full plan A→H + UI/UX
 design prompt) · `docs/recon/Glasses_Controls.md` & `docs/recon/Transfer_Protocol.md` (decoded
