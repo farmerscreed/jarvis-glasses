@@ -32,6 +32,7 @@ import com.echo.app.ui.components.JarvisSecondaryButton
 import com.echo.app.ui.components.SectionLabel
 import com.echo.app.ui.components.StatusChip
 import com.echo.app.ui.components.StatusLabel
+import com.echo.app.ui.components.rememberGlassesAudioConnected
 import com.echo.app.ui.theme.JarvisSpacing
 import com.echo.app.ui.theme.JarvisTheme
 
@@ -101,9 +102,9 @@ fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm),
                 verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm),
             ) {
-                val glassesConnected = vm.bleStatus.contains("onnected") && !vm.bleStatus.contains("isconnected")
+                val glassesConnected = rememberGlassesAudioConnected()
                 StatusChip(
-                    if (glassesConnected) "Glasses · Connected" else "Glasses · Searching",
+                    if (glassesConnected) "Glasses · Connected" else "Glasses · Not connected",
                     accent = if (glassesConnected) cyan else amber,
                 )
                 when {

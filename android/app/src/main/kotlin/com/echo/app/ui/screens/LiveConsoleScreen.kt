@@ -44,6 +44,7 @@ import com.echo.app.ui.components.OrbState
 import com.echo.app.ui.components.PresenceOrb
 import com.echo.app.ui.components.RoundIconButton
 import com.echo.app.ui.components.StatusChip
+import com.echo.app.ui.components.rememberGlassesAudioConnected
 import com.echo.app.ui.components.StatusLabel
 import com.echo.app.ui.components.TranscriptBubble
 import com.echo.app.ui.theme.JarvisSpacing
@@ -73,7 +74,9 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
     }
 
     var typeMode by remember { mutableStateOf(false) }
-    val glassesConnected = vm.bleStatus.contains("onnected") && !vm.bleStatus.contains("isconnected")
+    // The link that matters for voice is BT AUDIO (SCO), not the BLE control link: when the
+    // glasses hold the audio path, the mic records from THEM and answers play in THEIR speaker.
+    val glassesConnected = rememberGlassesAudioConnected()
     val amber = JarvisTheme.colors.presenceAmber
     val cyan = MaterialTheme.colorScheme.primaryContainer
 
@@ -97,7 +100,7 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
             if (glassesConnected) {
                 StatusChip("Glasses · Connected", accent = cyan)
             } else {
-                StatusChip("Glasses · Searching", accent = amber)
+                StatusChip("Glasses · Not connected", accent = amber)
             }
             when {
                 !vm.online -> StatusChip("Cloud · Off-grid", accent = amber)
@@ -155,19 +158,27 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
                         )
                         TranscriptBubble(vm.answer, fromUser = false)
                     }
-                    // Live engine status while a turn is running.
-                    if (vm.busy) {
-                        Text(
-                            vm.status,
-                            style = JarvisTheme.dataMono,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
                 }
             }
         }
 
-        Spacer(Modifier.height(JarvisSpacing.lg))
+        Spacer(Modifier.height(JarvisSpacing.sm))
+
+        // The engine's status line, ALWAYS visible — failures like "Didn't catch that" or
+        // "Error: …" must never vanish the instant busy flips off.
+        Text(
+            vm.status + if (glassesConnected) "  ·  audio in glasses" else "",
+            style = JarvisTheme.dataMono,
+            color = if (vm.status.startsWith("Error")) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(Modifier.height(JarvisSpacing.md))
 
         // Sync + input-route chips, from real outbox/BLE state. The mic-route chip only appears
         // when the glasses are NOT the mic (per the disconnected design); otherwise the caption
