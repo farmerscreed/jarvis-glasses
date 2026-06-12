@@ -418,6 +418,33 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Read-only library views (Timeline river + Gallery), refreshed by the screens on entry. */
+    var timeline by mutableStateOf<List<Memory>>(emptyList()); private set
+    var gallery by mutableStateOf<List<Memory>>(emptyList()); private set
+
+    /** Semantic search results for the Timeline (null = not searching, browse mode). */
+    var searchHits by mutableStateOf<List<Memory>?>(null); private set
+    var searching by mutableStateOf(false); private set
+
+    fun refreshLibrary() {
+        viewModelScope.launch {
+            timeline = runCatching { store.recent() }.getOrDefault(emptyList())
+            gallery = runCatching { store.mediaMemories() }.getOrDefault(emptyList())
+        }
+    }
+
+    /** Read-only semantic search over the memory index — never speaks, never writes. */
+    fun searchMemories(query: String) {
+        if (query.isBlank()) { searchHits = null; return }
+        viewModelScope.launch {
+            searching = true
+            searchHits = runCatching { store.recall(query, limit = 20) }.getOrDefault(emptyList())
+            searching = false
+        }
+    }
+
+    fun clearSearch() { searchHits = null }
+
     private fun run(busyMsg: String, block: suspend () -> Unit) {
         viewModelScope.launch {
             busy = true

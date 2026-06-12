@@ -61,4 +61,11 @@ interface MemoryDao {
 
     @Query("SELECT * FROM local_memories ORDER BY createdAt DESC LIMIT :limit")
     suspend fun recent(limit: Int): List<LocalMemory>
+
+    /** Read-only browse of memories that carry media (photos/audio/video), newest first. */
+    @Query(
+        "SELECT * FROM local_memories WHERE localMediaPath IS NOT NULL OR mediaPath IS NOT NULL " +
+            "ORDER BY createdAt DESC LIMIT :limit",
+    )
+    suspend fun recentMedia(limit: Int): List<LocalMemory>
 }

@@ -163,6 +163,16 @@ class MemoryStore(
     /** Number of memories still owed to the cloud — for a UI "N to sync" chip. */
     fun pendingCount() = dao.pendingCount()
 
+    /** Read-only browse for the Timeline river: newest first, straight from the local truth. */
+    suspend fun recent(limit: Int = 100): List<Memory> = withContext(Dispatchers.IO) {
+        dao.recent(limit).map { it.toMemory() }
+    }
+
+    /** Read-only listing for the Gallery: memories that carry media, newest first. */
+    suspend fun mediaMemories(limit: Int = 200): List<Memory> = withContext(Dispatchers.IO) {
+        dao.recentMedia(limit).map { it.toMemory() }
+    }
+
     /**
      * Recall: cloud semantic search when online; **on-device semantic search** when off-grid
      * (embed the query, brute-force cosine over local vectors), with a keyword search as the final
@@ -198,6 +208,12 @@ class MemoryStore(
         lat = lat,
         lng = lng,
         tags = if (tags.isBlank()) emptyList() else tags.split("\n"),
+        createdAt = java.time.Instant.ofEpochMilli(createdAt),
+        // UI-facing extras the core model has no fields for (sync chip, local thumbnails).
+        metadata = buildMap {
+            put("syncState", syncState.name)
+            localMediaPath?.let { put("localMediaPath", it) }
+        },
         clientId = clientId,
     )
 }
