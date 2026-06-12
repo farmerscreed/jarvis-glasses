@@ -1,9 +1,13 @@
 // POST /functions/v1/ingest
-// Body: { text, type?, media_path?, tags?, metadata?, lat?, lng? }
+// Body: { text, type?, media_path?, tags?, metadata?, lat?, lng?, client_id? }
 // Embeds `text` and stores a memory for the signed-in user (RLS-enforced).
+// `client_id` makes the write idempotent: re-sending the same one returns the existing row
+// (the offline-first outbox retries the same client_id until it confirms a server id).
 import { corsHeaders, json } from "../_shared/http.ts";
 import { userClient } from "../_shared/supabaseClient.ts";
 import { embed } from "../_shared/embeddings.ts";
+
+const SELECT = "id, created_at, type, text, media_path, tags, metadata, client_id";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -17,6 +21,18 @@ Deno.serve(async (req) => {
     const supabase = userClient(req);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
+
+    // Idempotency: if this client_id already landed, return it without re-embedding (saves a
+    // paid embed call on every retry) — the outbox just needed the server id confirmed.
+    const clientId: string | null = body.client_id ?? null;
+    if (clientId) {
+      const { data: existing } = await supabase
+        .from("memories")
+        .select(SELECT)
+        .eq("client_id", clientId)
+        .maybeSingle();
+      if (existing) return json({ memory: existing, deduped: true });
+    }
 
     const embedding = await embed(text);
 
@@ -32,11 +48,21 @@ Deno.serve(async (req) => {
         lng: body.lng ?? null,
         tags: body.tags ?? [],
         metadata: body.metadata ?? {},
+        client_id: clientId,
       })
-      .select("id, created_at, type, text, media_path, tags, metadata")
+      .select(SELECT)
       .single();
 
-    if (error) return json({ error: error.message }, 400);
+    // A concurrent retry may have inserted the same client_id between our check and insert →
+    // unique-violation 23505. Fetch and return the winner instead of erroring.
+    if (error) {
+      if (clientId && error.code === "23505") {
+        const { data: raced } = await supabase
+          .from("memories").select(SELECT).eq("client_id", clientId).maybeSingle();
+        if (raced) return json({ memory: raced, deduped: true });
+      }
+      return json({ error: error.message }, 400);
+    }
     return json({ memory: data });
   } catch (e) {
     return json({ error: String(e) }, 500);
