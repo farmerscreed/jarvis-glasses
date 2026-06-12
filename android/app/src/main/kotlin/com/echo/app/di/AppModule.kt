@@ -43,8 +43,12 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideSession(): SupabaseSession =
-        SupabaseSession(DevConfig.SUPABASE_URL, DevConfig.SUPABASE_ANON_KEY)
+    fun provideSession(@ApplicationContext ctx: Context): SupabaseSession =
+        SupabaseSession(
+            DevConfig.SUPABASE_URL,
+            DevConfig.SUPABASE_ANON_KEY,
+            ctx.getSharedPreferences("echo-session", Context.MODE_PRIVATE),
+        )
 
     @Provides
     @Singleton

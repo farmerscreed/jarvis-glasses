@@ -66,6 +66,8 @@ class HomeViewModel @Inject constructor(
     private var pendingAutoSync = false
 
     init {
+        // Restore sign-in from the persisted session token (survives app restarts).
+        if (backend.isLoggedIn) { loggedIn = true; status = "Signed in (restored)" }
         // Offline-first: mirror connectivity + outbox depth into Compose state.
         viewModelScope.launch { governor.online.collect { online = it } }
         viewModelScope.launch { store.pendingCount().collect { pendingSync = it } }

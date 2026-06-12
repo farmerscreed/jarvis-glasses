@@ -30,10 +30,19 @@ class MemoryStore(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val drainMutex = Mutex() // one drain at a time
 
+    /**
+     * Set by `:app` to enqueue a WorkManager drain. Called on every local write so the outbox is
+     * flushed even if the process dies right after (WorkManager survives app kill / reboot and
+     * carries a CONNECTED constraint). Kept as a hook so `:memory` needn't depend on WorkManager.
+     */
+    var onNeedsSync: (() -> Unit)? = null
+
     init {
         // Drain on reconnect, and once at startup in case we were offline when memories were saved.
+        // Startup uses force=true: a freshly-started process's governor may not have validated the
+        // network yet, so don't let the cached online flag skip the attempt.
         governor.onConnected = { scope.launch { drain() } }
-        scope.launch { drain() }
+        scope.launch { drain(force = true) }
     }
 
     /** Text-only memory (note / Q&A). */
@@ -63,17 +72,25 @@ class MemoryStore(
                     updatedAt = now,
                 ),
             )
+            onNeedsSync?.invoke() // guaranteed drain even if the app is killed right after this write
             if (governor.online.value) drain() // keep online behaviour immediate (upload + ingest now)
             memory.copy(clientId = clientId)
         }
 
-    /** Push every pending memory to the cloud, oldest first. Safe to call repeatedly. */
-    suspend fun drain(): Unit = drainMutex.withLock {
-        if (!governor.online.value) return
+    /**
+     * Push every pending memory to the cloud, oldest first. Safe to call repeatedly.
+     * [force] = true skips the cached online check — the background worker only runs once
+     * WorkManager's CONNECTED constraint is satisfied, so it must attempt even if this fresh
+     * process's governor hasn't validated the network yet.
+     * Returns true iff the outbox is fully drained afterwards (the worker retries when false).
+     */
+    suspend fun drain(force: Boolean = false): Boolean = drainMutex.withLock {
+        if (!force && !governor.online.value) return false
         for (row in dao.pending()) {
             runCatching { syncOne(row) }
                 .onFailure { dao.markFailed(row.clientId, it.message ?: "sync error", System.currentTimeMillis()) }
         }
+        dao.pending().isEmpty()
     }
 
     private suspend fun syncOne(row: LocalMemory) {

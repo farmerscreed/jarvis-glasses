@@ -23,6 +23,9 @@ class EchoBackend(
 
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
+    /** True if a (persisted) session token is present — lets the UI skip re-sign-in across launches. */
+    val isLoggedIn: Boolean get() = session.isLoggedIn
+
     /** Sign in (password grant); if the user doesn't exist locally, sign them up. */
     suspend fun signIn(email: String, password: String): Unit = withContext(Dispatchers.IO) {
         val body = json.encodeToString(AuthRequest.serializer(), AuthRequest(email, password))

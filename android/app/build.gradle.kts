@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.media)
+    implementation(libs.work.runtime)
 
     debugImplementation(libs.androidx.ui.tooling)
 }
