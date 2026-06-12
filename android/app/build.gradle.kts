@@ -31,6 +31,8 @@ android {
 
     buildFeatures { compose = true }
 
+    androidResources { noCompress += "tflite" } // model must be mmap-able at runtime
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -70,6 +72,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.media)
     implementation(libs.work.runtime)
+    implementation(libs.mediapipe.tasks.text)
 
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -34,4 +34,6 @@ data class LocalMemory(
     val attempts: Int = 0,
     val lastError: String? = null,
     val updatedAt: Long,
+    /** On-device L2-normalized embedding (BLOB) for offline semantic recall; null until computed. */
+    val embedding: ByteArray? = null,
 )

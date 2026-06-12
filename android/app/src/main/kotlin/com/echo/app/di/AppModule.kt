@@ -10,8 +10,10 @@ import com.echo.device.ble.GlassesBleManager
 import com.echo.device.wifi.GlassesP2pManager
 import com.echo.device.wifi.MediaTransferClient
 import java.io.File
+import com.echo.app.ml.MediaPipeEmbedder
 import com.echo.memory.ConnectivityGovernor
 import com.echo.memory.EchoBackend
+import com.echo.memory.Embedder
 import com.echo.memory.MemoryRepository
 import com.echo.memory.MemoryStore
 import com.echo.memory.MemoryStoreFactory
@@ -62,11 +64,16 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideEmbedder(@ApplicationContext ctx: Context): Embedder = MediaPipeEmbedder(ctx)
+
+    @Provides
+    @Singleton
     fun provideMemoryStore(
         @ApplicationContext ctx: Context,
         backend: EchoBackend,
         governor: ConnectivityGovernor,
-    ): MemoryStore = MemoryStoreFactory.create(ctx, backend, governor)
+        embedder: Embedder,
+    ): MemoryStore = MemoryStoreFactory.create(ctx, backend, governor, embedder)
 
     @Provides
     @Singleton

@@ -173,10 +173,22 @@ class HomeViewModel @Inject constructor(
     }
 
     fun ask() = run("Thinking…") {
-        val result = backend.chat(question)
-        answer = result.answer
-        recalled = result.memoriesUsed
-        status = "Answered"
+        if (online) {
+            val result = backend.chat(question)
+            answer = result.answer
+            recalled = result.memoriesUsed
+            status = "Answered"
+        } else {
+            // Off-grid: no Claude, but we can still find the most relevant memory on-device
+            // (semantic search over local embeddings). Jarvis Lite will phrase a real answer later.
+            status = "Off-grid — searching your memories…"
+            val hits = store.recall(question, limit = 3)
+            recalled = hits
+            answer = hits.firstOrNull()?.text
+                ?.let { "Off-grid. Your closest memory:\n\n$it" }
+                ?: "Off-grid, and I couldn't find a matching memory."
+            status = "Off-grid answer"
+        }
     }
 
     /** Phase 0C audio loop: record from the glasses mic (SCO), then play it back (A2DP). */

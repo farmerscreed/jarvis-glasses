@@ -25,6 +25,13 @@ interface MemoryDao {
     @Query("UPDATE local_memories SET mediaPath = :mediaPath, updatedAt = :now WHERE clientId = :clientId")
     suspend fun setMediaPath(clientId: String, mediaPath: String, now: Long)
 
+    @Query("UPDATE local_memories SET embedding = :embedding WHERE clientId = :clientId")
+    suspend fun setEmbedding(clientId: String, embedding: ByteArray)
+
+    /** All memories that have a local embedding — the corpus for offline cosine search. */
+    @Query("SELECT * FROM local_memories WHERE embedding IS NOT NULL")
+    suspend fun withEmbeddings(): List<LocalMemory>
+
     @Query(
         "UPDATE local_memories SET syncState = 'SYNCED', serverId = :serverId, lastError = NULL, updatedAt = :now " +
             "WHERE clientId = :clientId",

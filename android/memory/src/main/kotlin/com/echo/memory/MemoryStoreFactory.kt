@@ -9,8 +9,13 @@ import com.echo.memory.local.MemoryDatabase
  * the `:memory` module.
  */
 object MemoryStoreFactory {
-    fun create(context: Context, backend: EchoBackend, governor: ConnectivityGovernor): MemoryStore {
+    fun create(
+        context: Context,
+        backend: EchoBackend,
+        governor: ConnectivityGovernor,
+        embedder: Embedder? = null,
+    ): MemoryStore {
         val db = MemoryDatabase.build(context.applicationContext)
-        return MemoryStore(db.memoryDao(), backend, governor)
+        return MemoryStore(db.memoryDao(), backend, governor, embedder)
     }
 }

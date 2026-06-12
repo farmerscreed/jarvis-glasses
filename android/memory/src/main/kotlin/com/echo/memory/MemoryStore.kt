@@ -25,6 +25,7 @@ class MemoryStore(
     private val dao: MemoryDao,
     private val backend: EchoBackend,
     private val governor: ConnectivityGovernor,
+    private val embedder: Embedder? = null,
 ) : MemoryRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -72,6 +73,11 @@ class MemoryStore(
                     updatedAt = now,
                 ),
             )
+            // Compute the on-device embedding so this memory is recallable offline. Best-effort:
+            // if the model isn't ready, the row is still saved (recall falls back to keywords).
+            memory.text?.takeIf { it.isNotBlank() }?.let { t ->
+                embedder?.embed(t)?.let { vec -> dao.setEmbedding(clientId, VectorUtil.toBytes(vec)) }
+            }
             onNeedsSync?.invoke() // guaranteed drain even if the app is killed right after this write
             if (governor.online.value) drain() // keep online behaviour immediate (upload + ingest now)
             memory.copy(clientId = clientId)
@@ -122,16 +128,31 @@ class MemoryStore(
     fun pendingCount() = dao.pendingCount()
 
     /**
-     * Recall: cloud semantic search when online; a naive local keyword search as the OFF_GRID
-     * fallback (no embeddings yet — that's a later C increment). Never throws on no-network.
+     * Recall: cloud semantic search when online; **on-device semantic search** when off-grid
+     * (embed the query, brute-force cosine over local vectors), with a keyword search as the final
+     * fallback if no embeddings exist. Never throws on no-network.
      */
     override suspend fun recall(query: String, limit: Int, type: MemoryType?): List<Memory> =
         withContext(Dispatchers.IO) {
             if (governor.online.value) {
                 runCatching { backend.recall(query, limit, type) }.getOrNull()?.let { return@withContext it }
             }
-            dao.search(query, limit).map { it.toMemory() }
+            localRecall(query, limit) ?: dao.search(query, limit).map { it.toMemory() }
         }
+
+    /** Off-grid semantic recall: cosine of the query vector against every stored local vector. */
+    private suspend fun localRecall(query: String, limit: Int): List<Memory>? {
+        val q = embedder?.embed(query) ?: return null
+        val corpus = dao.withEmbeddings()
+        if (corpus.isEmpty()) return null
+        return corpus
+            .mapNotNull { row ->
+                row.embedding?.let { row to VectorUtil.cosine(q, VectorUtil.fromBytes(it)) }
+            }
+            .sortedByDescending { it.second }
+            .take(limit)
+            .map { (row, score) -> row.toMemory().copy(similarity = score.toDouble()) }
+    }
 
     private fun LocalMemory.toMemory(): Memory = Memory(
         id = serverId ?: clientId,
