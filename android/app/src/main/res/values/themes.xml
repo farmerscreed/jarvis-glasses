@@ -1,4 +1,7 @@
 <resources>
-    <!-- Compose draws the UI; the Activity just needs a no-action-bar framework theme. -->
-    <style name="Theme.Jarvis" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Compose draws the UI; the framework theme just needs no action bar + the dark canvas so
+         launch doesn't flash white before composition. -->
+    <style name="Theme.Jarvis" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/jarvis_background</item>
+    </style>
 </resources>

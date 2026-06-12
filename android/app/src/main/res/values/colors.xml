@@ -1,0 +1,4 @@
+<resources>
+    <!-- Design-system background (Aetheric Intelligence). Keep in sync with ui/theme/Color.kt. -->
+    <color name="jarvis_background">#FF101419</color>
+</resources>
