@@ -485,6 +485,16 @@ class HomeViewModel @Inject constructor(
     suspend fun signedUrlFor(memory: Memory): String? =
         memory.mediaPath?.let { runCatching { backend.signedMediaUrl(it) }.getOrNull() }
 
+    /** Delete a memory everywhere (cloud row + storage + local file + Room), then refresh views. */
+    fun deleteMemory(memory: Memory, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            runCatching { store.delete(memory) }
+                .onFailure { status = "Delete failed: ${it.message}" }
+            refreshLibrary()
+            onDone()
+        }
+    }
+
     private fun run(busyMsg: String, block: suspend () -> Unit) {
         viewModelScope.launch {
             busy = true

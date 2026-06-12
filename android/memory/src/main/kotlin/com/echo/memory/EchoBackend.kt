@@ -181,6 +181,31 @@ class EchoBackend(
         "${session.baseUrl}/storage/v1$signed"
     }
 
+    /** Delete a memory row from the cloud by server id (RLS: owner only). Idempotent. */
+    suspend fun deleteMemory(serverId: String): Unit = withContext(Dispatchers.IO) {
+        delete("/rest/v1/memories?id=eq.$serverId")
+    }
+
+    /** Delete a stored media object (RLS: owner only). Idempotent — a missing object is fine. */
+    suspend fun deleteMedia(path: String, bucket: String = "media"): Unit = withContext(Dispatchers.IO) {
+        delete("/storage/v1/object/$bucket/$path")
+    }
+
+    /** Authed DELETE with a single 401 refresh-retry, mirroring [post]. 2xx/404 are success. */
+    private fun delete(path: String) {
+        fun once(): Int {
+            val builder = Request.Builder()
+                .url(session.baseUrl + path)
+                .addHeader("apikey", session.anonKey)
+            session.accessToken?.let { builder.addHeader("Authorization", "Bearer $it") }
+            builder.delete()
+            http.newCall(builder.build()).execute().use { return it.code }
+        }
+        var code = once()
+        if (code == 401 && refreshSession()) code = once()
+        if (code !in 200..299 && code != 404) error("HTTP $code on DELETE $path")
+    }
+
     override suspend fun recall(query: String, limit: Int, type: MemoryType?): List<Memory> =
         withContext(Dispatchers.IO) {
             val body = json.encodeToString(

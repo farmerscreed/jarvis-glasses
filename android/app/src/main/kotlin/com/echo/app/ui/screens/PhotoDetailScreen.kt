@@ -13,20 +13,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.ImageNotSupported
+import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -37,11 +45,13 @@ import com.echo.app.HomeViewModel
 import com.echo.app.ui.components.SectionLabel
 import com.echo.app.ui.components.StatusChip
 import com.echo.app.ui.components.TagChip
+import com.echo.app.ui.components.VideoPlayer
 import com.echo.app.ui.components.rememberLocalImage
 import com.echo.app.ui.components.rememberRemoteImage
 import com.echo.app.ui.theme.JarvisSpacing
 import com.echo.app.ui.theme.JarvisTheme
 import com.echo.core.model.Memory
+import java.io.File
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -54,14 +64,19 @@ private val DETAIL_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm").wit
  */
 @Composable
 fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit) {
-    val local = rememberLocalImage(memory.metadata["localMediaPath"], targetPx = 1280)
+    val localPath = memory.metadata["localMediaPath"]
+    val localFile = remember(localPath) { localPath?.let { File(it) }?.takeIf { it.exists() } }
+    val isVideo = (localFile?.extension ?: memory.mediaPath?.substringAfterLast('.', ""))
+        ?.lowercase() == "mp4"
+    val local = rememberLocalImage(localPath, targetPx = 1280)
     // Only fetch a signed URL if there's no local file to show.
     val remoteUrl by produceState<String?>(initialValue = null, memory.id) {
-        value = if (memory.metadata["localMediaPath"] == null) vm.signedUrlFor(memory) else null
+        value = if (localPath == null) vm.signedUrlFor(memory) else null
     }
     val remote = rememberRemoteImage(remoteUrl)
     val image: ImageBitmap? = local ?: remote
-    val loading = local == null && remote == null
+    val loading = !isVideo && local == null && remote == null
+    var confirmDelete by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -77,6 +92,7 @@ fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             when {
+                isVideo && localFile != null -> VideoPlayer(localFile, modifier = Modifier.fillMaxSize())
                 image != null -> Image(
                     bitmap = image,
                     contentDescription = memory.text,
@@ -88,8 +104,8 @@ fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit) {
                     color = MaterialTheme.colorScheme.primaryContainer,
                 )
                 else -> Icon(
-                    Icons.Outlined.ImageNotSupported,
-                    contentDescription = "image unavailable",
+                    if (isVideo) Icons.Outlined.Videocam else Icons.Outlined.ImageNotSupported,
+                    contentDescription = if (isVideo) "video not on this device" else "image unavailable",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.height(40.dp),
                 )
@@ -143,7 +159,39 @@ fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit) {
                     }
                 }
             }
+
+            Spacer(Modifier.height(JarvisSpacing.sm))
+            // Destructive: removes the capture locally AND from the cloud (row + storage).
+            TextButton(
+                onClick = { confirmDelete = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    Icons.Outlined.DeleteOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+                Spacer(Modifier.width(JarvisSpacing.sm))
+                Text("Delete this memory", color = MaterialTheme.colorScheme.error)
+            }
             Spacer(Modifier.height(JarvisSpacing.md))
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete this memory?") },
+            text = { Text("This removes the capture from your phone and the cloud. It can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    vm.deleteMemory(memory, onDone = onBack)
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
+            },
+        )
     }
 }

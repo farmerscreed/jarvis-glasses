@@ -179,6 +179,28 @@ class MemoryStore(
     }
 
     /**
+     * Delete a memory everywhere: cloud storage object + cloud row (if synced & online), the local
+     * capture file, and the Room row. Local deletion always happens so the item vanishes from the
+     * UI immediately; cloud deletion is best-effort (a row that was never synced has nothing to
+     * remove, and an offline delete still clears it locally).
+     */
+    suspend fun delete(memory: Memory): Unit = withContext(Dispatchers.IO) {
+        val clientId = memory.clientId ?: memory.id ?: return@withContext
+        val row = dao.byClientId(clientId)
+        // Cloud first (best-effort): storage object, then the row.
+        if (governor.online.value) {
+            val mediaPath = row?.mediaPath ?: memory.mediaPath
+            val bucket = row?.bucket ?: "media"
+            if (mediaPath != null) runCatching { backend.deleteMedia(mediaPath, bucket) }
+            val serverId = row?.serverId ?: memory.id?.takeIf { it != clientId }
+            if (serverId != null) runCatching { backend.deleteMemory(serverId) }
+        }
+        // Local file + Room row always.
+        row?.localMediaPath?.let { runCatching { java.io.File(it).delete() } }
+        dao.deleteByClientId(clientId)
+    }
+
+    /**
      * Recall: cloud semantic search when online; **on-device semantic search** when off-grid
      * (embed the query, brute-force cosine over local vectors), with a keyword search as the final
      * fallback if no embeddings exist. Never throws on no-network.
