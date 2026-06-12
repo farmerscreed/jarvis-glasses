@@ -68,4 +68,8 @@ interface MemoryDao {
             "ORDER BY createdAt DESC LIMIT :limit",
     )
     suspend fun recentMedia(limit: Int): List<LocalMemory>
+
+    /** Absolute paths of local media files already backed by a memory (orphan reconciliation). */
+    @Query("SELECT localMediaPath FROM local_memories WHERE localMediaPath IS NOT NULL")
+    suspend fun knownLocalPaths(): List<String>
 }

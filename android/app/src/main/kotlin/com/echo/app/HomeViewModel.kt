@@ -130,8 +130,11 @@ class HomeViewModel @Inject constructor(
         ble.capturePhoto() // its CaptureSaved event then drives the sync + Look & Ask
     }
 
-    /** Apply the right AI/memory treatment to a freshly synced capture. */
-    private suspend fun routeNewFile(f: File) {
+    /**
+     * Apply the right AI/memory treatment to a synced capture. [speak] is false for silent
+     * backfill (reconciling files that were downloaded but never turned into memories).
+     */
+    private suspend fun routeNewFile(f: File, speak: Boolean = true) {
         when (f.extension.lowercase()) {
             "jpg", "jpeg", "png" -> {
                 val ask = aiAskPending; aiAskPending = false
@@ -148,8 +151,8 @@ class HomeViewModel @Inject constructor(
                 val desc = visioned ?: "(photo captured — description pending)"
                 val tags = if (visioned == null) listOf("needs_vision") else emptyList()
                 store.rememberLocal(Memory(type = MemoryType.PHOTO, text = desc, tags = tags), f, "media")
-                if (ask && visioned != null) { answer = desc; status = "Speaking…"; tts.speak(desc) }
-                else tts.speak("Saved")
+                if (ask && visioned != null) { answer = desc; if (speak) { status = "Speaking…"; tts.speak(desc) } }
+                else if (speak) tts.speak("Saved")
             }
             "mp4" -> { // V2: preserve video — keep the file as a memory; uploads on drain
                 status = "Saving video ${f.name}…"
@@ -163,8 +166,30 @@ class HomeViewModel @Inject constructor(
                 val text = transcript?.takeIf { it.isNotBlank() } ?: "(voice clip — transcript pending)"
                 val tags = if (transcript.isNullOrBlank()) listOf("needs_transcribe") else emptyList()
                 store.rememberLocal(Memory(type = MemoryType.VOICE_NOTE, text = text, tags = tags), f, "audio")
-                tts.speak("Noted")
+                if (speak) tts.speak("Noted")
             }
+        }
+    }
+
+    /**
+     * Backfill: any media file already in local storage that has no memory yet (e.g. downloaded by
+     * an older build before manual sync created memories) gets imported silently. Runs once when
+     * the library screens load, so orphaned captures surface in Timeline/Gallery.
+     */
+    private var reconciled = false
+    fun reconcileOrphanMedia() {
+        if (reconciled || !loggedIn) return
+        reconciled = true
+        viewModelScope.launch {
+            val known = runCatching { store.knownLocalPaths() }.getOrDefault(emptySet())
+            val all = transfer.mediaFiles()
+            val orphans = all.filter { it.absolutePath !in known }
+            android.util.Log.i("EchoReconcile", "media=${all.size} known=${known.size} orphans=${orphans.size}")
+            if (orphans.isEmpty()) return@launch
+            status = "Importing ${orphans.size} earlier capture(s)…"
+            orphans.forEach { runCatching { routeNewFile(it, speak = false) } }
+            refreshLibrary()
+            status = "Imported ${orphans.size} earlier capture(s)"
         }
     }
 
@@ -361,8 +386,17 @@ class HomeViewModel @Inject constructor(
 
     /** Phase 2: pull the glasses' captured media into the app (BLE start → Wi-Fi Direct → HTTP /files/). */
     fun syncGlasses() = run("Connecting to glasses…") {
-        doSync()
-        status = "Sync done"
+        val files = doSync()
+        if (files.isEmpty()) {
+            status = "Nothing new on the glasses"
+            return@run
+        }
+        // Route each pulled file into a memory (caption/transcribe + save), same as auto-sync —
+        // without this the files download but never appear in Timeline/Gallery.
+        status = "Processing ${files.size} new capture(s)…"
+        files.forEach { routeNewFile(it) }
+        refreshLibrary() // refresh Gallery/Timeline state now that new memories exist
+        status = "Done — ${files.size} new capture(s) processed"
     }
 
     /** The transfer ceremony: BLE start cmd → Wi-Fi Direct → HTTP pull. Returns the NEW files. */

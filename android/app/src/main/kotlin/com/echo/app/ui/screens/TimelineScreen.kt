@@ -56,7 +56,7 @@ private fun dayLabel(instant: Instant): String {
  */
 @Composable
 fun TimelineScreen(vm: HomeViewModel) {
-    LaunchedEffect(Unit) { vm.refreshLibrary() }
+    LaunchedEffect(Unit) { vm.refreshLibrary(); vm.reconcileOrphanMedia() }
     var query by rememberSaveable { mutableStateOf("") }
     val hits = vm.searchHits
 

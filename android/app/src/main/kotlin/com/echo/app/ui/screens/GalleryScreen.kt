@@ -54,7 +54,7 @@ import com.echo.core.model.MemoryType
  */
 @Composable
 fun GalleryScreen(vm: HomeViewModel) {
-    LaunchedEffect(Unit) { vm.refreshLibrary() }
+    LaunchedEffect(Unit) { vm.refreshLibrary(); vm.reconcileOrphanMedia() }
     var selected by remember { mutableStateOf<Memory?>(null) }
     val photos = vm.gallery.filter { it.type == MemoryType.PHOTO }
 

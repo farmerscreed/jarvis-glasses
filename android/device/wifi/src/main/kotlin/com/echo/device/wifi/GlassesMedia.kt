@@ -123,4 +123,10 @@ class MediaTransferClient(
     fun latestPhoto(): File? = outDir.listFiles { f ->
         f.extension.lowercase() in setOf("jpg", "jpeg", "png")
     }?.maxByOrNull { it.lastModified() }
+
+    /** All media files pulled to local storage (for reconciling orphans into memories). */
+    fun mediaFiles(): List<File> = outDir.listFiles { f ->
+        f.isFile && f.extension.lowercase() in
+            setOf("jpg", "jpeg", "png", "mp4", "wav", "mp3", "aac", "m4a", "amr", "ogg", "opus")
+    }?.toList().orEmpty()
 }

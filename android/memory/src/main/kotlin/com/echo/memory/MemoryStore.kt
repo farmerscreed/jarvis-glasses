@@ -173,6 +173,11 @@ class MemoryStore(
         dao.recentMedia(limit).map { it.toMemory() }
     }
 
+    /** Absolute local-media paths already backed by a memory (for orphan-file reconciliation). */
+    suspend fun knownLocalPaths(): Set<String> = withContext(Dispatchers.IO) {
+        dao.knownLocalPaths().toSet()
+    }
+
     /**
      * Recall: cloud semantic search when online; **on-device semantic search** when off-grid
      * (embed the query, brute-force cosine over local vectors), with a keyword search as the final
