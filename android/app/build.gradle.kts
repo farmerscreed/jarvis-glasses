@@ -29,7 +29,34 @@ android {
         }
     }
 
-    buildFeatures { compose = true }
+    // dev = local Supabase over adb reverse (cleartext, hardcoded test login allowed);
+    // prod = cloud jarvis-prod project (TLS only). Anon keys are public by design (RLS enforces).
+    flavorDimensions += "backend"
+    productFlavors {
+        create("dev") {
+            dimension = "backend"
+            buildConfigField("String", "SUPABASE_URL", "\"http://127.0.0.1:54421\"")
+            buildConfigField("String", "SUPABASE_ANON_KEY", "\"sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH\"")
+            buildConfigField("boolean", "DEV_LOGIN", "true")
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
+        create("prod") {
+            dimension = "backend"
+            buildConfigField("String", "SUPABASE_URL", "\"https://agtuimnppqbrjocuzqsk.supabase.co\"")
+            buildConfigField(
+                "String",
+                "SUPABASE_ANON_KEY",
+                "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndHVpbW5wcHFicmpvY3V6cXNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNTU2ODQsImV4cCI6MjA5NjgzMTY4NH0.KSExgwXG79KcCJ4FbBpWTkddewO_SKjYYVMSRHRXEyE\"",
+            )
+            buildConfigField("boolean", "DEV_LOGIN", "false")
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
+        }
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     androidResources { noCompress += "tflite" } // model must be mmap-able at runtime
 

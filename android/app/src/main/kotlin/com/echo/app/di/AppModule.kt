@@ -1,7 +1,7 @@
 package com.echo.app.di
 
 import android.content.Context
-import com.echo.app.DevConfig
+import com.echo.app.BuildConfig
 import com.echo.app.GlassesButtonController
 import com.echo.device.audio.BtAudioEngine
 import com.echo.device.audio.TtsEngine
@@ -47,8 +47,8 @@ object AppModule {
     @Singleton
     fun provideSession(@ApplicationContext ctx: Context): SupabaseSession =
         SupabaseSession(
-            DevConfig.SUPABASE_URL,
-            DevConfig.SUPABASE_ANON_KEY,
+            BuildConfig.SUPABASE_URL,
+            BuildConfig.SUPABASE_ANON_KEY,
             ctx.getSharedPreferences("echo-session", Context.MODE_PRIVATE),
         )
 
@@ -60,7 +60,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideConnectivityGovernor(@ApplicationContext ctx: Context): ConnectivityGovernor =
-        ConnectivityGovernor(ctx, DevConfig.SUPABASE_URL + "/auth/v1/health")
+        ConnectivityGovernor(ctx, BuildConfig.SUPABASE_URL + "/auth/v1/health")
 
     @Provides
     @Singleton
