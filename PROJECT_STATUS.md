@@ -32,7 +32,7 @@ A personal AI companion that lives in your ear and sees through your eyes, built
 | **Camera trigger over BLE** | ✅ | App wrote capture cmd ×3 → stock album showed "3 media to import". |
 | **Voice assistant loop** | ✅ | "Talk" → glasses mic → Gemini STT → Claude RAG → Android TTS in your ear. Verified: "Where did I park?" → correct spoken answer. |
 | **Wake word ("Jarvis")** | ✅ | On-device **Vosk** (offline, no key), phone mic. "Hands-free" toggle. |
-| **Phase 2: media sync (BLE→Wi-Fi Direct→HTTP)** | ✅ | "Sync from glasses" pulled all 10 captures (9 jpg + 1 mp4) into the app. |
+| **Phase 2: media sync (BLE→Wi-Fi Direct→HTTP)** | ✅ | Re-verified 2026-06-12 after a fix: pull now binds to the Wi-Fi Direct `Network` + uses a raw HTTP/1.0 socket (the Jieli server rejects OkHttp's 1.1 headers). Capture→sync→vision→memory→gallery confirmed on device. |
 | **Phase 2: Look & Ask (Claude vision)** | ✅ | Describes the latest synced photo, speaks it, stores a memory. Verified live. |
 | **Phase B: glasses-button reactions** | ✅ (in-app) | Button-event protocol decoded (`docs/recon/Glasses_Controls.md` §4). Press → BLE event → auto-sync → route: photo→caption+memory, audio→transcribe+voice-note, video→upload (V2), AI-gesture→Look&Ask. Verified on device 2026-06-12 (capture→"Done — 1 new capture(s) processed", no loops). Foreground service (works with app killed) still pending. |
 

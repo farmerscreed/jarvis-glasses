@@ -153,6 +153,23 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 - **CRLF warnings** on `git commit` are normal (Windows line endings) — ignore.
 - **PowerShell:** no heredoc; for multi-line commit messages write the message to a temp file and
   `git commit -F <file>` (double-quotes in `-m` break it).
+- **`adb shell pm clear` revokes runtime permissions.** It wiped ACCESS_FINE_LOCATION +
+  NEARBY_WIFI_DEVICES (which the app didn't re-request — MainActivity now requests all five),
+  silently breaking Wi-Fi Direct discovery → every glasses sync failed. If sync mysteriously
+  dies, check `dumpsys package com.echo.companion | grep granted=false` first.
+- **Cleartext must stay enabled in ALL flavors:** the glasses media pull is plain HTTP over
+  Wi-Fi Direct (`http://192.168.49.x/files/…`, firmware constraint). The prod flavor briefly
+  shipped `usesCleartextTraffic=false` and every transfer died with "CLEARTEXT … not permitted".
+  Cloud traffic is https:// regardless; the flag never downgrades it.
+- **The media pull must be bound to the Wi-Fi Direct `Network`** (`GlassesP2pManager.boundNetwork()`
+  → the `p2p…` interface). On a phone that also has home Wi-Fi, an unbound socket to the glasses'
+  `192.168.49.x` IP routes out the default network and the transfer silently goes nowhere. (The
+  original Phase 2 sync only worked because home Wi-Fi happened to be off.)
+- **The glasses' embedded HTTP server speaks bare HTTP/1.0 only** (Jieli firmware). OkHttp's
+  mandatory 1.1 headers make it hang up with "unexpected end of stream". `MediaTransferClient` now
+  uses a **raw socket** with a header-less `GET <path> HTTP/1.0\r\n\r\n`, reading to EOF; OkHttp is
+  no longer used for the glasses transfer (kept in the ctor for DI only). Manifest is retried up to
+  6× (2 s apart) for AP warm-up. Watch `EchoMedia` logcat — it logs the server's status line.
 - **The glasses steal the phone's AUDIO whenever they're powered on** (BT classic SCO/A2DP —
   independent of the BLE control link): the mic records from the glasses and TTS answers play in
   the glasses speaker. Testing on the phone with the glasses on a desk looks like "nothing works"
