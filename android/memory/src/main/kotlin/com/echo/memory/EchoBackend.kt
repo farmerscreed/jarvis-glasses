@@ -51,8 +51,24 @@ class EchoBackend(
     /** Step 2 of email sign-in: exchange the emailed code for a session. */
     suspend fun verifyEmailOtp(email: String, code: String): Unit = withContext(Dispatchers.IO) {
         val body = json.encodeToString(VerifyOtpRequest.serializer(), VerifyOtpRequest(email, code))
-        val auth = tryAuth("/auth/v1/verify", body) ?: error("wrong or expired code")
-        adopt(auth)
+        val req = Request.Builder()
+            .url(session.baseUrl + "/auth/v1/verify")
+            .addHeader("apikey", session.anonKey)
+            .post(body.toRequestBody(jsonMedia))
+            .build()
+        http.newCall(req).execute().use { resp ->
+            val txt = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) {
+                // Surface GoTrue's real reason (e.g. otp_expired vs bad request), not a guess.
+                val msg = runCatching {
+                    json.decodeFromString(AuthError.serializer(), txt).let { it.msg ?: it.error_description ?: it.error }
+                }.getOrNull()
+                error(msg ?: "verify failed: HTTP ${resp.code}: $txt")
+            }
+            val auth = json.decodeFromString(AuthResponse.serializer(), txt)
+            if (auth.access_token == null) error("verify returned no session")
+            adopt(auth)
+        }
     }
 
     /**

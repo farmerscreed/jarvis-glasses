@@ -15,6 +15,13 @@ data class AuthResponse(
 )
 
 @Serializable
+data class AuthError(
+    val msg: String? = null,
+    val error_description: String? = null,
+    val error: String? = null,
+)
+
+@Serializable
 data class OtpRequest(val email: String, val create_user: Boolean = true)
 
 @Serializable
