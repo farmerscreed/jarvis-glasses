@@ -223,7 +223,7 @@ class BtAudioEngine(private val context: Context) {
                 }
                 val gate = if (i in gapLo until gapHi) 0.0 else 1.0
                 val freq = if (i < n / 2) 880.0 else 1320.0
-                pcm[i] = (kotlin.math.sin(2 * kotlin.math.PI * freq * i / sampleRate) * 28000 * env * gate).toInt().toShort()
+                pcm[i] = (kotlin.math.sin(2 * kotlin.math.PI * freq * i / sampleRate) * 22000 * env * gate).toInt().toShort()
             }
             val track = AudioTrack.Builder()
                 .setAudioAttributes(
