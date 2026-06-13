@@ -216,10 +216,29 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 
 ## 6. What's NEXT — the critical path
 
-### 🎯 IMMEDIATE NEXT (director, 2026-06-13): conversation usability — continuous turn-taking
-Voice-quality is fixed (below). The new focus is making JARVIS feel like a **real back-and-forth
-conversation**: after it answers, it should keep listening so the director can reply, continuing
-until the director is done — rather than every turn being a one-shot "tap → speak → answer → stop".
+### 🎯 IMMEDIATE NEXT (director, 2026-06-13): conversation context/memory deep-dive
+The conversation stack + on-device STT below are **all built and device-verified working**. The
+director's next ask: revisit **context/memory** — reliably remembering what was said earlier (within a
+conversation and across sessions), and being smarter about what's saved to the memory index (today the
+backend saves *every* Q&A verbatim, which clutters recall). Get a concrete "it forgot X" example from
+the director to localize the gap (in-conversation history vs cross-session semantic recall vs what's
+persisted). Also still open: barge-in lives only in the held-SCO conversation path (narrowband answer
+audio is the trade-off); fine as-is.
+
+**✅ DONE + VERIFIED THIS SESSION — the conversation stack:**
+- **On-device STT (sherpa-onnx / Whisper-tiny.en)** is the **primary** transcriber — offline, no
+  quota, **~0.4–0.5 s** per turn (vs 7–13 s cloud). Model **downloads on first run** (~103 MB →
+  filesDir, progress in the Live console), cloud STT kept as fallback (`stt-source=device|cloud`).
+  Commit `3d8d6e0`. *(Root cause it solved: Gemini free-tier daily quota — ~20/day — ran dry mid-use;
+  the app had been silently showing quota 502s as "didn't catch that". See `docs/STT_FAILOVER.md`.)*
+- **Barge-in WORKS** (commits `6f839fd`→`62fd991`): talk over JARVIS and it stops + listens. AEC
+  cancels the TTS echo to ~50 RMS so detection is clean (fires on ~3–12k voice, no false trips). The
+  fix that cracked it: a **hangover counter** (not consecutive frames — speech dips between syllables)
+  + low floor (900). Held-SCO full-duplex during the answer (answer plays narrowband).
+- **Turn-taking + ending + scrollable transcript** all verified (see detail below).
+
+Voice-quality is fixed (further below). The conversation work made JARVIS a **real back-and-forth**:
+after it answers, the mic re-opens for a follow-up, continuing until the director is done.
 **Increment A SHIPPED (2026-06-13, commits `6e9a324`+`50f95f6`) — turn-taking + multi-turn + ending.**
 `HomeViewModel.converse(continuous)` replaces the old one-shot `doTalk()`:
 - **Orb** (`talk()`) and **wake word "Jarvis"** (`startWake`) now start a **continuous conversation**
