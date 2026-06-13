@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -27,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import com.echo.app.HomeViewModel
 import com.echo.app.ui.components.GlowFab
@@ -132,7 +135,35 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
                 modifier = Modifier.padding(JarvisSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(JarvisSpacing.md),
             ) {
-                if (vm.answer.isEmpty() && !vm.busy) {
+                if (vm.transcript.isNotEmpty()) {
+                    // Whole conversation, scrollable within a bounded height so it never pushes the
+                    // orb/controls off-screen; auto-scrolls to the latest turn.
+                    val scroll = rememberScrollState()
+                    LaunchedEffect(vm.transcript.size) { scroll.animateScrollTo(scroll.maxValue) }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 380.dp)
+                            .verticalScroll(scroll),
+                        verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm),
+                    ) {
+                        vm.transcript.forEach { line ->
+                            if (!line.fromUser) {
+                                Text(
+                                    "JARVIS",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                )
+                            }
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = if (line.fromUser) Arrangement.End else Arrangement.Start,
+                            ) {
+                                TranscriptBubble(line.text, fromUser = line.fromUser)
+                            }
+                        }
+                    }
+                } else if (vm.answer.isEmpty() && !vm.busy) {
                     Text(
                         if (glassesConnected) "Say “Jarvis”, press the glasses button, or tap the mic." else "Awaiting local connection…",
                         style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
@@ -143,6 +174,7 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
                         textAlign = TextAlign.Center,
                     )
                 } else {
+                    // Fallback for the text "Ask" path (sets question/answer, not the transcript).
                     if (vm.question.isNotBlank()) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TranscriptBubble(vm.question, fromUser = true)

@@ -1,6 +1,7 @@
 package com.echo.app
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -33,6 +34,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
+/** One line in the on-screen conversation transcript. [fromUser] = you, else JARVIS. */
+data class TurnLine(val fromUser: Boolean, val text: String)
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val backend: EchoBackend,
@@ -56,6 +60,9 @@ class HomeViewModel @Inject constructor(
     /** True while a continuous conversation is in progress (so the orb tap can toggle it off). */
     var inConversation by mutableStateOf(false); private set
     @Volatile private var stopConversation = false
+
+    /** Running transcript of the current conversation for the scrollable on-screen chat. */
+    val transcript = mutableStateListOf<TurnLine>()
 
     /** Email-OTP sign-in state. The dev password login only exists in the dev flavor. */
     val devLoginEnabled = BuildConfig.DEV_LOGIN
@@ -336,6 +343,7 @@ class HomeViewModel @Inject constructor(
             return
         }
         if (continuous) { inConversation = true; stopConversation = false }
+        transcript.clear() // fresh on-screen transcript for this conversation
         try {
         if (continuous) {
             // Hold SCO open for the whole conversation: the answer plays over the SCO output and the
@@ -387,6 +395,7 @@ class HomeViewModel @Inject constructor(
             }
             repromptUsed = false
             question = heard
+            transcript.add(TurnLine(fromUser = true, text = heard))
 
             if (continuous && isClosing(heard)) {
                 status = "Conversation ended"
@@ -423,6 +432,7 @@ class HomeViewModel @Inject constructor(
                 monitor?.cancel()
                 answer = result.answer
                 recalled = result.memoriesUsed
+                transcript.add(TurnLine(fromUser = false, text = result.answer))
                 // Thread the last 3–6 turns (cap 12 messages = 6 turns) for follow-up context.
                 history.addLast(ChatMsg("user", heard))
                 history.addLast(ChatMsg("assistant", result.answer))
@@ -465,7 +475,9 @@ class HomeViewModel @Inject constructor(
         if (words.size > 7) return false // a long sentence isn't a sign-off
         // Goodbye words almost never appear except to end — match anywhere in a short utterance, so
         // "thank you bye", "alright thank you bye", "don't talk again bye", "okay bye" all close.
+        // ("by" is Gemini's frequent misspelling of "bye".)
         if (words.any { it == "bye" || it == "goodbye" || it == "byebye" } || t.contains("good bye")) return true
+        if (t == "by" || t.endsWith(" by")) return true // misheard "bye"
         // Clear closing phrases, matched anywhere in the utterance.
         val phrases = listOf(
             "that's all", "thats all", "that'll be all", "thatll be all", "that is all", "that's it",

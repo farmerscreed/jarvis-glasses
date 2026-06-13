@@ -233,10 +233,12 @@ class BtAudioEngine(private val context: Context) {
     @SuppressLint("MissingPermission")
     suspend fun awaitBargeIn(
         active: () -> Boolean,
-        graceMs: Int = 1_200,
-        sustainMs: Int = 480,
-        floor: Double = 3_000.0,
-        margin: Double = 2.0,
+        graceMs: Int = 1_000,
+        sustainMs: Int = 300,
+        // Floor sits between the measured TTS echo (~1150 RMS) and the user's voice (~1700+ RMS).
+        // v1 floor=1100 tripped on echo; v2 floor=3000 was above the user's own voice (never fired).
+        floor: Double = 1_700.0,
+        margin: Double = 1.5,
     ): Boolean = withContext(Dispatchers.IO) {
         if (!scoHeld) return@withContext false // need the full-duplex SCO link up
         val minBuf = AudioRecord.getMinBufferSize(
