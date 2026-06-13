@@ -19,6 +19,7 @@ import com.echo.device.ble.GlassesEvent
 import com.echo.device.wifi.GlassesP2pManager
 import com.echo.device.wifi.MediaTransferClient
 import java.io.File
+import com.echo.memory.AgentBridge
 import com.echo.memory.ChatMsg
 import com.echo.memory.ChatResult
 import com.echo.memory.ConnectivityGovernor
@@ -52,6 +53,7 @@ class HomeViewModel @Inject constructor(
     private val p2p: GlassesP2pManager,
     private val transfer: MediaTransferClient,
     private val reactor: GlassesCaptureReactor,
+    private val agent: AgentBridge,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -509,6 +511,33 @@ class HomeViewModel @Inject constructor(
                 continue
             }
 
+            // Deliberate lane (Agent Delegation M1): "Jarvis, research…" delegates to Claude Code on
+            // the PC via the Agent Bridge, speaks a sourced summary, and saves it to the memory index.
+            // Only when the bridge is configured (dev build); prod falls through to a normal chat answer.
+            if (agent.isConfigured && isResearchCommand(heard)) {
+                val topic = researchTopic(heard)
+                status = "Researching…"
+                tts.speak("On it — researching that now. This might take a moment.")
+                val res = agent.research(topic)
+                // The preset answers in a spoken style then lists "Sources:" — speak the spoken part,
+                // but keep the full text (with sources) on screen and in memory.
+                val spoken = res.text.substringBefore("\nSources:").substringBefore("Sources:")
+                    .trim().ifBlank { res.text }
+                answer = res.text
+                transcript.add(TurnLine(fromUser = false, text = res.text))
+                status = if (res.ok) "Researched · ${res.durationMs / 1000}s" else "Research failed"
+                tts.speak(spoken)
+                // Persist successful research into the memory index so it's recalled later.
+                if (res.ok) runCatching {
+                    store.remember(
+                        Memory(type = MemoryType.NOTE, text = "Research — $topic:\n${res.text}", tags = listOf("research")),
+                    )
+                }
+                if (!continuous) { status = "Done"; break }
+                status = "Listening…"
+                continue
+            }
+
             if (continuous && isClosing(heard)) {
                 status = "Conversation ended"
                 tts.speak("Talk soon.")
@@ -599,6 +628,24 @@ class HomeViewModel @Inject constructor(
         RegexOption.IGNORE_CASE,
     )
     private fun isVisionCommand(s: String) = visionRe.containsMatchIn(s)
+
+    // Deliberate lane (Agent Delegation M1): "research…/look into…/find out…" delegates to Claude
+    // Code on the PC. Anchored at the start (after an optional "please"/"jarvis,"/"can you") so a
+    // normal question that merely contains "look" doesn't trigger a minute-long research run.
+    private val researchRe = Regex(
+        "^\\s*(please\\s+)?(jarvis[,!.]?\\s+)?(can you\\s+|could you\\s+|go\\s+|please\\s+)?" +
+            "(research|look into|look up|find out|investigate|dig into|do\\s+(some\\s+)?research(\\s+on)?)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isResearchCommand(s: String) = researchRe.containsMatchIn(s)
+
+    /** Strip the leading research trigger to get the actual topic; fall back to the whole utterance. */
+    private fun researchTopic(s: String): String {
+        val stripped = researchRe.replace(s, "").trim()
+            .removePrefix("about ").removePrefix("on ").removePrefix("into ").removePrefix("regarding ")
+            .trim()
+        return stripped.ifBlank { s.trim() }
+    }
 
     private fun isClosing(s: String): Boolean {
         // Strip punctuation/case (Gemini returns "Thanks, Jarvis." / "Alright, thank you. Bye.").

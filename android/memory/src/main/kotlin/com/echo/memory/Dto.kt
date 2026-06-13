@@ -147,3 +147,29 @@ data class MemoryDto(
 
 /** Result of a RAG chat turn. */
 data class ChatResult(val answer: String, val memoriesUsed: List<Memory>)
+
+// ---- Agent Bridge (deliberate lane: heavy tasks via headless Claude Code on the PC) -------------
+// allowedTools/timeoutMs are NON-defaulted on purpose (encodeDefaults=false drops defaults) — the
+// client always sets them, so they always reach the bridge. cwd/appendSystemPrompt are optional.
+@Serializable
+data class AgentTaskRequest(
+    val prompt: String,
+    val allowedTools: String,
+    val timeoutMs: Long,
+    val appendSystemPrompt: String? = null,
+    val cwd: String? = null,
+)
+
+/** The bridge's normalized response (see agent-bridge/server.js). */
+@Serializable
+data class AgentTaskResponse(
+    val id: String = "",
+    val status: String = "error",   // "ok" | "error" | "timeout"
+    val result: String = "",
+    val summary: String = "",
+    val error: String? = null,
+    val durationMs: Long = 0,
+)
+
+/** Outcome of a delegated agent task, surfaced to the UI/voice loop. */
+data class AgentResult(val ok: Boolean, val text: String, val durationMs: Long)

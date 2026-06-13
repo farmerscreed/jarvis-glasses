@@ -236,8 +236,25 @@ needed and otherwise over-trusts training (one prompt returned an unverified "la
 time-sensitive/factual claims with WebSearch + cite** (`--append-system-prompt` or in the task prompt).
 Full detail + the M2 allowedTools-isn't-a-sandbox caveat in `docs/AGENT_DELEGATION.md` §10.
 
-**M1 (next):** app dispatches "Jarvis, research…" → bridge (dev flavor + `adb reverse tcp:8765`) →
-speaks the summary → distills into memory. Detect the intent like `isRememberCommand`/`isVisionCommand`.
+**🟡 M1 BUILT (2026-06-14) — needs a live voice test.** The app now dispatches "Jarvis, research…"
+to the bridge and speaks a sourced summary:
+- `AgentBridge.kt` (`:memory`) — OkHttp client (its own 300 s read timeout) → `POST /task` with the
+  bearer token; `research(query)` sends the **RESEARCH_PRESET** as `appendSystemPrompt` (verify with
+  WebSearch + cite; spoken style; `Sources:` line) + read-only/web tools. `isConfigured`=false ⇒
+  no-op (prod). Bridge gained an `appendSystemPrompt` field (→ `--append-system-prompt`).
+- `HomeViewModel.converse()` — new `isResearchCommand`/`researchTopic` (anchored "research/look
+  into/find out/…"); a research branch cues "On it — researching…", calls the bridge, speaks the part
+  **before** `Sources:`, shows the full text + saves it to the memory index (NOTE, tag `research`).
+  Checked after remember/vision, before closing/chat. Prod falls through to normal chat.
+- Config: `AGENT_BRIDGE_URL`/`AGENT_BRIDGE_TOKEN` BuildConfig fields; dev reads them from gitignored
+  `android/local.properties` (`agentBridge.url`/`.token`, matching `agent-bridge/.env`), prod = empty.
+- **Verified:** dev APK builds, installs, launches clean (Hilt graph resolves); `adb reverse tcp:8765`
+  set; bridge-side research grounding verified by curl (it web-searches + returns spoken+Sources).
+- **NOT yet verified (needs the director's voice):** the on-device voice leg. To test: start the local
+  Supabase stack + `supabase functions serve`; `adb reverse tcp:54421 tcp:54421` **and** `tcp:8765`;
+  run the bridge (`node agent-bridge\server.js`); sign in (dev); say/tap-talk **"Jarvis, research
+  <topic>"** → expect "On it — researching…", then a spoken sourced summary, and a `research`-tagged
+  memory. (`online` must be true — the dev backend reachable — or `converse()` short-circuits off-grid.)
 
 **Also queued (director asks, 2026-06-13):** (a) **glasses battery gauge in the app** — battery is NOT
 yet exposed in our BLE impl; the protocol's "oudmon" device-info/battery command (recon) is

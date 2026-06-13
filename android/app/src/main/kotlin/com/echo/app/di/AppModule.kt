@@ -12,6 +12,7 @@ import com.echo.device.wifi.GlassesP2pManager
 import com.echo.device.wifi.MediaTransferClient
 import java.io.File
 import com.echo.app.ml.MediaPipeEmbedder
+import com.echo.memory.AgentBridge
 import com.echo.memory.ConnectivityGovernor
 import com.echo.memory.EchoBackend
 import com.echo.memory.Embedder
@@ -62,6 +63,23 @@ object AppModule {
     @Singleton
     fun provideConnectivityGovernor(@ApplicationContext ctx: Context): ConnectivityGovernor =
         ConnectivityGovernor(ctx, BuildConfig.SUPABASE_URL + "/auth/v1/health")
+
+    /**
+     * Agent Bridge (deliberate lane). Its own OkHttp client with a long read timeout — a research
+     * task can take a minute+, far beyond the shared client's 60 s. URL/token come from the flavor's
+     * BuildConfig (dev = local bridge over adb reverse; prod = empty ⇒ disabled until Phase 2).
+     */
+    @Provides
+    @Singleton
+    fun provideAgentBridge(json: Json): AgentBridge = AgentBridge(
+        baseUrl = BuildConfig.AGENT_BRIDGE_URL,
+        token = BuildConfig.AGENT_BRIDGE_TOKEN,
+        http = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(300, TimeUnit.SECONDS)
+            .build(),
+        json = json,
+    )
 
     @Provides
     @Singleton

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,14 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+// Agent Bridge (deliberate lane) config from gitignored local.properties — never committed
+// (public repo). Absent => empty, and the research lane simply stays off in that build.
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val agentBridgeUrl: String = localProps.getProperty("agentBridge.url", "")
+val agentBridgeToken: String = localProps.getProperty("agentBridge.token", "")
 
 android {
     namespace = "com.echo.app"
@@ -41,6 +51,9 @@ android {
             buildConfigField("String", "SUPABASE_URL", "\"http://127.0.0.1:54421\"")
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH\"")
             buildConfigField("boolean", "DEV_LOGIN", "true")
+            // Agent Bridge on the PC, reached via `adb reverse tcp:8765`. From local.properties.
+            buildConfigField("String", "AGENT_BRIDGE_URL", "\"$agentBridgeUrl\"")
+            buildConfigField("String", "AGENT_BRIDGE_TOKEN", "\"$agentBridgeToken\"")
             manifestPlaceholders["usesCleartextTraffic"] = "true"
         }
         create("prod") {
@@ -52,6 +65,10 @@ android {
                 "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndHVpbW5wcHFicmpvY3V6cXNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNTU2ODQsImV4cCI6MjA5NjgzMTY4NH0.KSExgwXG79KcCJ4FbBpWTkddewO_SKjYYVMSRHRXEyE\"",
             )
             buildConfigField("boolean", "DEV_LOGIN", "false")
+            // Agent Bridge is local-only in Phase 1 (M1) → off in prod until Phase 2 (hosted+async).
+            // Empty URL ⇒ AgentBridge.isConfigured is false ⇒ "research…" falls through to normal chat.
+            buildConfigField("String", "AGENT_BRIDGE_URL", "\"\"")
+            buildConfigField("String", "AGENT_BRIDGE_TOKEN", "\"\"")
             // Cleartext must stay ON even in prod: the glasses media sync is plain HTTP over
             // Wi-Fi Direct (http://192.168.49.x/files/..., firmware constraint — no TLS on the
             // device). All cloud traffic is https:// regardless; this flag never downgrades it.

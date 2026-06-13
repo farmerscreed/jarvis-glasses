@@ -128,18 +128,23 @@ the repo, research anywhere. The task store tracks `env`.
   bridge moved to a hosted env. Agent SDK streaming.
 - Trust/audit + memory-distill threaded through every milestone.
 
-**Status:** M0 built + verified (2026-06-13); M1 next. Claude Code verified present (v2.1.175, headless).
+**Status:** M0 + M1 (app side) built; M1 bridge-side grounding verified (2026-06-14); on-device voice
+leg needs a live test. Claude Code verified present (v2.1.175, headless).
 
-### M0 finding — research grounding (carry into M1)
-Headless `claude -p` only web-searches when **the model judges it necessary**. For well-known topics
-(JWST) it answered from training and cited sources; for a "latest version this week" prompt it
-**over-trusted training and returned an unverified/likely-stale answer with `webSearch:0`** even though
-the prompt asked it to search. Diagnosed via `stream-json --verbose`: **`WebSearch` IS offered and the
-model DOES call it when explicitly forced** ("you MUST call WebSearch" → it searched and returned the
-correct current date with sources). So this is a **prompt-layer issue, not a bridge bug.** **M1 fix:**
-the research preset must instruct the agent to *verify time-sensitive/factual claims with WebSearch and
-cite sources before answering* (via `--append-system-prompt` in the bridge research preset, or baked
-into the dispatched task prompt). Aligns with the SOUL truth charter — no confident guesses.
+### M0/M1 finding — research grounding + a measurement gotcha (RESOLVED)
+First read (M0) was that headless `claude -p` "doesn't web-search" because the JSON showed `webSearch:0`.
+**That was a measurement artifact, corrected at M1 (2026-06-14):** `claude -p --output-format json` does
+**not** report which *client* tools (WebSearch/WebFetch/Read/…) ran. `usage.server_tool_use.web_search_
+requests` counts only **API server-side** tools and stays ~0 in Claude Code even when WebSearch actually
+ran. Verified via `--output-format stream-json --verbose` (which DOES emit `tool_use` blocks): with the
+**M1 research preset** layered on as a system prompt (`--append-system-prompt`), the agent **does call
+WebSearch** before answering a "latest version this week" question. So grounding works.
+- **Lesson:** to know which tools an agent used, parse `stream-json` `tool_use` events — not the final
+  json `usage`. The bridge's `toolsUsed` now exposes only what json reliably gives (`numTurns`,
+  `permissionDenials`); per-tool events are a Phase 2 / Agent SDK (stream-json) feature.
+- **M1 research preset** (`AgentBridge.RESEARCH_PRESET`, sent via the bridge's new `appendSystemPrompt`
+  field): verify time-sensitive/factual claims with WebSearch + cite sources; answer in a spoken style
+  (no markdown/URLs) then a final `Sources:` line. Aligns with the SOUL truth charter — no guesses.
 
 Also note for **M2 (coding):** `--allowedTools` is a **no-prompt allowlist, not a hard sandbox** — all
 tools are still *offered* to the model; non-allowlisted ones that need permission are **auto-denied** in

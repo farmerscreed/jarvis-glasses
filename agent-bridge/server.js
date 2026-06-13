@@ -106,12 +106,16 @@ function readBody(req) {
 }
 
 // Run one claude -p task. Resolves with a normalized result object.
-function runTask({ prompt, cwd, allowedTools, timeoutMs }) {
+function runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt }) {
   return new Promise((resolve) => {
     const id = crypto.randomUUID();
     const started = Date.now();
     const args = ['-p', '--output-format', 'json', '--allowedTools', allowedTools];
-    log(`[${id}] start cwd=${cwd} tools=${allowedTools} timeout=${timeoutMs}ms prompt="${preview(prompt, 120)}"`);
+    // Optional preset instruction layered on as a SYSTEM prompt (e.g. the research preset:
+    // "verify time-sensitive claims with WebSearch and cite sources"). Passed as a distinct argv
+    // element — no shell, so spaces/quotes in the text are safe.
+    if (appendSystemPrompt) args.push('--append-system-prompt', appendSystemPrompt);
+    log(`[${id}] start cwd=${cwd} tools=${allowedTools} timeout=${timeoutMs}ms sys=${appendSystemPrompt ? 'yes' : 'no'} prompt="${preview(prompt, 120)}"`);
 
     let child;
     try {
@@ -156,6 +160,11 @@ function runTask({ prompt, cwd, allowedTools, timeoutMs }) {
       }
       const isErr = parsed.is_error === true || parsed.subtype === 'error';
       const result = typeof parsed.result === 'string' ? parsed.result : '';
+      // NOTE: `claude -p --output-format json` does NOT report which client tools (WebSearch/WebFetch/
+      // Read/…) the agent actually used. `usage.server_tool_use` counts only API *server-side* tools
+      // and stays ~0 in Claude Code even when WebSearch ran — so it is NOT a reliable "did it search"
+      // signal (verified 2026-06-14). Real per-tool events need `--output-format stream-json`
+      // (Phase 2 / Agent SDK). We surface only what json reliably gives: turns + permission denials.
       const su = (parsed.usage && parsed.usage.server_tool_use) || {};
       const out = {
         id,
@@ -163,19 +172,18 @@ function runTask({ prompt, cwd, allowedTools, timeoutMs }) {
         result,
         summary: preview(result, 280),
         toolsUsed: {
-          webSearch: su.web_search_requests || 0,
-          webFetch: su.web_fetch_requests || 0,
+          numTurns: parsed.num_turns,
           permissionDenials: Array.isArray(parsed.permission_denials)
             ? parsed.permission_denials.map(p => p.tool_name || p).filter(Boolean)
             : [],
-          numTurns: parsed.num_turns,
+          apiServerToolUse: su, // API server tools only; client WebSearch/WebFetch NOT counted here
         },
         durationMs: parsed.duration_ms != null ? parsed.duration_ms : durationMs,
         cost: parsed.total_cost_usd,
         sessionId: parsed.session_id,
         raw: parsed,
       };
-      log(`[${id}] done status=${out.status} turns=${parsed.num_turns} web=${out.toolsUsed.webSearch}/${out.toolsUsed.webFetch} ${durationMs}ms cost=$${out.cost}`);
+      log(`[${id}] done status=${out.status} turns=${parsed.num_turns} denials=${out.toolsUsed.permissionDenials.length} ${durationMs}ms cost=$${out.cost}`);
       resolve(out);
     });
 
@@ -244,7 +252,13 @@ const server = http.createServer(async (req, res) => {
       if (Number.isFinite(t)) timeoutMs = Math.min(Math.max(t, 1000), MAX_TIMEOUT);
     }
 
-    const out = await runTask({ prompt, cwd, allowedTools, timeoutMs });
+    // appendSystemPrompt: optional preset/system instruction (capped).
+    let appendSystemPrompt = null;
+    if (body.appendSystemPrompt != null && String(body.appendSystemPrompt).trim()) {
+      appendSystemPrompt = String(body.appendSystemPrompt).slice(0, 8000);
+    }
+
+    const out = await runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt });
     const code = out.status === 'ok' ? 200 : (out.status === 'timeout' ? 504 : 502);
     return json(res, code, out);
   }
