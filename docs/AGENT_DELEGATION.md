@@ -122,14 +122,32 @@ the repo, research anywhere. The task store tracks `env`.
   agent-bridge\server.js`. *(no app changes yet.)*
 - **M1 (voice → research):** app dispatches "Jarvis, research…" to the bridge (dev flavor, `adb
   reverse`), speaks the summary, distills it into memory. End-to-end on this machine.
-- **M2 (coding):** add a repo working-dir + edit/run tools + git-diff review + confirm-before-commit.
-- **M3 (email/calendar):** MCP (Gmail/Calendar) + confirm-before-send gates.
-- **M4 (Phase 2 async + hosted):** `agent_tasks` store, ticketed async, FCM push + spoken "done",
-  bridge moved to a hosted env. Agent SDK streaming.
-- Trust/audit + memory-distill threaded through every milestone.
+- **M2 (coding):** ✅ **built + bridge-verified (2026-06-14).** `AgentBridge.coding()` runs `Read,Edit,
+  Write,Glob,Grep,Bash` in the repo cwd with `CODING_PRESET` (smallest diff; **never commit/push/
+  delete**) and `disallowedTools` blocking `git push/commit/reset`, `rm`, `sudo`. Changes are left in
+  the working tree for `git diff` review. A separate **confirm-gated** `commitChanges()` does one local
+  commit (no push). Voice: `isCodingCommand` (broad verb + code noun) and `isCommitCommand`. **Verified
+  by curl** in a temp dir: created a file, spoke a summary, did not commit. *On-device voice leg + a
+  real-repo edit need a live test.*
+- **M3 (email/calendar):** ✅ **built + bridge-verified (2026-06-14).** Gmail/Calendar MCP (confirmed
+  reachable headless). **Email is DRAFT-ONLY by construction** — the Gmail MCP exposes no send tool, so
+  the strongest "never send autonomously" gate is structural; `emailDraft()` saves a draft to review in
+  Gmail. **Calendar read** (`calendarQuery`) is free; **calendar add** (`calendarAdd`, create-only — no
+  edit/delete) is **confirm-gated** by a spoken yes/no (`awaitConfirmation`). Voice: `isCalendarQuery/
+  isCalendarAdd/isEmailCommand`. **Verified by curl:** listed real calendars; created a labelled test
+  draft. *Calendar-add (creates a real event) + the voice leg need a live test.*
+- **M4 (Phase 2 async + hosted):** ⏳ **not built — needs director-side infra.** Requires FCM/Firebase
+  (not yet in the project), a hosted env with `claude login`, and a prod `agent_tasks` migration
+  (director-authorized deploy). Today everything is **synchronous + local** (M1–M3). Bridge groundwork
+  in place: an **audit log** (`agent-bridge/audit.log`, gitignored — every task: time/status/tools/
+  prompt/result) and a normalized result with `sessionId` (enables `--resume` for two-step flows later).
+- **Trust/audit threaded:** confirm-before-act on commit + calendar-add; email structurally draft-only;
+  `disallowedTools` on the Bash lanes; audit log of every delegation. Memory-distill: research results
+  saved as `research`-tagged notes; conversation-end distillation already runs.
 
-**Status:** M0 + M1 (app side) built; M1 bridge-side grounding verified (2026-06-14); on-device voice
-leg needs a live test. Claude Code verified present (v2.1.175, headless).
+**Status:** M0–M3 built; bridge-side verified by curl (2026-06-14); on-device voice legs need a live
+test (glasses + local dev). M4 (async/hosted/push) not built — needs director infra. Claude Code
+verified present (v2.1.175, headless); Gmail/Calendar MCP reachable headless.
 
 ### M0/M1 finding — research grounding + a measurement gotcha (RESOLVED)
 First read (M0) was that headless `claude -p` "doesn't web-search" because the JSON showed `webSearch:0`.

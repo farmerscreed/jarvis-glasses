@@ -58,8 +58,12 @@ const DEFAULT_TIMEOUT = 180000;     // 3 min
 const MAX_TIMEOUT = 600000;         // 10 min
 // Least-privilege research preset: read-only + web, no edits/shell.
 const DEFAULT_ALLOWED = process.env.BRIDGE_DEFAULT_TOOLS || 'WebSearch,WebFetch,Read,Glob,Grep';
-const ALLOWED_RE = /^[A-Za-z0-9_]+(,[A-Za-z0-9_]+)*$/;
+// Tool specs: built-in names (Read, Bash), MCP names (mcp__server__tool), and Claude Code
+// permission patterns (Bash(git push:*)). Comma-separated. Args go to spawn WITHOUT a shell, so
+// these characters carry no injection risk — the regex just rejects obviously-malformed input.
+const ALLOWED_RE = /^[A-Za-z0-9_*().:,\- ]+$/;
 const MAX_BODY = 1024 * 1024;       // 1 MB request cap
+const AUDIT_FILE = path.join(__dirname, 'audit.log'); // JSONL, gitignored — every delegated task
 
 function resolveClaude() {
   if (process.env.CLAUDE_BIN && fs.existsSync(process.env.CLAUDE_BIN)) return process.env.CLAUDE_BIN;
@@ -105,17 +109,24 @@ function readBody(req) {
   });
 }
 
+// Append one task record to the audit log (trust/safety §6 — reviewable record of every delegation).
+function audit(rec) {
+  try { fs.appendFileSync(AUDIT_FILE, JSON.stringify(rec) + '\n'); } catch (_) { /* never fail a task on audit */ }
+}
+
 // Run one claude -p task. Resolves with a normalized result object.
-function runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt }) {
+function runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt, disallowedTools }) {
   return new Promise((resolve) => {
     const id = crypto.randomUUID();
     const started = Date.now();
+    const startedIso = new Date().toISOString();
     const args = ['-p', '--output-format', 'json', '--allowedTools', allowedTools];
+    if (disallowedTools) args.push('--disallowedTools', disallowedTools);
     // Optional preset instruction layered on as a SYSTEM prompt (e.g. the research preset:
     // "verify time-sensitive claims with WebSearch and cite sources"). Passed as a distinct argv
     // element — no shell, so spaces/quotes in the text are safe.
     if (appendSystemPrompt) args.push('--append-system-prompt', appendSystemPrompt);
-    log(`[${id}] start cwd=${cwd} tools=${allowedTools} timeout=${timeoutMs}ms sys=${appendSystemPrompt ? 'yes' : 'no'} prompt="${preview(prompt, 120)}"`);
+    log(`[${id}] start cwd=${cwd} tools=${allowedTools} deny=${disallowedTools || '-'} timeout=${timeoutMs}ms sys=${appendSystemPrompt ? 'yes' : 'no'} prompt="${preview(prompt, 120)}"`);
 
     let child;
     try {
@@ -145,6 +156,7 @@ function runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt }) {
       const durationMs = Date.now() - started;
       if (timedOut) {
         log(`[${id}] TIMEOUT after ${durationMs}ms`);
+        audit({ id, at: startedIso, status: 'timeout', durationMs, cwd, allowedTools, prompt: preview(prompt, 300) });
         return resolve({ id, status: 'timeout', error: `timed out after ${timeoutMs}ms`, durationMs, stderr: preview(stderr, 500) });
       }
       let parsed;
@@ -184,6 +196,9 @@ function runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt }) {
         raw: parsed,
       };
       log(`[${id}] done status=${out.status} turns=${parsed.num_turns} denials=${out.toolsUsed.permissionDenials.length} ${durationMs}ms cost=$${out.cost}`);
+      audit({ id, at: startedIso, status: out.status, durationMs, cwd, allowedTools, disallowedTools: disallowedTools || null,
+        numTurns: parsed.num_turns, denials: out.toolsUsed.permissionDenials, cost: out.cost,
+        prompt: preview(prompt, 300), result: preview(result, 600) });
       resolve(out);
     });
 
@@ -246,6 +261,16 @@ const server = http.createServer(async (req, res) => {
       allowedTools = at;
     }
 
+    // disallowedTools: optional defense-in-depth (e.g. block git push / rm in the coding lane).
+    let disallowedTools = null;
+    if (body.disallowedTools != null && String(body.disallowedTools).trim()) {
+      const dt = Array.isArray(body.disallowedTools) ? body.disallowedTools.join(',') : String(body.disallowedTools).trim();
+      if (!ALLOWED_RE.test(dt)) {
+        return json(res, 400, { status: 'error', error: 'disallowedTools must be comma-separated tool names/patterns' });
+      }
+      disallowedTools = dt;
+    }
+
     let timeoutMs = DEFAULT_TIMEOUT;
     if (body.timeoutMs != null) {
       const t = parseInt(body.timeoutMs, 10);
@@ -258,7 +283,7 @@ const server = http.createServer(async (req, res) => {
       appendSystemPrompt = String(body.appendSystemPrompt).slice(0, 8000);
     }
 
-    const out = await runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt });
+    const out = await runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt, disallowedTools });
     const code = out.status === 'ok' ? 200 : (out.status === 'timeout' ? 504 : 502);
     return json(res, code, out);
   }

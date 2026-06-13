@@ -76,7 +76,7 @@ object AppModule {
         token = BuildConfig.AGENT_BRIDGE_TOKEN,
         http = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(300, TimeUnit.SECONDS)
+            .readTimeout(600, TimeUnit.SECONDS) // coding tasks can run several minutes
             .build(),
         json = json,
     )

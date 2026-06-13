@@ -157,6 +157,7 @@ data class AgentTaskRequest(
     val allowedTools: String,
     val timeoutMs: Long,
     val appendSystemPrompt: String? = null,
+    val disallowedTools: String? = null,
     val cwd: String? = null,
 )
 

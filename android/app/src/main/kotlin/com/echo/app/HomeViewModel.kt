@@ -521,12 +521,10 @@ class HomeViewModel @Inject constructor(
                 val res = agent.research(topic)
                 // The preset answers in a spoken style then lists "Sources:" — speak the spoken part,
                 // but keep the full text (with sources) on screen and in memory.
-                val spoken = res.text.substringBefore("\nSources:").substringBefore("Sources:")
-                    .trim().ifBlank { res.text }
                 answer = res.text
                 transcript.add(TurnLine(fromUser = false, text = res.text))
                 status = if (res.ok) "Researched · ${res.durationMs / 1000}s" else "Research failed"
-                tts.speak(spoken)
+                tts.speak(spokenPart(res.text))
                 // Persist successful research into the memory index so it's recalled later.
                 if (res.ok) runCatching {
                     store.remember(
@@ -536,6 +534,62 @@ class HomeViewModel @Inject constructor(
                 if (!continuous) { status = "Done"; break }
                 status = "Listening…"
                 continue
+            }
+
+            // M2 — commit (gated): confirm by voice, then one local commit, never a push.
+            if (agent.isConfigured && isCommitCommand(heard)) {
+                if (awaitConfirmation("I'll commit the current changes locally, without pushing. Go ahead?")) {
+                    status = "Committing…"
+                    val res = agent.commitChanges()
+                    answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
+                    status = if (res.ok) "Committed" else "Commit failed"
+                } else { tts.speak("Okay, I won't commit."); status = "Cancelled" }
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+
+            // M3 — add to calendar (gated): confirm by voice, then create the event (never edits/deletes).
+            if (agent.isConfigured && isCalendarAdd(heard)) {
+                if (awaitConfirmation("I'll add that to your calendar. Shall I go ahead?")) {
+                    status = "Adding to your calendar…"
+                    val res = agent.calendarAdd(heard)
+                    answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
+                    status = if (res.ok) "Added to your calendar" else "Couldn't add it"
+                } else { tts.speak("Okay, I won't add it."); status = "Cancelled" }
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+
+            // M3 — read the calendar (no side effects, no confirm).
+            if (agent.isConfigured && isCalendarQuery(heard)) {
+                status = "Checking your calendar…"
+                val res = agent.calendarQuery(heard)
+                answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
+                status = if (res.ok) "Checked your calendar" else "Couldn't check your calendar"
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+
+            // M3 — draft an email (DRAFT ONLY; the Gmail MCP has no send tool, so this is safe).
+            if (agent.isConfigured && isEmailCommand(heard)) {
+                status = "Drafting your email…"
+                tts.speak("I'll draft that for you.")
+                val res = agent.emailDraft(heard)
+                answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
+                status = if (res.ok) "Draft saved to Gmail" else "Couldn't draft it"
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+
+            // M2 — coding (broadest agent intent → checked last). Edits the repo for review; no commit.
+            if (agent.isConfigured && isCodingCommand(heard)) {
+                status = "Working on the code…"
+                tts.speak("Okay, I'll work on that in the code now. This may take a little while; I'll leave the changes for you to review and won't commit anything.")
+                val res = agent.coding(heard)
+                answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
+                status = if (res.ok) "Code changes ready to review" else "Coding didn't complete"
+                if (!continuous) break
+                status = "Listening…"; continue
             }
 
             if (continuous && isClosing(heard)) {
@@ -647,6 +701,41 @@ class HomeViewModel @Inject constructor(
         return stripped.ifBlank { s.trim() }
     }
 
+    // M2 coding — broad verb + an explicit code-y noun (kept specific so normal chat doesn't edit files).
+    private val codingRe = Regex(
+        "^\\s*(please\\s+)?(jarvis[,!.]?\\s+)?" +
+            "(write|fix|implement|refactor|debug|add|create|update|change|rename|remove|delete|build|make)\\b.*" +
+            "\\b(code|coding|bug|function|feature|test|tests|file|files|class|method|script|module|component|" +
+            "endpoint|api|typo|compile|build|repo|repository|variable|import)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isCodingCommand(s: String) = codingRe.containsMatchIn(s)
+
+    // M2 commit — explicit "commit…" (the actual commit is gated behind a spoken confirm).
+    private val commitRe = Regex("^\\s*(please\\s+)?(jarvis[,!.]?\\s+)?commit\\b", RegexOption.IGNORE_CASE)
+    private fun isCommitCommand(s: String) = commitRe.containsMatchIn(s)
+
+    // M3 calendar add — an add-verb near a calendar noun, or "remind me to / schedule a / book a …".
+    private val calAddRe = Regex(
+        "\\b(add|schedule|put|create|set\\s*up|book|make|new)\\b.*\\b(calendar|meeting|appointment|event|reminder)\\b|" +
+            "\\b(remind me to|schedule a|book a|set up a|put .* on my calendar)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isCalendarAdd(s: String) = calAddRe.containsMatchIn(s)
+
+    // M3 calendar query — any calendar/schedule mention not already consumed by the add check.
+    private val calQueryRe = Regex(
+        "\\b(calendar|schedule|agenda|meetings?|appointments?)\\b", RegexOption.IGNORE_CASE,
+    )
+    private fun isCalendarQuery(s: String) = calQueryRe.containsMatchIn(s)
+
+    // M3 email — an email keyword, or a "draft/write/send/reply" verb near a message noun.
+    private val emailRe = Regex(
+        "\\b(e-?mail|gmail)\\b|\\b(draft|write|send|reply to|respond to)\\b.*\\b(message|mail|note)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isEmailCommand(s: String) = emailRe.containsMatchIn(s)
+
     private fun isClosing(s: String): Boolean {
         // Strip punctuation/case (Gemini returns "Thanks, Jarvis." / "Alright, thank you. Bye.").
         val t = s.lowercase()
@@ -676,6 +765,47 @@ class HomeViewModel @Inject constructor(
         ) return true
         // single-word commands.
         return words.size == 1 && words[0] in setOf("stop", "cancel", "quit", "exit", "done")
+    }
+
+    /** The part of an agent answer meant to be spoken aloud (drop a trailing "Sources:" block). */
+    private fun spokenPart(text: String): String =
+        text.substringBefore("\nSources:").substringBefore("Sources:").trim().ifBlank { text }
+
+    /**
+     * Record + transcribe one short utterance (for confirmations). Returns "" when nothing
+     * intelligible was heard. Lighter than the main [converse] STT path — on-device first, cloud
+     * fallback — and deliberately separate so it never disturbs the verified main voice loop.
+     */
+    private suspend fun captureUtterance(playCue: Boolean): String {
+        micActive = true
+        val rec = try {
+            audio.recordUntilSilence(playCue = playCue, shouldAbort = { stopConversation })
+        } finally { micActive = handsFree }
+        if (stopConversation) return ""
+        if (!rec.speechStarted || rec.peak < 900 || rec.rms < 70) return ""
+        val onDevice = if (sherpa.isReady) sherpa.transcribe(rec.pcm, rec.sampleRate) else ""
+        return if (onDevice.isNotBlank()) onDevice
+        else runCatching { backend.transcribe(WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)) }.getOrDefault("")
+    }
+
+    /**
+     * Trust gate (Agent Delegation §6): speak a yes/no question and listen for the answer. Returns
+     * true ONLY on a clear affirmative — silence or anything ambiguous is treated as "no", so a
+     * misheard reply never triggers an outward/irreversible action.
+     */
+    private suspend fun awaitConfirmation(prompt: String): Boolean {
+        tts.speak(prompt)
+        val heard = captureUtterance(playCue = true)
+        if (heard.isNotBlank()) { question = heard; transcript.add(TurnLine(fromUser = true, text = heard)) }
+        return isAffirmative(heard)
+    }
+
+    private fun isAffirmative(s: String): Boolean {
+        val t = s.lowercase().replace(Regex("[^a-z' ]"), " ").replace(Regex("\\s+"), " ").trim()
+        if (t.isBlank()) return false
+        // Any negation present ⇒ not a confirmation (fail safe).
+        if (Regex("\\b(no|nope|don'?t|do not|cancel|stop|never\\s*mind|negative|forget it|wait)\\b").containsMatchIn(t)) return false
+        return Regex("\\b(yes|yeah|yep|yup|sure|ok|okay|okey|go ahead|do it|please do|send it|confirm|affirmative|sounds good|go for it|correct|right|absolutely)\\b").containsMatchIn(t)
     }
 
     /**

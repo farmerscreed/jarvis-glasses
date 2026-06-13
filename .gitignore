@@ -4,6 +4,9 @@
 *.keystore
 *.jks
 
+# ---- Agent Bridge audit log (contains task prompts/results) ----
+agent-bridge/audit.log
+
 # ---- Android / Gradle ----
 **/build/
 .gradle/

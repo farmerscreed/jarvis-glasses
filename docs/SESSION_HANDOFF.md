@@ -256,6 +256,25 @@ to the bridge and speaks a sourced summary:
   <topic>"** → expect "On it — researching…", then a spoken sourced summary, and a `research`-tagged
   memory. (`online` must be true — the dev backend reachable — or `converse()` short-circuits off-grid.)
 
+**🟡 M2 (coding) + M3 (email/calendar) BUILT (2026-06-14) — bridge-verified by curl, voice leg pending.**
+All in the same `converse()` deliberate-lane branches (dev only; prod falls through to chat):
+- **M2 coding** — say **"fix/write/refactor … the code/bug/function/…"** → `AgentBridge.coding()` runs
+  edit+run tools (`Read,Edit,Write,Glob,Grep,Bash`) in the **repo cwd**, `CODING_PRESET` (smallest diff,
+  **never commit/push/delete**), `disallowedTools` blocking `git push/commit/reset`,`rm`,`sudo`. Leaves
+  changes for `git diff`. **"commit"** → spoken **confirm** → `commitChanges()` (one local commit, no
+  push). *Verified by curl in a temp dir (created a file, no commit). Voice + real-repo edit pending.*
+- **M3 email** — **draft-only by construction** (Gmail MCP has no send tool). "draft/email …" →
+  `emailDraft()` saves a Gmail draft to review. *Verified: a labelled **TEST draft** is in your Gmail —
+  delete it.*
+- **M3 calendar** — "what's on my calendar…" → `calendarQuery()` (read, no confirm); "add/schedule …
+  meeting/event…" → spoken **confirm** → `calendarAdd()` (create-only). *Calendar read verified (listed
+  real calendars); calendar-add creates a real event → director to test live.*
+- **Trust/safety:** `awaitConfirmation()` (yes/no voice gate; silence/ambiguity = no) on commit +
+  calendar-add; `agent-bridge/audit.log` (gitignored) records every delegated task.
+- **MCP needs nothing extra:** Gmail/Calendar/Drive are **Connected** for headless `claude -p` (verified).
+- **NOT built — M4** (async tickets, FCM push, hosted bridge, Agent SDK streaming): needs director infra
+  (Firebase/FCM, a host, a prod `agent_tasks` migration). All lanes are synchronous + local today.
+
 **Also queued (director asks, 2026-06-13):** (a) **glasses battery gauge in the app** — battery is NOT
 yet exposed in our BLE impl; the protocol's "oudmon" device-info/battery command (recon) is
 unimplemented → decode + issue it. (b) **Glasses recovery:** by session end the glasses wedged (no
