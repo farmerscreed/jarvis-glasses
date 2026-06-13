@@ -82,9 +82,18 @@ Goal: it doesn't just *know* — it **does**, truthfully and on the director's b
 ---
 
 ## Sequencing & status
-1. **v1.1 profile layer** — building now (migration + chat injection + SOUL/USER seed).
-2. v1.2 distillation → v1.3 memory tool → v1.4 self-improvement → v1.5 editable profile.
-3. Then v2.1 skills (highest-value agentic step) → v2.2 crons → v2.3 reach.
+1. **v1.1 profile layer — ✅ DEPLOYED + VERIFIED (2026-06-13).** `profile` table migrated to prod;
+   `chat`/`chat-stream`/`profile` deployed; SOUL seeded into the director's profile. Verified live:
+   asked "who are you + my daughter's name" → introduced as chief of staff and said *"I don't know it
+   yet, you haven't told me"* (character + truth charter both working).
+2. **v1.2 distillation — ✅ DEPLOYED + VERIFIED.** `distill` deployed; app fires it at conversation
+   end. Verified: a test convo distilled to clean bullets (`Daughter: Maya`, `Prefers concise answers`)
+   and the next answer recalled them. (Test facts cleared afterward; profile starts clean.)
+3. **NEXT:** v1.3 memory tool (explicit "remember X" mid-conversation) → v1.4 self-improvement (the
+   distill merge already applies corrections) → v1.5 editable-profile Settings UI (director can hand-
+   edit SOUL + facts in-app; today editable via the `profile` function). The director will edit
+   `docs/assistant/SOUL.md`; re-seed via the `profile` function (or the v1.5 UI).
+4. Then v2.1 skills (highest-value agentic step) → v2.2 crons → v2.3 reach.
 
 Cloud deploys (migration + function changes) are director-authorized per the Phase E pattern. Each
 increment is committed + verified before the next.
