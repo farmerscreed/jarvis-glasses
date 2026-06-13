@@ -1,5 +1,6 @@
 package com.echo.app.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.HorizontalDivider
@@ -25,9 +27,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,6 +52,7 @@ fun JarvisTopBar(
     onNavigate: (() -> Unit)? = null,
     navigateBack: Boolean = false,
     onHelp: (() -> Unit)? = null,
+    micActive: Boolean = false,
 ) {
     Box(
         modifier = modifier
@@ -83,15 +88,42 @@ fun JarvisTopBar(
                 modifier = Modifier.align(Alignment.Center),
             )
         }
-        if (onHelp != null) {
-            IconButton(onClick = onHelp, modifier = Modifier.align(Alignment.CenterEnd)) {
-                Icon(
-                    Icons.AutoMirrored.Outlined.HelpOutline,
-                    contentDescription = "help",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (micActive) MicIndicator()
+            if (onHelp != null) {
+                IconButton(onClick = onHelp) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.HelpOutline,
+                        contentDescription = "help",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
+    }
+}
+
+/** Privacy: a red "MIC" pill shown whenever the mic is live (always-listening trust signal). */
+@Composable
+private fun MicIndicator() {
+    Row(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.18f))
+            .padding(horizontal = JarvisSpacing.sm, vertical = JarvisSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.xs),
+    ) {
+        Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.error, CircleShape))
+        Icon(
+            Icons.Outlined.Mic,
+            contentDescription = "microphone is on",
+            tint = MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(14.dp),
+        )
     }
 }
 

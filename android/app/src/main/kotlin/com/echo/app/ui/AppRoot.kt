@@ -71,7 +71,7 @@ fun AppRoot() {
                     navigateBack = true,
                 )
             } else {
-                JarvisTopBar(onHelp = { showHelp = true })
+                JarvisTopBar(onHelp = { showHelp = true }, micActive = vm.micActive)
             }
         },
         bottomBar = {

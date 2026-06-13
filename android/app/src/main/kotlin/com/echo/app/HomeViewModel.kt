@@ -66,6 +66,9 @@ class HomeViewModel @Inject constructor(
     var lastLatencyMs by mutableStateOf(0L); private set
     var handsFree by mutableStateOf(false); private set
 
+    /** Privacy: true whenever the mic is actively capturing (a voice turn or wake-word listening). */
+    var micActive by mutableStateOf(false); private set
+
     /** Offline-first surface: live online state, tier, + count of memories not yet pushed. */
     var online by mutableStateOf(true); private set
     var tier by mutableStateOf("full"); private set
@@ -226,7 +229,8 @@ class HomeViewModel @Inject constructor(
 
     /** Phase 0C audio loop: record from the glasses mic (SCO), then play it back (A2DP). */
     fun testAudio() = run("Recording 4s — speak into the glasses…") {
-        val rec = audio.record(4000)
+        micActive = true
+        val rec = try { audio.record(4000) } finally { micActive = false }
         audioStatus = "Recorded %.1fs · peak %d · rms %d".format(rec.seconds, rec.peak, rec.rms)
         status = "Playing back through the glasses…"
         delay(600)
@@ -251,7 +255,8 @@ class HomeViewModel @Inject constructor(
         val t0 = System.currentTimeMillis()
         audio.earcon(EarconKind.LISTENING)
         // Phase D: stop recording when you stop talking, not after a fixed 5 s.
-        val rec = audio.recordUntilSilence()
+        micActive = true
+        val rec = try { audio.recordUntilSilence() } finally { micActive = handsFree }
         val tRecord = System.currentTimeMillis() - t0
         status = "Transcribing…"
         val sttStart = System.currentTimeMillis()
@@ -293,9 +298,10 @@ class HomeViewModel @Inject constructor(
     fun toggleHandsFree(on: Boolean) {
         handsFree = on
         if (on) {
-            if (startWake()) status = "Hands-free on — say “Jarvis”"
+            if (startWake()) { status = "Hands-free on — say “Jarvis”"; micActive = true }
             else { handsFree = false; status = "Wake word error: ${wake.lastError}" }
         } else {
+            micActive = false
             wake.stop()
             status = "Hands-free off"
         }
