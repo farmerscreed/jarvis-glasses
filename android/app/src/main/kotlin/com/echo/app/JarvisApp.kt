@@ -10,6 +10,7 @@ import dagger.hilt.android.HiltAndroidApp
 class JarvisApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        CrashReporter.install(this) // capture uncaught exceptions to a local log (no external SDK)
         // Wire the offline-first outbox to WorkManager: every local write enqueues a background
         // drain (survives app kill), plus a periodic backstop for anything still pending.
         val store = EntryPointAccessors

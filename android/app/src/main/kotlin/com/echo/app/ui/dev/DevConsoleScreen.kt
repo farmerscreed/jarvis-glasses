@@ -59,6 +59,17 @@ fun DevConsoleScreen(vm: HomeViewModel) {
             style = MaterialTheme.typography.bodySmall,
         )
 
+        // Crash telemetry: show the last captured crash, if any (CrashReporter writes filesDir/crash.log).
+        val lastCrash = com.echo.app.CrashReporter.lastLog(androidx.compose.ui.platform.LocalContext.current)
+        if (lastCrash != null) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Last crash", fontWeight = FontWeight.SemiBold)
+                    Text(lastCrash.takeLast(1200), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(16.dp),
