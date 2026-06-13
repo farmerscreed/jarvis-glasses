@@ -63,10 +63,11 @@ class HomeViewModel @Inject constructor(
     var inConversation by mutableStateOf(false); private set
     @Volatile private var stopConversation = false
 
-    // Barge-in held SCO open and played the answer over the SCO mic link — the echo bled into the
-    // next recording and Gemini returned blank transcripts (it "couldn't hear"). DISABLED until
-    // reworked so it doesn't pollute capture; conversation mode uses the reliable per-turn SCO path.
-    private val bargeInEnabled = false
+    // Barge-in holds SCO open so the answer plays over the SCO link while the mic monitors for the
+    // user cutting in. Re-enabled now that STT is ON-DEVICE (the earlier "couldn't hear" was really
+    // the Gemini cloud quota, not the SCO echo). awaitBargeIn() thresholds are echo-aware and tuned
+    // to the user's ~1700 voice RMS; tune further from the EchoBarge logs after testing.
+    private val bargeInEnabled = true
 
     /** Running transcript of the current conversation for the scrollable on-screen chat. */
     val transcript = mutableStateListOf<TurnLine>()
