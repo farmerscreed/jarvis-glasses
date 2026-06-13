@@ -129,14 +129,17 @@ class GlassesCaptureReactor @Inject constructor(
      * Returns null on timeout / not-signed-in. Requires [start] to be active (the event collector).
      */
     suspend fun captureAndDescribe(timeoutMs: Long = 30_000): String? {
-        if (!backend.isLoggedIn) return null
+        if (!backend.isLoggedIn) { android.util.Log.w("EchoVision", "not logged in"); return null }
         val before = _lastAnswer.value
         aiAskPending = true
         _status.value = "Looking…"
+        android.util.Log.i("EchoVision", "capturePhoto() — awaiting CaptureSaved -> sync -> vision")
         ble.capturePhoto() // CaptureSaved -> auto-sync -> Look & Ask vision (sets _lastAnswer + speaks)
-        return withTimeoutOrNull(timeoutMs) {
+        val result = withTimeoutOrNull(timeoutMs) {
             _lastAnswer.first { it != before && it.isNotBlank() }
         }
+        android.util.Log.i("EchoVision", if (result == null) "TIMEOUT after ${timeoutMs}ms (no capture/sync/vision)" else "got description (${result.length} chars)")
+        return result
     }
 
     /** Import already-downloaded files that lack a memory (orphan reconciliation), silently. */

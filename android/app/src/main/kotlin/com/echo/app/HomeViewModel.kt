@@ -491,7 +491,13 @@ class HomeViewModel @Inject constructor(
             if (isVisionCommand(heard)) {
                 status = "Looking…"
                 tts.speak("Let me look.")
+                // The camera + Wi-Fi-Direct photo sync can't run while the conversation holds the SCO
+                // audio link — release it for the capture (also restores the hi-fi route for the
+                // spoken description), then resume the held session for the next turn.
+                val hadHeldSco = continuous && bargeInEnabled
+                if (hadHeldSco) { audio.endScoSession(); tts.useCommunicationRoute(false) }
                 val desc = reactor.captureAndDescribe()
+                if (hadHeldSco) { tts.useCommunicationRoute(true); audio.beginScoSession() }
                 val ans = desc ?: "Sorry — I couldn't get a clear look. Try again."
                 answer = ans
                 transcript.add(TurnLine(fromUser = false, text = ans))
