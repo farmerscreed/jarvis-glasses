@@ -486,6 +486,21 @@ class HomeViewModel @Inject constructor(
                 continue
             }
 
+            // Voice-controlled glasses: "what am I looking at" / "take a photo of this" → capture a
+            // photo through the glasses and describe it aloud (the reactor speaks the description).
+            if (isVisionCommand(heard)) {
+                status = "Looking…"
+                tts.speak("Let me look.")
+                val desc = reactor.captureAndDescribe()
+                val ans = desc ?: "Sorry — I couldn't get a clear look. Try again."
+                answer = ans
+                transcript.add(TurnLine(fromUser = false, text = ans))
+                if (desc == null) tts.speak(ans) // the reactor already speaks on success
+                if (!continuous) { status = "Done"; break }
+                status = "Listening…"
+                continue
+            }
+
             if (continuous && isClosing(heard)) {
                 status = "Conversation ended"
                 tts.speak("Talk soon.")
@@ -567,6 +582,15 @@ class HomeViewModel @Inject constructor(
         RegexOption.IGNORE_CASE,
     )
     private fun isRememberCommand(s: String) = rememberRe.containsMatchIn(s)
+
+    // Voice-controlled glasses (v2.1 first skill): commands that mean "use the camera + tell me".
+    private val visionRe = Regex(
+        "(what am i looking at|what'?s (this|that|in front)|what do you see|look at (this|that)|" +
+            "take a (photo|picture|pic|snap|shot)|describe (this|that|what)|can you see|" +
+            "what is (this|that)|read (this|that))",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isVisionCommand(s: String) = visionRe.containsMatchIn(s)
 
     private fun isClosing(s: String): Boolean {
         // Strip punctuation/case (Gemini returns "Thanks, Jarvis." / "Alright, thank you. Bye.").

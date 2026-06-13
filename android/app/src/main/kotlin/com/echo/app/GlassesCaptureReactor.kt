@@ -122,6 +122,23 @@ class GlassesCaptureReactor @Inject constructor(
     /** Manual "Sync from glasses": run the ceremony + enrich, returning the count of new files. */
     suspend fun syncNow(): Int = syncAndRoute(autoTriggered = false)
 
+    /**
+     * Voice-controlled "what am I looking at": capture a fresh photo, let the normal capture→sync→
+     * vision pipeline run (it speaks the description via [routeNewFile]), and return that description
+     * so the conversation can show it. Mirrors the AI-gesture (double-click BACK) but on demand.
+     * Returns null on timeout / not-signed-in. Requires [start] to be active (the event collector).
+     */
+    suspend fun captureAndDescribe(timeoutMs: Long = 30_000): String? {
+        if (!backend.isLoggedIn) return null
+        val before = _lastAnswer.value
+        aiAskPending = true
+        _status.value = "Looking…"
+        ble.capturePhoto() // CaptureSaved -> auto-sync -> Look & Ask vision (sets _lastAnswer + speaks)
+        return withTimeoutOrNull(timeoutMs) {
+            _lastAnswer.first { it != before && it.isNotBlank() }
+        }
+    }
+
     /** Import already-downloaded files that lack a memory (orphan reconciliation), silently. */
     suspend fun routeFiles(files: List<File>, speak: Boolean) {
         files.forEach { runCatching { routeNewFile(it, speak) } }
