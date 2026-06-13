@@ -47,6 +47,21 @@ class BtAudioEngine(private val context: Context) {
     private val sampleRate = 16000
     private val am: AudioManager get() = context.getSystemService(AudioManager::class.java)
 
+    // When true, SCO is held open across a whole conversation (so we can speak the answer over the
+    // SCO output AND keep the mic live for barge-in). recordUntilSilence then reuses the open link
+    // instead of tearing it down each turn. Managed by begin/endScoSession.
+    @Volatile private var scoHeld = false
+
+    /** Open SCO once for a conversation (full-duplex: answer plays over SCO, mic stays available). */
+    suspend fun beginScoSession() = withContext(Dispatchers.IO) {
+        if (!scoHeld) { enableSco(); delay(900); scoHeld = true }
+    }
+
+    /** Close the held SCO session at the end of a conversation. */
+    fun endScoSession() {
+        if (scoHeld) { scoHeld = false; disableSco() }
+    }
+
     /** Record [durationMs] from the glasses mic over SCO, then play it back over A2DP. */
     suspend fun recordAndPlay(durationMs: Int = 4000): Recording {
         val rec = record(durationMs)
@@ -106,13 +121,17 @@ class BtAudioEngine(private val context: Context) {
         maxMs: Int = 15_000,
         silenceMs: Int = 1_500,
         noSpeechTimeoutMs: Int = 7_000,
+        playCue: Boolean = true, // skip the beep when the user is already mid-sentence (post-barge-in)
         shouldAbort: () -> Boolean = { false }, // e.g. the user pressed End — bail out promptly
     ): Recording = withContext(Dispatchers.IO) {
-        enableSco()
-        delay(900) // let the SCO link come fully up before the cue, so the beep isn't clipped/dropped
-        // The mic is live now: cue the user in their ear (over SCO) BEFORE we start capturing, so the
+        val ownSco = !scoHeld // in a held conversation session SCO is already up; don't toggle it
+        if (ownSco) {
+            enableSco()
+            delay(900) // let the SCO link come fully up before the cue, so the beep isn't clipped
+        }
+        // The mic is live: cue the user in their ear (over SCO) BEFORE we start capturing, so the
         // beep isn't recorded. This is the "speak now" signal the old ToneGenerator earcon never gave.
-        cueListening()
+        if (playCue) cueListening()
         val minBuf = AudioRecord.getMinBufferSize(
             sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
         ).coerceAtLeast(sampleRate)
@@ -188,11 +207,65 @@ class BtAudioEngine(private val context: Context) {
         } finally {
             runCatching { recorder.stop() }
             recorder.release()
-            disableSco()
+            if (ownSco) disableSco() // a held conversation session keeps SCO up between turns
         }
         val pcm = out.toByteArray()
         val (peak, rms) = analyze(pcm)
         Recording(pcm, sampleRate, peak, rms, stopReason, noiseFloorOut, thresholdOut, speechEver)
+    }
+
+    /**
+     * Barge-in monitor: while the answer is speaking over the SCO output (requires a held SCO
+     * session), watch the SCO mic for the user butting in and return true the moment sustained speech
+     * is heard that clearly exceeds the TTS echo. Echo-aware: it estimates the echo floor from the
+     * first ~500 ms (the user isn't talking yet) and requires the interruption to beat it, with the
+     * platform AEC engaged. Thresholds are conservative (better to miss a barge-in than to cut JARVIS
+     * off when it hears its own voice) and may need on-device tuning. [active] is polled to stop
+     * monitoring once the answer finishes.
+     */
+    @SuppressLint("MissingPermission")
+    suspend fun awaitBargeIn(active: () -> Boolean): Boolean = withContext(Dispatchers.IO) {
+        if (!scoHeld) return@withContext false // need the full-duplex SCO link up
+        val minBuf = AudioRecord.getMinBufferSize(
+            sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
+        ).coerceAtLeast(sampleRate)
+        val recorder = AudioRecord(
+            MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, minBuf,
+        )
+        val aec = runCatching {
+            if (android.media.audiofx.AcousticEchoCanceler.isAvailable())
+                android.media.audiofx.AcousticEchoCanceler.create(recorder.audioSessionId)?.apply { enabled = true }
+            else null
+        }.getOrNull()
+        val frame = ByteArray(960)
+        try {
+            recorder.startRecording()
+            // Estimate the echo floor: the user isn't interrupting yet, so this is mostly TTS bleed.
+            val start = System.currentTimeMillis()
+            var echoSum = 0.0; var echoN = 0
+            while (System.currentTimeMillis() - start < 500 && active()) {
+                val n = recorder.read(frame, 0, frame.size)
+                if (n > 0) { echoSum += frameRms(frame, n); echoN++ }
+            }
+            val echoFloor = if (echoN > 0) echoSum / echoN else 0.0
+            val threshold = (echoFloor * 1.8).coerceIn(1100.0, 4000.0) // user voice must beat the echo
+            var voiced = 0
+            while (active()) {
+                val n = recorder.read(frame, 0, frame.size)
+                if (n <= 0) continue
+                if (frameRms(frame, n) > threshold) {
+                    if (++voiced >= 8) return@withContext true // ~240 ms of sustained over-threshold speech
+                } else {
+                    voiced = 0
+                }
+            }
+            false
+        } finally {
+            runCatching { recorder.stop() }
+            recorder.release()
+            runCatching { aec?.release() }
+        }
     }
 
     /** Low-percentile of a sample list (0..1); robust noise-floor estimate. */

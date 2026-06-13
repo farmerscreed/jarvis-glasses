@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.echo.core.model.Memory
 import com.echo.core.model.MemoryType
 import com.echo.device.audio.BtAudioEngine
-import com.echo.device.audio.EarconKind
 import com.echo.device.audio.Recording
 import com.echo.device.audio.TtsEngine
 import com.echo.device.audio.WakeWordEngine
@@ -26,6 +25,7 @@ import com.echo.memory.MemoryStore
 import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -337,16 +337,26 @@ class HomeViewModel @Inject constructor(
         }
         if (continuous) { inConversation = true; stopConversation = false }
         try {
+        if (continuous) {
+            // Hold SCO open for the whole conversation: the answer plays over the SCO output and the
+            // mic stays available for barge-in (A2DP is suspended while SCO is up). Narrowband but
+            // intelligible — the price of being able to interrupt.
+            audio.beginScoSession()
+            tts.useCommunicationRoute(true)
+        }
         val history = ArrayDeque<ChatMsg>() // last few turns, threaded for context
         var repromptUsed = false
+        var bargedIn = false // set when the user interrupted the previous answer (skip the next cue)
         while (true) {
             if (stopConversation) { status = "Conversation ended"; break } // orb tapped again
             val t0 = System.currentTimeMillis()
-            // The audible "listening" cue plays inside recordUntilSilence the moment the mic is hot.
+            // The audible "listening" cue plays inside recordUntilSilence the moment the mic is hot —
+            // but skip it right after a barge-in, when the user is already mid-sentence.
             micActive = true
             val rec = try {
-                audio.recordUntilSilence(shouldAbort = { stopConversation })
+                audio.recordUntilSilence(playCue = !bargedIn, shouldAbort = { stopConversation })
             } finally { micActive = handsFree }
+            bargedIn = false
             if (stopConversation) { status = "Conversation ended"; break } // End pressed during capture
             val tRecord = System.currentTimeMillis() - t0
             status = "Transcribing…"
@@ -384,40 +394,58 @@ class HomeViewModel @Inject constructor(
                 break
             }
 
-            audio.earcon(EarconKind.THINKING)
             status = "Thinking…"
             val llmStart = System.currentTimeMillis()
             val histList = history.toList()
             // D2: stream — first sentence is spoken while Claude writes the rest.
             var toSpeak = 0L
-            val streamed = if (tier == "full") {
-                streamedChat(heard, histList) { toSpeak = System.currentTimeMillis() - t0 }
-            } else null
-            val result = streamed ?: backend.chat(heard, histList)
-            val tLlm = System.currentTimeMillis() - llmStart
-            answer = result.answer
-            recalled = result.memoriesUsed
-            if (streamed == null) {
-                toSpeak = System.currentTimeMillis() - t0
-                status = "Speaking…"
-                tts.speak(result.answer)
+            var barged = false
+            var speaking = true
+            // Speak the answer; in a conversation, concurrently watch for the user to barge in and,
+            // if they do, cut the answer short and go capture what they're saying.
+            coroutineScope {
+                val monitor = if (continuous) launch {
+                    if (runCatching { audio.awaitBargeIn { speaking } }.getOrDefault(false)) {
+                        barged = true
+                        tts.stop() // cut the answer; unblocks the speak below
+                    }
+                } else null
+                val streamed = if (tier == "full") {
+                    streamedChat(heard, histList) { toSpeak = System.currentTimeMillis() - t0 }
+                } else null
+                val result = streamed ?: backend.chat(heard, histList)
+                if (streamed == null) {
+                    toSpeak = System.currentTimeMillis() - t0
+                    status = "Speaking…"
+                    tts.speak(result.answer)
+                }
+                speaking = false
+                monitor?.cancel()
+                answer = result.answer
+                recalled = result.memoriesUsed
+                // Thread the last 3–6 turns (cap 12 messages = 6 turns) for follow-up context.
+                history.addLast(ChatMsg("user", heard))
+                history.addLast(ChatMsg("assistant", result.answer))
+                while (history.size > 12) history.removeFirst()
             }
+            val tLlm = System.currentTimeMillis() - llmStart
+            bargedIn = barged
             lastLatencyMs = if (toSpeak > 0) toSpeak else System.currentTimeMillis() - t0
             android.util.Log.i(
                 "EchoLatency",
-                "record=${tRecord}ms (%.1fs audio) stt=${tStt}ms llm=${tLlm}ms streamed=${streamed != null} time-to-speak=${toSpeak}ms convo=$continuous".format(rec.seconds),
+                "record=${tRecord}ms (%.1fs audio) stt=${tStt}ms llm=${tLlm}ms barged=$barged convo=$continuous time-to-speak=${toSpeak}ms".format(rec.seconds),
             )
-
-            // Thread the last 3–6 turns (cap 12 messages = 6 turns) for follow-up context.
-            history.addLast(ChatMsg("user", heard))
-            history.addLast(ChatMsg("assistant", result.answer))
-            while (history.size > 12) history.removeFirst()
+            if (barged) { status = "Listening…"; continue } // user cut in — capture their interruption
 
             if (!continuous) { status = "Done · ${toSpeak}ms to first word"; break }
             status = "Listening…" // loop back and re-open the mic for the follow-up
         }
         } finally {
-            if (continuous) inConversation = false
+            if (continuous) {
+                inConversation = false
+                audio.endScoSession()       // release the held SCO link
+                tts.useCommunicationRoute(false) // back to the hi-fi media route for one-shot answers
+            }
         }
     }
 

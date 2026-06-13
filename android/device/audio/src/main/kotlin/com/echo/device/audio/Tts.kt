@@ -36,6 +36,24 @@ class TtsEngine(context: Context) {
     // onDone/onError in the normal case, or by stop() when speech is cut short.
     @Volatile private var pending: CancellableContinuation<Unit>? = null
 
+    /**
+     * Route speech over the Bluetooth SCO / voice-communication output instead of A2DP media. Needed
+     * for barge-in: while a held SCO session lets us hear the user, the answer must play on that same
+     * full-duplex link (A2DP is suspended during SCO). Quality is narrowband but intelligible. Call
+     * with false to restore the hi-fi media route for normal one-shot answers.
+     */
+    fun useCommunicationRoute(on: Boolean) {
+        val usage = if (on) AudioAttributes.USAGE_VOICE_COMMUNICATION else AudioAttributes.USAGE_MEDIA
+        runCatching {
+            tts.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(usage)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
+        }
+    }
+
     @Synchronized private fun resumePending() {
         val c = pending ?: return
         pending = null
