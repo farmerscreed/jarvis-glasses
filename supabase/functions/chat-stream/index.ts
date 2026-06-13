@@ -8,6 +8,7 @@ import { corsHeaders } from "../_shared/http.ts";
 import { userClient } from "../_shared/supabaseClient.ts";
 import { embed } from "../_shared/embeddings.ts";
 import { claudeChatStream, Msg } from "../_shared/anthropic.ts";
+import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -18,6 +19,9 @@ Deno.serve(async (req) => {
     const supabase = userClient(req);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: corsHeaders });
+    if (!await checkRateLimit(supabase, "chat", 80, HOURLY)) {
+      return new Response(JSON.stringify({ error: "Hourly limit reached — try again shortly." }), { status: 429, headers: corsHeaders });
+    }
 
     // RAG up front (so we can send memories before the answer streams).
     const qEmbedding = await embed(message);

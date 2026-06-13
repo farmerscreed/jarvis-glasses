@@ -3,6 +3,7 @@
 // Claude multimodal describes / answers about the image. Returns { text }.
 import { corsHeaders, json } from "../_shared/http.ts";
 import { userClient } from "../_shared/supabaseClient.ts";
+import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-sonnet-4-6";
@@ -18,6 +19,9 @@ Deno.serve(async (req) => {
     const supabase = userClient(req);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
+    if (!await checkRateLimit(supabase, "vision", 80, HOURLY)) {
+      return json({ error: "Hourly limit reached — try again shortly." }, 429);
+    }
     if (!ANTHROPIC_API_KEY) return json({ error: "ANTHROPIC_API_KEY not set" }, 500);
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {

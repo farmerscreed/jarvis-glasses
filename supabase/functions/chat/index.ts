@@ -6,6 +6,7 @@ import { corsHeaders, json } from "../_shared/http.ts";
 import { userClient } from "../_shared/supabaseClient.ts";
 import { embed } from "../_shared/embeddings.ts";
 import { claudeChat, Msg } from "../_shared/anthropic.ts";
+import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -18,6 +19,9 @@ Deno.serve(async (req) => {
     const supabase = userClient(req);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
+    if (!await checkRateLimit(supabase, "chat", 80, HOURLY)) {
+      return json({ error: "Hourly limit reached — try again shortly." }, 429);
+    }
 
     // 1. Retrieve relevant memories.
     const qEmbedding = await embed(message);

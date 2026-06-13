@@ -3,6 +3,7 @@
 // Uses Gemini multimodal (free tier) to transcribe, with retry + model fallback for transient 503/429.
 import { corsHeaders, json } from "../_shared/http.ts";
 import { userClient } from "../_shared/supabaseClient.ts";
+import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const PRIMARY = Deno.env.get("GEMINI_STT_MODEL") ?? "gemini-2.5-flash";
@@ -40,6 +41,9 @@ Deno.serve(async (req) => {
     const supabase = userClient(req);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
+    if (!await checkRateLimit(supabase, "transcribe", 150, HOURLY)) {
+      return json({ error: "Hourly limit reached — try again shortly." }, 429);
+    }
     if (!GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set" }, 500);
 
     let lastErr = "";

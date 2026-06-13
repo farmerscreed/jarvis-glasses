@@ -5,6 +5,7 @@
 // (the offline-first outbox retries the same client_id until it confirms a server id).
 import { corsHeaders, json } from "../_shared/http.ts";
 import { userClient } from "../_shared/supabaseClient.ts";
+import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
 import { embed } from "../_shared/embeddings.ts";
 
 const SELECT = "id, created_at, type, text, media_path, tags, metadata, client_id";
@@ -21,6 +22,9 @@ Deno.serve(async (req) => {
     const supabase = userClient(req);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
+    if (!await checkRateLimit(supabase, "ingest", 300, HOURLY)) {
+      return json({ error: "Hourly limit reached — try again shortly." }, 429);
+    }
 
     // Idempotency: if this client_id already landed, return it without re-embedding (saves a
     // paid embed call on every retry) — the outbox just needed the server id confirmed.

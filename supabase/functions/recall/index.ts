@@ -4,6 +4,7 @@
 import { corsHeaders, json } from "../_shared/http.ts";
 import { userClient } from "../_shared/supabaseClient.ts";
 import { embed } from "../_shared/embeddings.ts";
+import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,6 +15,9 @@ Deno.serve(async (req) => {
     if (!query) return json({ error: "query is required" }, 400);
 
     const supabase = userClient(req);
+    if (!await checkRateLimit(supabase, "recall", 300, HOURLY)) {
+      return json({ error: "Hourly limit reached — try again shortly." }, 429);
+    }
     const embedding = await embed(query);
 
     const { data, error } = await supabase.rpc("match_memories", {
