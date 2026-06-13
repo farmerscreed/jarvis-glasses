@@ -405,7 +405,7 @@ class HomeViewModel @Inject constructor(
             // if they do, cut the answer short and go capture what they're saying.
             coroutineScope {
                 val monitor = if (continuous) launch {
-                    if (runCatching { audio.awaitBargeIn { speaking } }.getOrDefault(false)) {
+                    if (runCatching { audio.awaitBargeIn(active = { speaking }) }.getOrDefault(false)) {
                         barged = true
                         tts.stop() // cut the answer; unblocks the speak below
                     }

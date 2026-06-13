@@ -216,15 +216,28 @@ class BtAudioEngine(private val context: Context) {
 
     /**
      * Barge-in monitor: while the answer is speaking over the SCO output (requires a held SCO
-     * session), watch the SCO mic for the user butting in and return true the moment sustained speech
-     * is heard that clearly exceeds the TTS echo. Echo-aware: it estimates the echo floor from the
-     * first ~500 ms (the user isn't talking yet) and requires the interruption to beat it, with the
-     * platform AEC engaged. Thresholds are conservative (better to miss a barge-in than to cut JARVIS
-     * off when it hears its own voice) and may need on-device tuning. [active] is polled to stop
-     * monitoring once the answer finishes.
+     * session), watch the SCO mic for the user butting in and return true only when speech is heard
+     * that clearly and sustainedly beats the (loud, fluctuating) TTS echo.
+     *
+     * Tuned after v1 cut JARVIS off on its own voice (the echo over SCO is loud — observed mic peaks
+     * near clipping). Three guards against false barge-in:
+     *  - **Grace period:** ignore the first [graceMs] of the answer entirely (echo is loudest then,
+     *    AEC hasn't converged, and the opening words must be protected).
+     *  - **Adaptive echo baseline:** an EMA that tracks the current echo level (updated only on
+     *    sub-threshold frames), so the threshold rides above the echo as TTS gets loud/quiet.
+     *  - **High floor + long sustain:** the interruption must exceed max(floor, baseline×margin) for
+     *    ~[sustainMs] continuously.
+     * Logs `EchoBarge` with the numbers so the thresholds can be dialled in from real device data.
+     * [active] is polled to stop monitoring once the answer finishes.
      */
     @SuppressLint("MissingPermission")
-    suspend fun awaitBargeIn(active: () -> Boolean): Boolean = withContext(Dispatchers.IO) {
+    suspend fun awaitBargeIn(
+        active: () -> Boolean,
+        graceMs: Int = 1_200,
+        sustainMs: Int = 480,
+        floor: Double = 3_000.0,
+        margin: Double = 2.0,
+    ): Boolean = withContext(Dispatchers.IO) {
         if (!scoHeld) return@withContext false // need the full-duplex SCO link up
         val minBuf = AudioRecord.getMinBufferSize(
             sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
@@ -239,29 +252,37 @@ class BtAudioEngine(private val context: Context) {
             else null
         }.getOrNull()
         val frame = ByteArray(960)
+        val sustainFrames = (sustainMs / 30).coerceAtLeast(6) // ~30 ms per frame
+        var baseline = floor          // seed high so early loud echo can't trip it
+        var voiced = 0
+        var maxLevel = 0.0
+        var fired = false
         try {
             recorder.startRecording()
-            // Estimate the echo floor: the user isn't interrupting yet, so this is mostly TTS bleed.
             val start = System.currentTimeMillis()
-            var echoSum = 0.0; var echoN = 0
-            while (System.currentTimeMillis() - start < 500 && active()) {
-                val n = recorder.read(frame, 0, frame.size)
-                if (n > 0) { echoSum += frameRms(frame, n); echoN++ }
-            }
-            val echoFloor = if (echoN > 0) echoSum / echoN else 0.0
-            val threshold = (echoFloor * 1.8).coerceIn(1100.0, 4000.0) // user voice must beat the echo
-            var voiced = 0
             while (active()) {
                 val n = recorder.read(frame, 0, frame.size)
                 if (n <= 0) continue
-                if (frameRms(frame, n) > threshold) {
-                    if (++voiced >= 8) return@withContext true // ~240 ms of sustained over-threshold speech
+                val level = frameRms(frame, n)
+                if (level > maxLevel) maxLevel = level
+                if (System.currentTimeMillis() - start < graceMs) {
+                    baseline = baseline * 0.85 + level * 0.15 // learn the echo level during the grace window
+                    continue
+                }
+                val threshold = (baseline * margin).coerceAtLeast(floor)
+                if (level > threshold) {
+                    if (++voiced >= sustainFrames) { fired = true; return@withContext true }
                 } else {
                     voiced = 0
+                    baseline = baseline * 0.92 + level * 0.08 // track the echo while it's not being beaten
                 }
             }
             false
         } finally {
+            android.util.Log.i(
+                "EchoBarge",
+                "fired=$fired baseline=${baseline.toInt()} floor=${floor.toInt()} margin=$margin maxLevel=${maxLevel.toInt()} sustainFrames=$sustainFrames aec=${aec != null}",
+            )
             runCatching { recorder.stop() }
             recorder.release()
             runCatching { aec?.release() }
