@@ -518,6 +518,12 @@ class HomeViewModel @Inject constructor(
                     tts.useCommunicationRoute(false) // back to the hi-fi media route
                 }
             }
+            // Distillation (assistant memory v1.2): after a real conversation, extract durable facts
+            // into the profile. Fire-and-forget; snapshot the transcript so a new convo can't race it.
+            if (continuous && online && transcript.size >= 2) {
+                val convo = transcript.map { ChatMsg(if (it.fromUser) "user" else "assistant", it.text) }
+                viewModelScope.launch { backend.distill(convo) }
+            }
         }
     }
 

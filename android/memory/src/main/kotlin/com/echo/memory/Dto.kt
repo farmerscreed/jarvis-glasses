@@ -99,6 +99,10 @@ data class ChatMsg(val role: String, val content: String)
 @Serializable
 data class ChatRequest(val message: String, val history: List<ChatMsg>)
 
+/** Distillation: send a finished conversation; the backend extracts durable facts into the profile. */
+@Serializable
+data class DistillRequest(val transcript: List<ChatMsg>)
+
 @Serializable
 data class ChatResponse(
     val answer: String = "",

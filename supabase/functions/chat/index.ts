@@ -7,6 +7,7 @@ import { userClient } from "../_shared/supabaseClient.ts";
 import { embed } from "../_shared/embeddings.ts";
 import { claudeChat, Msg } from "../_shared/anthropic.ts";
 import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
+import { buildSystemPrompt, getProfile } from "../_shared/profile.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -32,16 +33,12 @@ Deno.serve(async (req) => {
       filter_type: null,
     });
 
-    // 2. Ground Claude in the user's memories.
+    // 2. Ground Claude in the user's profile (always-on character + curated facts) + retrieved memories.
     const memo = (matches ?? [])
       .map((m: { type: string; created_at: string; text: string }, i: number) =>
         `[${i + 1}] (${m.type}, ${m.created_at}) ${m.text}`)
       .join("\n");
-    const system =
-      `You are JARVIS, a concise voice companion. Answers are spoken aloud, so keep them brief and natural.
-Use the user's personal memories below when relevant. If they don't contain the answer, say so briefly instead of guessing.
---- MEMORIES ---
-${memo || "(none)"}`;
+    const system = buildSystemPrompt(await getProfile(supabase, user.id), memo);
 
     const messages: Msg[] = [...history, { role: "user", content: message }];
     const answer = await claudeChat(messages, system);

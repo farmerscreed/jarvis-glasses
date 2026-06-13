@@ -305,6 +305,18 @@ class EchoBackend(
         }
     }
 
+    /**
+     * Distill durable facts from a finished conversation into the user's profile (assistant memory
+     * v1.2). Best-effort and fire-and-forget — never block or fail the conversation on this.
+     */
+    suspend fun distill(transcript: List<ChatMsg>): Unit = withContext(Dispatchers.IO) {
+        if (transcript.isEmpty()) return@withContext
+        runCatching {
+            val body = json.encodeToString(DistillRequest.serializer(), DistillRequest(transcript))
+            post("/functions/v1/distill", body)
+        }
+    }
+
     private fun post(path: String, body: String): String {
         var (code, txt) = postOnce(path, body)
         // Expired access token: rotate via the refresh token and retry once.
