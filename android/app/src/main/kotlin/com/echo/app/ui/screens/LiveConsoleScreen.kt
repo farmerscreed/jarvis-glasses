@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import com.echo.app.HomeViewModel
@@ -285,6 +286,11 @@ private fun SignInPane(vm: HomeViewModel) {
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(JarvisSpacing.lg))
+        if (vm.googleSignInEnabled && !vm.otpSent) {
+            val ctx = LocalContext.current
+            JarvisPrimaryButton("Continue with Google", onClick = { vm.signInWithGoogle(ctx) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(JarvisSpacing.sm))
+        }
         OutlinedTextField(
             value = vm.email,
             onValueChange = { vm.email = it },

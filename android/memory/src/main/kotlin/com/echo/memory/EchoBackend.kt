@@ -48,6 +48,13 @@ class EchoBackend(
         }
     }
 
+    /** Sign in with a Google ID token (One-Tap). Supabase verifies it against the configured provider. */
+    suspend fun signInWithGoogle(idToken: String): Unit = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(IdTokenRequest.serializer(), IdTokenRequest(provider = "google", id_token = idToken))
+        val auth = tryAuth("/auth/v1/token?grant_type=id_token", body) ?: error("Google sign-in failed")
+        adopt(auth)
+    }
+
     /** Step 2 of email sign-in: exchange the emailed code for a session. */
     suspend fun verifyEmailOtp(email: String, code: String): Unit = withContext(Dispatchers.IO) {
         val body = json.encodeToString(VerifyOtpRequest.serializer(), VerifyOtpRequest(email, code, type = "email"))

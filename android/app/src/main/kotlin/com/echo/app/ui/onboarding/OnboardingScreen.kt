@@ -155,6 +155,13 @@ private fun SignInStep(vm: HomeViewModel, onNext: () -> Unit) {
             JarvisPrimaryButton("Next", onClick = onNext, modifier = Modifier.fillMaxWidth())
             return@StepScaffold
         }
+        if (vm.googleSignInEnabled) {
+            val ctx = LocalContext.current
+            JarvisPrimaryButton("Continue with Google", onClick = { vm.signInWithGoogle(ctx) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(JarvisSpacing.sm))
+            Text("or", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(JarvisSpacing.sm))
+        }
         OutlinedTextField(
             value = vm.email,
             onValueChange = { vm.email = it },

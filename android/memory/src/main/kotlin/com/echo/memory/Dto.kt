@@ -33,6 +33,9 @@ data class VerifyOtpRequest(val email: String, val token: String, val type: Stri
 data class RefreshRequest(val refresh_token: String)
 
 @Serializable
+data class IdTokenRequest(val provider: String, val id_token: String)
+
+@Serializable
 data class AuthUser(val id: String? = null)
 
 @Serializable

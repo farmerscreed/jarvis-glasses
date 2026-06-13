@@ -133,6 +133,17 @@ class HomeViewModel @Inject constructor(
         status = "Signed in as tester@local.dev"
     }
 
+    /** Whether to show "Continue with Google" (Google OAuth client configured at build time). */
+    val googleSignInEnabled = GoogleSignInHelper.isConfigured
+
+    /** Google One-Tap: get an ID token via Credential Manager, exchange it with Supabase. */
+    fun signInWithGoogle(context: android.content.Context) = run("Signing in with Google…") {
+        val idToken = GoogleSignInHelper.getIdToken(context)
+        backend.signInWithGoogle(idToken)
+        loggedIn = true
+        status = "Signed in with Google"
+    }
+
     fun sendOtp() = run("Sending code…") {
         val addr = email.trim()
         if (addr.isBlank() || '@' !in addr) { status = "Enter your email address"; return@run }

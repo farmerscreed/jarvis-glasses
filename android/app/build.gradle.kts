@@ -17,6 +17,9 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        // Google One-Tap server (Web) client ID from Google Cloud Console. Empty = the
+        // "Continue with Google" button stays hidden until the director configures OAuth.
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"\"")
     }
 
     buildTypes {
@@ -93,6 +96,11 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
+
+    // Google One-Tap sign-in (Credential Manager). Inert until GOOGLE_WEB_CLIENT_ID is set.
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.google.id)
     implementation(libs.androidx.navigation.compose)
 
     // DI
