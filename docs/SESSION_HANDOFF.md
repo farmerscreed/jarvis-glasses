@@ -249,6 +249,17 @@ finishing the streaming latency work and is the prerequisite for everything user
   UI/UX integration is parked until after this version** (director decision 2026-06-12); the
   35-screen Stitch design system is committed at `docs/design/` for when that starts.
 
+**Google One-Tap (client built 2026-06-13; DIRECTOR setup to activate):** the
+"Continue with Google" button + Credential Manager flow + `EchoBackend.signInWithGoogle`
+ship gated behind `GOOGLE_WEB_CLIENT_ID` (empty ⇒ hidden). To turn it on:
+1. **Google Cloud Console** → create an OAuth consent screen; create an **OAuth Web client ID**
+   (the "server" client) and an **Android client ID** (package `com.echo.companion` + the signing
+   SHA-1 from `keytool`/Play).
+2. **Supabase** → Authentication → Providers → **Google**: enable, paste the Web client ID +
+   secret; add the Android client ID under "Authorized Client IDs".
+3. Set `GOOGLE_WEB_CLIENT_ID` in `android/app/build.gradle.kts` (defaultConfig) to the **Web**
+   client ID, rebuild. Button appears automatically.
+
 **Carried-over small, high-leverage items (can do anytime):**
 - **`ConnectedCompanionService` foreground service** — so glasses-button reactions + sync work with
   the app backgrounded/killed (Phase B remainder; pairs with the WorkManager work).
