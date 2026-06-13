@@ -3,8 +3,11 @@ package com.echo.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,6 +61,22 @@ fun AppRoot() {
     if (showHelp) {
         HelpScreen(onClose = { showHelp = false })
         return
+    }
+
+    if (vm.showRecordingConsent) {
+        AlertDialog(
+            onDismissRequest = vm::dismissRecordingConsent,
+            title = { Text("Microphone & recordings") },
+            text = {
+                Text(
+                    "JARVIS records your voice when you talk to it or use the wake word, and sends " +
+                        "the audio to the cloud to transcribe it. Recordings become memories you can " +
+                        "review or delete anytime. Continue?",
+                )
+            },
+            confirmButton = { TextButton(onClick = vm::grantRecordingConsent) { Text("I agree") } },
+            dismissButton = { TextButton(onClick = vm::dismissRecordingConsent) { Text("Not now") } },
+        )
     }
 
     Scaffold(

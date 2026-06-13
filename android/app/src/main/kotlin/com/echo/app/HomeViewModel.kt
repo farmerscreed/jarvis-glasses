@@ -21,7 +21,9 @@ import com.echo.memory.ChatResult
 import com.echo.memory.ConnectivityGovernor
 import com.echo.memory.EchoBackend
 import com.echo.memory.MemoryStore
+import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -42,6 +44,7 @@ class HomeViewModel @Inject constructor(
     private val p2p: GlassesP2pManager,
     private val transfer: MediaTransferClient,
     private val reactor: GlassesCaptureReactor,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     var loggedIn by mutableStateOf(false); private set
@@ -125,7 +128,7 @@ class HomeViewModel @Inject constructor(
     private fun onGlassesButton() {
         if (busy) return
         if (!loggedIn) { status = "Glasses button pressed — sign in first"; return }
-        run("Glasses button — listening…") { doTalk() }
+        withRecordingConsent { run("Glasses button — listening…") { doTalk() } }
     }
 
     /** Dev-flavor shortcut against the local stack; the button is absent in prod builds. */
@@ -239,8 +242,29 @@ class HomeViewModel @Inject constructor(
         status = "Audio loop done"
     }
 
+    /** Privacy: gate the first mic capture behind one-time consent (audio → cloud transcription). */
+    var showRecordingConsent by mutableStateOf(false); private set
+    private var pendingVoiceAction: (() -> Unit)? = null
+
+    private fun withRecordingConsent(action: () -> Unit) {
+        if (ConsentPrefs.isGranted(appContext)) action()
+        else { pendingVoiceAction = action; showRecordingConsent = true }
+    }
+
+    fun grantRecordingConsent() {
+        ConsentPrefs.grant(appContext)
+        showRecordingConsent = false
+        pendingVoiceAction?.invoke(); pendingVoiceAction = null
+    }
+
+    fun dismissRecordingConsent() {
+        showRecordingConsent = false
+        pendingVoiceAction = null
+        if (handsFree) { handsFree = false; micActive = false; wake.stop() } // user declined; don't listen
+    }
+
     /** The flagship voice loop: glasses mic -> STT -> Claude (RAG) -> TTS in your ear. */
-    fun talk() = run("Listening — speak into the glasses…") { doTalk() }
+    fun talk() = withRecordingConsent { run("Listening — speak into the glasses…") { doTalk() } }
 
     private suspend fun doTalk() {
         // Off-grid: cloud STT (Gemini) is unavailable and on-device dictation isn't wired yet, so
@@ -296,11 +320,15 @@ class HomeViewModel @Inject constructor(
 
     /** Toggle hands-free wake-word listening (say "Jarvis"). */
     fun toggleHandsFree(on: Boolean) {
-        handsFree = on
         if (on) {
-            if (startWake()) { status = "Hands-free on — say “Jarvis”"; micActive = true }
-            else { handsFree = false; status = "Wake word error: ${wake.lastError}" }
+            handsFree = true
+            // Wake word holds the mic open continuously — gate it behind recording consent.
+            withRecordingConsent {
+                if (startWake()) { status = "Hands-free on — say “Jarvis”"; micActive = true }
+                else { handsFree = false; status = "Wake word error: ${wake.lastError}" }
+            }
         } else {
+            handsFree = false
             micActive = false
             wake.stop()
             status = "Hands-free off"
