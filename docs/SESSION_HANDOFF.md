@@ -239,12 +239,23 @@ that I mean to look you to your car") so the blank-guard never fires. **Mic = mS
 (BT-stack log: `sco_codec=2`, `bt_wbs=on`) → hypothesis #1 REFUTED.** STT near-perfect on the one
 clean full-length turn.
 
-Instrumentation (debug-only, temporary — remove when fixes land): per-turn WAV + `index.tsv` +
-`EchoVoice` logcat (`HomeViewModel.dumpVoiceDebug`), VAD stop-reason/threshold on `Recording`
-(`BtAudio.kt`), Node spectral analyser `scripts/analyze_wav.mjs` (note: its cutoff metric is
-unreliable on real speech — trust the BT-stack codec log). **NEXT: build the endpointing fix**
-(longer/adaptive silence or a real VAD, rolling noise est., a working audible cue, SCO-hot gating,
-silence→"didn't catch that") — director sign-off first, then re-run the 12-phrase protocol to verify.
+**FIXES SHIPPED + VERIFIED (session 2, commit `5fb3986`).** `BtAudio.recordUntilSilence` reworked:
+trailing silence 700ms→1500ms, noSpeechTimeout 4s→7s, robust low-percentile + rolling noise floor
+(was a fragile one-shot 250ms), speech-start debounce, SCO-hot warm-up flush, and an audible
+**listening cue over the SCO route** (`cueListening`). `doTalk` adds a silence guard (near-silent
+captures never reach the LLM, killing the STT-hallucination errors) + a spoken "didn't catch that".
+**Device-verified:** counting 1→10 with pauses and a 14s sentence with deliberate stops both captured
+whole and transcribed perfectly (session 1 cut them to "one"). Premature cut-off eliminated.
+
+**OPEN follow-up:** the in-ear cue is too faint on these glasses (SCO call channel is quiet) — louder
+two-beep shipped, **pending re-verification**; if still faint, boost `STREAM_VOICE_CALL` volume during
+the cue or repeat it. Consider raising maxMs (one long turn hit the 15s cap). Full evidence +
+before/after table in `docs/VOICE_QUALITY_INVESTIGATION.md` (sessions 1 & 2).
+
+Instrumentation (debug-only, **temporary — remove when this work closes**): per-turn WAV + `index.tsv`
++ `EchoVoice` logcat (`HomeViewModel.dumpVoiceDebug`), VAD stop-reason/threshold on `Recording`,
+Node spectral analyser `scripts/analyze_wav.mjs` (its cutoff metric is unreliable on real speech —
+trust the BT-stack codec log: mic is confirmed **mSBC wideband 16kHz**).
 
 ### Status as of 2026-06-13 — what's DONE (don't redo)
 Phases 0–2, A, B (+foreground service), C, D2, **E** (cloud/auth/Resend OTP/streaming), the full

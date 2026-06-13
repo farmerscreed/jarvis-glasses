@@ -227,3 +227,35 @@ estimation instead of a one-shot 250 ms window, decoupled from the SCO warm-up; 
 (d) start recording only once SCO is confirmed hot (kill onset clipping); (e) treat near-silent/low-
 energy or low-confidence STT as "didn't catch that" to stop silence-hallucinations reaching the LLM.
 Re-run this exact 12-phrase protocol to verify each change moves the numbers.
+
+---
+
+## Capture session 2 — 2026-06-13 (fixes applied + verified on device)
+
+All fixes from the "fix direction" above were implemented (`BtAudio.recordUntilSilence` +
+`HomeViewModel.doTalk`, commit `5fb3986`) and tested live on the Pixel (prodDebug/cloud, glasses worn):
+- trailing silence 700 ms → **1500 ms**, noSpeechTimeout 4 s → 7 s, maxMs 12 s → 15 s
+- robust noise floor (low-percentile over 350 ms + rolling update) instead of the one-shot 250 ms
+- speech-start debounce (4 voiced frames); SCO-hot warm-up flush (drop ramp frames)
+- audible **listening cue over the SCO route** (`cueListening`) so it reaches the ear
+- silence guard in `doTalk` (peak<700 ‖ rms<60 → "didn't catch that", never sent to the LLM);
+  spoken "Sorry, I didn't catch that" on a miss
+
+**Result — the dominant failure mode is fixed.** Hard before/after on the same stress phrases:
+
+| phrase | session 1 (before) | session 2 (after) |
+|---|---|---|
+| "One two three four five" (pauses) | split → "one" / "two three four" | **"One two three four five six seven eight nine ten"** — full, with pauses |
+| long sentence *with deliberate stops* | n/a | **captured whole, transcribed perfectly** (14 s, every pause survived) |
+| "What time is it?" | onset artifacts / VAD misses | **"What time is it?"** clean ×2 |
+| silence (no speech) | STT hallucinated → answered | guard catches it (peak 239) → "didn't catch that" |
+
+Premature endpointing eliminated; noise floor now calibrates correctly (81–104, threshold floored at
+500) so speech is reliably detected; no silence-hallucinations reach the LLM.
+
+**Open follow-up:** the in-ear cue was **too faint / sometimes inaudible** (director). The SCO call
+channel is quiet on these glasses. Fix in progress: louder near-full-scale **two rising beeps**
+(880→1320 Hz, `MODE_STATIC` one-shot, played after the link is hot) — pending device re-verification.
+**Possible further work if still faint:** boost in-call (`STREAM_VOICE_CALL`) volume during the cue,
+or repeat the beep. Also consider raising maxMs (one long turn hit the 15 s cap, though it still
+captured fully).
