@@ -2,7 +2,7 @@
 
 *The single-source handover between sessions. A new session should be able to read only this and
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
-*Last updated: 2026-06-12. Keep this current at the end of every working session.*
+*Last updated: 2026-06-13. Keep this current at the end of every working session.*
 
 **Repo is PUBLIC since 2026-06-12:** https://github.com/farmerscreed/jarvis-glasses (director's
 call). History was secret-swept before the flip — real keys live only in gitignored `.env` files;
@@ -216,15 +216,27 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 
 ## 6. What's NEXT — the critical path
 
-**Two finish lines, be explicit about which you're targeting:**
-- **"You can wear it every day" (personal daily-driver):** much closer — foreground service, cloud
-  migration, a real login for you, warm-path latency, and a real UI skin.
-- **"A stranger installs from Play":** the full A→H list — onboarding, hardening, privacy/legal,
-  release engineering, ops. This is the bulk of the remaining effort (careful, not risky).
+### 🎯 IMMEDIATE NEXT (director, 2026-06-13): voice-conversation quality deep-dive
+The daily-driver feature set is built; the open problem is **conversation quality** — the director
+reports JARVIS "often doesn't pick up what I'm saying and makes too many errors" in spoken use.
+**The next session's job is a structured root-cause analysis** of the voice loop (record → VAD →
+STT → RAG → TTS): is it the transcription (Gemini STT), endpointing/timing (cut-offs, SCO warm-up),
+the RAG/answer grounding, or the speaking environment? See `docs/VOICE_QUALITY_INVESTIGATION.md`
+(create it) and the dedicated handoff prompt the director will paste in. Do NOT start building fixes
+until the analysis names the dominant failure mode with evidence (logged transcripts vs. ground truth).
 
-**Recommended critical path:** Phase **E** (cloud + auth + onboarding) → **UI design + integration**
-→ Phase **F** (privacy/hardening) → Phase **G** (Play release) → **H** (ops). Reasoning: E unblocks
-finishing the streaming latency work and is the prerequisite for everything user-facing.
+### Status as of 2026-06-13 — what's DONE (don't redo)
+Phases 0–2, A, B (+foreground service), C, D2, **E** (cloud/auth/Resend OTP/streaming), the full
+**UI** skin (theme/orb/screens/help/onboarding), **branding**, **rate limits**, **Phase F** core
+(mic indicator, recording consent, GDPR export/delete, crash telemetry), and **BLE auto-reconnect**.
+All device-verified. Remaining engineering: Google One-Tap (director OAuth setup), Phase G (Play
+release: R8, 16KB Vosk alignment, signing, data-safety), Phase H (ops). The **V2 "Ask Jarvis"
+deliberate lane** is the bigger conversational feature — gated on the voice-quality analysis first.
+
+**Two finish lines, be explicit about which you're targeting:**
+- **"You can wear it every day" (personal daily-driver):** essentially reached — cloud, real login,
+  UI, foreground service, privacy all done. The remaining gap is conversation quality (above).
+- **"A stranger installs from Play":** Phase G/H — release engineering, ops (careful, not risky).
 
 **Phase E — Real users (in progress, 2026-06-12):**
 - ✅ **Cloud project** `jarvis-prod` created + linked (ref `agtuimnppqbrjocuzqsk`); ✅ `dev`/`prod`
