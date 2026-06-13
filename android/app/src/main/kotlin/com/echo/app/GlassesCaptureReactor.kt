@@ -104,7 +104,12 @@ class GlassesCaptureReactor @Inject constructor(
         lastInventoryTotal = total
         if (total == 0 || total <= prev) return // post-sync clear or duplicate echo, not a capture
         if (!backend.isLoggedIn) { _status.value = "Glasses captured — sign in to auto-sync"; return }
-        scope.launch { syncAndRoute(autoTriggered = true) }
+        scope.launch {
+            syncAndRoute(autoTriggered = true)
+            // Glasses delete their files after a successful sync, so the inventory re-baselines to
+            // 0; reset our counter to match, or a stale value silently swallows the next capture.
+            lastInventoryTotal = 0
+        }
     }
 
     private fun onAiGesture() {
