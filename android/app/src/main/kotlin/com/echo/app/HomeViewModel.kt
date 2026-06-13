@@ -326,8 +326,13 @@ class HomeViewModel @Inject constructor(
     /** Look & Ask: send the most recently synced photo to Claude vision, speak + remember it. */
     fun lookAndAsk() = run("Looking…") {
         if (!loggedIn) { status = "Sign in first"; return@run }
+        // Pull anything new off the glasses first (the reliable ceremony — connects BLE fresh),
+        // so "Look & Ask" describes the photo you just took, not a stale one.
+        status = "Syncing the latest shot…"
+        runCatching { reactor.syncNow() }
+        refreshLibrary()
         val photo = transfer.latestPhoto()
-        if (photo == null) { status = "No synced photo — Sync from glasses first"; return@run }
+        if (photo == null) { status = "No photo yet — take one with the glasses, then tap Look & Ask"; return@run }
         status = "Claude is looking at ${photo.name}…"
         val bytes = photo.readBytes()
         // Offline-resilient: if vision can't run (off-grid), save the photo with a placeholder +

@@ -72,6 +72,10 @@ class GlassesCaptureReactor @Inject constructor(
     fun start() {
         hosts++
         if (collectJob == null) {
+            // Bring up the GATT link so button-press notifications actually reach us. Without this,
+            // the glasses are only connected after a manual sync, so a fresh app never sees a
+            // double-click-BACK (Look & Ask) or a capture press. Safe to call repeatedly.
+            runCatching { ble.connectGlasses() }
             collectJob = scope.launch {
                 ble.notifications.collect { n ->
                     when (val e = GlassesEvent.parse(n.bytes)) {
