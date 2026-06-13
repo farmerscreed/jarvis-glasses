@@ -372,19 +372,31 @@ class HomeViewModel @Inject constructor(
             bargedIn = false
             if (stopConversation) { status = "Conversation ended"; break } // End pressed during capture
             val tRecord = System.currentTimeMillis() - t0
+            // Skip the cloud STT call entirely when the (reliable) VAD heard no speech or the level is
+            // near-silent. This is what lets the conversation END on silence, AND it stops wasting STT
+            // calls on empty turns (those silent calls are what exhaust the Gemini free-tier quota).
+            val noSpeech = !rec.speechStarted || rec.peak < 900 || rec.rms < 70
             status = "Transcribing…"
             val sttStart = System.currentTimeMillis()
             val wav = WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)
-            val rawHeard = runCatching { backend.transcribe(wav) }.getOrDefault("")
+            val sttResult = if (noSpeech) Result.success("") else runCatching { backend.transcribe(wav) }
             val tStt = System.currentTimeMillis() - sttStart
-            dumpVoiceDebug(wav, rec, rawHeard, tRecord, tStt) // no-op in release builds
-            // Silence guard: Gemini hallucinates confident transcripts from near-silent audio (the
-            // blank guard alone never fires because the text isn't empty). Treat a turn as "no speech"
-            // — and never feed it to the LLM — when the (now-reliable) VAD never detected speech, or
-            // the level is near-silent. This is what lets a conversation END when you stop talking:
-            // otherwise room noise keeps yielding a hallucinated transcript and JARVIS answers forever.
-            val noSpeech = !rec.speechStarted || rec.peak < 900 || rec.rms < 70
-            val heard = if (noSpeech) "" else rawHeard
+            dumpVoiceDebug(wav, rec, sttResult.getOrElse { "(stt error: ${it.message})" }, tRecord, tStt)
+            // Surface a real STT failure (e.g. Gemini quota / 429 / service down) instead of silently
+            // showing "didn't catch that" — otherwise an outage looks like the mic going deaf.
+            val sttError = sttResult.exceptionOrNull()
+            if (sttError != null) {
+                val m = sttError.message ?: ""
+                val overQuota = "429" in m || "quota" in m.lowercase() || "RESOURCE_EXHAUSTED" in m
+                status = if (overQuota) "Speech service is over its limit — try again later"
+                else "Speech service unavailable — try again"
+                tts.speak(
+                    if (overQuota) "The speech service has reached its daily limit. Please try again later."
+                    else "The speech service is unavailable right now. Please try again.",
+                )
+                break // don't loop forever against an outage
+            }
+            val heard = sttResult.getOrDefault("")
 
             if (heard.isBlank()) {
                 question = "(didn't catch that)"
