@@ -90,8 +90,14 @@ data class VisionRequest(val imageBase64: String, val mediaType: String = "image
 @Serializable
 data class VisionResponse(val text: String = "")
 
+/** One prior conversation turn for multi-turn context. role = "user" | "assistant". */
 @Serializable
-data class ChatRequest(val message: String)
+data class ChatMsg(val role: String, val content: String)
+
+// history is NON-defaulted on purpose: the project Json has encodeDefaults=false, which drops
+// fields left at their default — so an empty default would never reach the backend. Always pass it.
+@Serializable
+data class ChatRequest(val message: String, val history: List<ChatMsg>)
 
 @Serializable
 data class ChatResponse(

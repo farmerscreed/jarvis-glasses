@@ -31,6 +31,6 @@ Thumbs.db
 .tmp*
 
 # Voice-quality investigation debug artifacts (contain real captured audio — never commit)
-voicedbg/
+voicedbg*/
 voice_session.log
 voice_system.log

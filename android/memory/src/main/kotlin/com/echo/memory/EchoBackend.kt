@@ -244,8 +244,8 @@ class EchoBackend(
         json.decodeFromString(VisionResponse.serializer(), txt).text
     }
 
-    suspend fun chat(message: String): ChatResult = withContext(Dispatchers.IO) {
-        val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(message))
+    suspend fun chat(message: String, history: List<ChatMsg> = emptyList()): ChatResult = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(message, history))
         val txt = post("/functions/v1/chat", body)
         val resp = json.decodeFromString(ChatResponse.serializer(), txt)
         ChatResult(resp.answer, resp.memories_used.map { it.toMemory() })
@@ -254,9 +254,14 @@ class EchoBackend(
     /**
      * Streaming RAG turn: [onDelta] is called with each text chunk as Claude produces it (so the
      * caller can speak sentence-by-sentence). Returns the full answer + memories used.
+     * [history] threads prior turns for multi-turn conversation.
      */
-    suspend fun chatStream(message: String, onDelta: (String) -> Unit): ChatResult = withContext(Dispatchers.IO) {
-        val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(message))
+    suspend fun chatStream(
+        message: String,
+        history: List<ChatMsg> = emptyList(),
+        onDelta: (String) -> Unit,
+    ): ChatResult = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(message, history))
         fun call(): okhttp3.Response {
             val builder = Request.Builder()
                 .url(session.baseUrl + "/functions/v1/chat-stream")

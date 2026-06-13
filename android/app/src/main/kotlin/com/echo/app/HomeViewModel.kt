@@ -18,6 +18,7 @@ import com.echo.device.ble.GlassesEvent
 import com.echo.device.wifi.GlassesP2pManager
 import com.echo.device.wifi.MediaTransferClient
 import java.io.File
+import com.echo.memory.ChatMsg
 import com.echo.memory.ChatResult
 import com.echo.memory.ConnectivityGovernor
 import com.echo.memory.EchoBackend
@@ -211,7 +212,11 @@ class HomeViewModel @Inject constructor(
      * D2 streaming turn: speak each sentence as Claude generates it instead of waiting for the
      * full answer. Returns null when the stream fails (caller falls back to non-streaming [EchoBackend.chat]).
      */
-    private suspend fun streamedChat(message: String, onFirstSentence: () -> Unit = {}): ChatResult? {
+    private suspend fun streamedChat(
+        message: String,
+        history: List<ChatMsg> = emptyList(),
+        onFirstSentence: () -> Unit = {},
+    ): ChatResult? {
         if (!tts.beginStream()) return null
         var spoke = false
         val chunker = SentenceChunker { s ->
@@ -219,7 +224,7 @@ class HomeViewModel @Inject constructor(
             tts.enqueue(s)
         }
         val result = runCatching {
-            backend.chatStream(message) { chunker.add(it) }.also { chunker.flush() }
+            backend.chatStream(message, history) { chunker.add(it) }.also { chunker.flush() }
         }.getOrNull() ?: return null
         if (spoke) tts.finishStream() // wait out the queued speech before the turn ends
         return result
@@ -289,10 +294,22 @@ class HomeViewModel @Inject constructor(
         if (handsFree) { handsFree = false; micActive = false; wake.stop() } // user declined; don't listen
     }
 
-    /** The flagship voice loop: glasses mic -> STT -> Claude (RAG) -> TTS in your ear. */
-    fun talk() = withRecordingConsent { run("Listening — speak into the glasses…") { doTalk() } }
+    /**
+     * The flagship voice loop: glasses mic -> STT -> Claude (RAG) -> TTS in your ear.
+     * The orb starts a **conversation** (keeps listening for follow-ups until you're done).
+     */
+    fun talk() = withRecordingConsent { run("Listening — speak into the glasses…") { converse(continuous = true) } }
 
-    private suspend fun doTalk() {
+    /** Single message (e.g. the glasses button): one turn, no follow-up listening. */
+    private suspend fun doTalk() = converse(continuous = false)
+
+    /**
+     * One spoken turn, optionally continued. When [continuous], after answering it re-opens the mic
+     * for a follow-up — threading the last few turns as context — and keeps going until the user goes
+     * quiet (one "still there?" reprompt, then a soft close) or says a closing phrase. The backend
+     * already persists every Q&A into the memory index, so conversations are remembered.
+     */
+    private suspend fun converse(continuous: Boolean) {
         // Off-grid: cloud STT (Gemini) is unavailable and on-device dictation isn't wired yet, so
         // fall back to the text path (modality fallback §4.5) rather than recording pointlessly.
         if (!online) {
@@ -302,54 +319,95 @@ class HomeViewModel @Inject constructor(
             tts.speak("I can't hear you in detail off-grid yet. Type your question.")
             return
         }
-        val t0 = System.currentTimeMillis()
-        // The audible "listening" cue now plays inside recordUntilSilence (over the SCO route, so it
-        // actually reaches the ear) the moment the mic is hot — no earcon here.
-        micActive = true
-        val rec = try { audio.recordUntilSilence() } finally { micActive = handsFree }
-        val tRecord = System.currentTimeMillis() - t0
-        status = "Transcribing…"
-        val sttStart = System.currentTimeMillis()
-        val wav = WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)
-        val rawHeard = runCatching { backend.transcribe(wav) }.getOrDefault("")
-        val tStt = System.currentTimeMillis() - sttStart
-        dumpVoiceDebug(wav, rec, rawHeard, tRecord, tStt) // no-op in release builds
-        // Silence guard: Gemini hallucinates confident transcripts from near-silent audio (the blank
-        // guard alone never fires because the text isn't empty). If the mic captured essentially
-        // nothing, treat it as "didn't catch that" and never feed the fabrication to the LLM.
-        val tooQuiet = rec.peak < 700 || rec.rms < 60
-        val heard = if (tooQuiet) "" else rawHeard
-        question = heard.ifBlank { "(didn't catch that)" }
-        if (heard.isNotBlank()) {
+        val history = ArrayDeque<ChatMsg>() // last few turns, threaded for context
+        var repromptUsed = false
+        while (true) {
+            val t0 = System.currentTimeMillis()
+            // The audible "listening" cue plays inside recordUntilSilence the moment the mic is hot.
+            micActive = true
+            val rec = try { audio.recordUntilSilence() } finally { micActive = handsFree }
+            val tRecord = System.currentTimeMillis() - t0
+            status = "Transcribing…"
+            val sttStart = System.currentTimeMillis()
+            val wav = WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)
+            val rawHeard = runCatching { backend.transcribe(wav) }.getOrDefault("")
+            val tStt = System.currentTimeMillis() - sttStart
+            dumpVoiceDebug(wav, rec, rawHeard, tRecord, tStt) // no-op in release builds
+            // Silence guard: Gemini hallucinates confident transcripts from near-silent audio (the
+            // blank guard alone never fires because the text isn't empty). If the mic captured
+            // essentially nothing, treat it as "didn't catch that" and never feed it to the LLM.
+            val tooQuiet = rec.peak < 700 || rec.rms < 60
+            val heard = if (tooQuiet) "" else rawHeard
+
+            if (heard.isBlank()) {
+                question = "(didn't catch that)"
+                if (continuous && !repromptUsed) {
+                    repromptUsed = true
+                    status = "Still there?"
+                    tts.speak("Still there?")
+                    continue // one more listen before ending the conversation
+                }
+                status = if (continuous) "Conversation ended" else "Didn't catch that — try again"
+                tts.speak(if (continuous) "Okay, I'm here if you need me." else "Sorry, I didn't catch that.")
+                break
+            }
+            repromptUsed = false
+            question = heard
+
+            if (continuous && isClosing(heard)) {
+                status = "Conversation ended"
+                tts.speak("Talk soon.")
+                break
+            }
+
             audio.earcon(EarconKind.THINKING)
             status = "Thinking…"
             val llmStart = System.currentTimeMillis()
+            val histList = history.toList()
             // D2: stream — first sentence is spoken while Claude writes the rest.
             var toSpeak = 0L
             val streamed = if (tier == "full") {
-                streamedChat(heard) { toSpeak = System.currentTimeMillis() - t0 }
+                streamedChat(heard, histList) { toSpeak = System.currentTimeMillis() - t0 }
             } else null
-            val result = streamed ?: backend.chat(heard)
+            val result = streamed ?: backend.chat(heard, histList)
             val tLlm = System.currentTimeMillis() - llmStart
             answer = result.answer
             recalled = result.memoriesUsed
             if (streamed == null) {
                 toSpeak = System.currentTimeMillis() - t0
-                lastLatencyMs = toSpeak
                 status = "Speaking…"
                 tts.speak(result.answer)
-            } else {
-                lastLatencyMs = toSpeak
             }
+            lastLatencyMs = if (toSpeak > 0) toSpeak else System.currentTimeMillis() - t0
             android.util.Log.i(
                 "EchoLatency",
-                "record=${tRecord}ms (%.1fs audio) stt=${tStt}ms llm=${tLlm}ms streamed=${streamed != null} time-to-speak=${toSpeak}ms".format(rec.seconds),
+                "record=${tRecord}ms (%.1fs audio) stt=${tStt}ms llm=${tLlm}ms streamed=${streamed != null} time-to-speak=${toSpeak}ms convo=$continuous".format(rec.seconds),
             )
-            status = "Done · ${toSpeak}ms to first word"
-        } else {
-            status = "Didn't catch that — try again"
-            tts.speak("Sorry, I didn't catch that.") // audible so a miss isn't a silent hang
+
+            // Thread the last 3–6 turns (cap 12 messages = 6 turns) for follow-up context.
+            history.addLast(ChatMsg("user", heard))
+            history.addLast(ChatMsg("assistant", result.answer))
+            while (history.size > 12) history.removeFirst()
+
+            if (!continuous) { status = "Done · ${toSpeak}ms to first word"; break }
+            status = "Listening…" // loop back and re-open the mic for the follow-up
         }
+    }
+
+    /**
+     * Short closing phrases that end a conversation. Deliberately conservative — only brief
+     * utterances match, so a real question that happens to contain "stop"/"bye" doesn't hang up.
+     */
+    private fun isClosing(s: String): Boolean {
+        val t = s.lowercase().trim().trim('.', '!', '?', ',', ' ')
+        if (t.split(Regex("\\s+")).size > 4) return false
+        val closers = listOf(
+            "thanks", "thank you", "thanks jarvis", "thank you jarvis", "that's all", "thats all",
+            "that'll be all", "that is all", "goodbye", "good bye", "bye", "bye bye", "stop",
+            "stop jarvis", "we're done", "were done", "i'm done", "im done", "that's it", "thats it",
+            "nothing else", "no that's all", "go to sleep", "never mind", "nevermind", "cancel",
+        )
+        return closers.any { t == it || t.endsWith(" $it") }
     }
 
     /**
@@ -408,10 +466,11 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun startWake(): Boolean = wake.start {
-        // "Jarvis" detected. Release the mic, run one voice turn, then resume listening.
+        // "Jarvis" detected. Release the wake mic, hold a full conversation, then resume listening
+        // for the next "Jarvis" (you say the wake word once, then talk freely until you're done).
         wake.stop()
         run("Heard “Jarvis” — listening…") {
-            doTalk()
+            converse(continuous = true)
             if (handsFree) startWake()
         }
     }
