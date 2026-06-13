@@ -136,18 +136,23 @@ the repo, research anywhere. The task store tracks `env`.
   edit/delete) is **confirm-gated** by a spoken yes/no (`awaitConfirmation`). Voice: `isCalendarQuery/
   isCalendarAdd/isEmailCommand`. **Verified by curl:** listed real calendars; created a labelled test
   draft. *Calendar-add (creates a real event) + the voice leg need a live test.*
-- **M4 (Phase 2 async + hosted):** ⏳ **not built — needs director-side infra.** Requires FCM/Firebase
-  (not yet in the project), a hosted env with `claude login`, and a prod `agent_tasks` migration
-  (director-authorized deploy). Today everything is **synchronous + local** (M1–M3). Bridge groundwork
-  in place: an **audit log** (`agent-bridge/audit.log`, gitignored — every task: time/status/tools/
-  prompt/result) and a normalized result with `sessionId` (enables `--resume` for two-step flows later).
+- **M4 (Phase 2 async + hosted):** 🟡 **local slice built (2026-06-14); full Phase 2 needs director infra.**
+  Done + curl-verified: **async tickets** — `POST /task {async:true}` returns `{id,status:"running"}`
+  immediately, work runs in the background, poll **`GET /task/:id`** until `ok`/`error`/`timeout`
+  (in-memory tickets). **`agent_tasks` table** migrated to the **local** stack (`20260614000000_agent_
+  tasks.sql`, RLS owner-only) as the durable store. **Audit log** (`agent-bridge/audit.log`, gitignored
+  — every task: time/status/tools/prompt/result) + `sessionId` in results (enables `--resume` later).
+  **Still to do (director-gated):** app wiring (write/poll `agent_tasks`, speak-when-done), **FCM push**
+  (Firebase not yet in the project), a **hosted** env with `claude login`, the **prod** `agent_tasks`
+  deploy (authorized separately), and Agent SDK streaming. The voice lanes stay **synchronous** today.
 - **Trust/audit threaded:** confirm-before-act on commit + calendar-add; email structurally draft-only;
   `disallowedTools` on the Bash lanes; audit log of every delegation. Memory-distill: research results
   saved as `research`-tagged notes; conversation-end distillation already runs.
 
-**Status:** M0–M3 built; bridge-side verified by curl (2026-06-14); on-device voice legs need a live
-test (glasses + local dev). M4 (async/hosted/push) not built — needs director infra. Claude Code
-verified present (v2.1.175, headless); Gmail/Calendar MCP reachable headless.
+**Status:** M0–M3 built; **M4 local slice built** (async tickets + `agent_tasks` local migration);
+bridge-side verified by curl (2026-06-14). On-device voice legs need a live test (glasses + local dev).
+Full M4 (FCM/hosted/prod/app-wiring) needs director infra. Claude Code verified present (v2.1.175,
+headless); Gmail/Calendar MCP reachable headless.
 
 ### M0/M1 finding — research grounding + a measurement gotcha (RESOLVED)
 First read (M0) was that headless `claude -p` "doesn't web-search" because the JSON showed `webSearch:0`.

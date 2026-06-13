@@ -64,7 +64,10 @@ Request:
   "prompt": "Research X and summarize with sources.",
   "cwd": "C:/path/to/repo",          // optional, defaults to repo root
   "allowedTools": "WebSearch,WebFetch,Read",  // optional, defaults to research preset
-  "timeoutMs": 180000                 // optional, default 180000, max 600000
+  "disallowedTools": "Bash(git push:*),Bash(rm:*)", // optional, defense-in-depth (--disallowedTools)
+  "appendSystemPrompt": "…preset…",  // optional, layered as a system prompt (--append-system-prompt)
+  "timeoutMs": 180000,                // optional, default 180000, max 600000
+  "async": false                      // optional (M4): true => returns a ticket, poll GET /task/:id
 }
 ```
 Response (`200` ok / `502` error / `504` timeout):
@@ -97,6 +100,16 @@ curl -s -X POST http://127.0.0.1:8765/task \
   -d '{"prompt":"Research the current Anthropic Claude model lineup and pricing. Give a short sourced summary.","timeoutMs":240000}'
 ```
 
+### `GET /task/:id` (M4 async)
+Poll the status of an `async` task: `{ id, status: "running" | "ok" | "error" | "timeout", result?, … }`.
+Tickets are in-memory (don't survive a bridge restart); the durable record is the app's Supabase
+`agent_tasks` table + `audit.log`.
+
+## Audit log
+Every delegated task is appended to `agent-bridge/audit.log` (JSONL, gitignored): time, status,
+duration, tools, prompt/result previews, permission denials. The reviewable record of what the
+agent did on the director's behalf (trust/safety §6).
+
 ## From the phone (M1 preview)
 ```
 adb reverse tcp:8765 tcp:8765
@@ -108,4 +121,6 @@ adb reverse tcp:8765 tcp:8765
 - **M1:** app dispatches "Jarvis, research…" → bridge → spoken summary → distilled to memory.
 - **M2:** coding preset (repo cwd + edit/run + git-diff review + confirm-before-commit).
 - **M3:** email/calendar via MCP + confirm-before-send.
-- **M4:** Phase 2 — `agent_tasks` store, async tickets, FCM push, hosted env, Agent SDK streaming.
+- **M4:** Phase 2 — async tickets (`async` + `GET /task/:id`) ✅ local slice; `agent_tasks` store
+  (migration, local) ✅; **still to do:** app wiring (write/poll `agent_tasks`), FCM push, hosted env,
+  Agent SDK streaming.

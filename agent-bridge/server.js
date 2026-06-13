@@ -114,10 +114,14 @@ function audit(rec) {
   try { fs.appendFileSync(AUDIT_FILE, JSON.stringify(rec) + '\n'); } catch (_) { /* never fail a task on audit */ }
 }
 
+// In-memory ticket store for async tasks (M4). Tickets are ephemeral — they don't survive a bridge
+// restart; the durable record is the app's Supabase `agent_tasks` table + the audit log.
+const tasks = new Map();
+const MAX_TICKETS = 200;
+
 // Run one claude -p task. Resolves with a normalized result object.
-function runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt, disallowedTools }) {
+function runTask({ id = crypto.randomUUID(), prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt, disallowedTools }) {
   return new Promise((resolve) => {
-    const id = crypto.randomUUID();
     const started = Date.now();
     const startedIso = new Date().toISOString();
     const args = ['-p', '--output-format', 'json', '--allowedTools', allowedTools];
@@ -222,7 +226,7 @@ function log(msg) {
 const server = http.createServer(async (req, res) => {
   // CORS not needed (same-origin via adb reverse), but be lenient for local tooling.
   if (req.method === 'GET' && req.url === '/health') {
-    return json(res, 200, { ok: true, service: 'jarvis-agent-bridge', version: 'M0', claudeBin: CLAUDE_BIN });
+    return json(res, 200, { ok: true, service: 'jarvis-agent-bridge', version: 'M0-M4', claudeBin: CLAUDE_BIN });
   }
 
   if (req.method === 'POST' && req.url === '/task') {
@@ -283,12 +287,34 @@ const server = http.createServer(async (req, res) => {
       appendSystemPrompt = String(body.appendSystemPrompt).slice(0, 8000);
     }
 
-    const out = await runTask({ prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt, disallowedTools });
+    const params = { prompt, cwd, allowedTools, timeoutMs, appendSystemPrompt, disallowedTools };
+
+    // Async (M4): return a ticket immediately, run in the background, poll via GET /task/:id.
+    if (body.async === true) {
+      const id = crypto.randomUUID();
+      if (tasks.size >= MAX_TICKETS) tasks.delete(tasks.keys().next().value); // drop oldest
+      tasks.set(id, { id, status: 'running', startedAt: new Date().toISOString() });
+      runTask({ ...params, id })
+        .then((out) => tasks.set(id, out))
+        .catch((e) => tasks.set(id, { id, status: 'error', error: String(e && e.message || e) }));
+      return json(res, 202, { id, status: 'running' });
+    }
+
+    const out = await runTask(params);
     const code = out.status === 'ok' ? 200 : (out.status === 'timeout' ? 504 : 502);
     return json(res, code, out);
   }
 
-  json(res, 404, { status: 'error', error: 'not found', endpoints: ['GET /health', 'POST /task'] });
+  // Async ticket status (M4). GET /task/:id
+  if (req.method === 'GET' && req.url.startsWith('/task/')) {
+    if (!tokenOk(req)) return json(res, 401, { status: 'error', error: 'unauthorized' });
+    const id = req.url.slice('/task/'.length);
+    const t = tasks.get(id);
+    if (!t) return json(res, 404, { status: 'error', error: 'unknown task id' });
+    return json(res, 200, t);
+  }
+
+  json(res, 404, { status: 'error', error: 'not found', endpoints: ['GET /health', 'POST /task', 'GET /task/:id'] });
 });
 
 server.listen(PORT, HOST, () => {
