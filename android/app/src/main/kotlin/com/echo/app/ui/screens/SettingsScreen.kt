@@ -28,11 +28,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.getValue
@@ -95,6 +97,53 @@ fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit) {
             )
             Spacer(Modifier.height(JarvisSpacing.sm))
             StatusLabel("Local fallback ready", accent = amber)
+        }
+
+        if (vm.loggedIn) {
+            SectionLabel("JARVIS's memory")
+            SettingsCard {
+                LaunchedEffect(Unit) { vm.loadProfile() }
+                var soul by remember { mutableStateOf("") }
+                var facts by remember { mutableStateOf("") }
+                LaunchedEffect(vm.profileSoul) { soul = vm.profileSoul }
+                LaunchedEffect(vm.profileFacts) { facts = vm.profileFacts }
+
+                Text("Character (SOUL)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    "Who JARVIS is and how it acts for you — injected into every answer.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(JarvisSpacing.xs))
+                OutlinedTextField(
+                    value = soul,
+                    onValueChange = { soul = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 4,
+                    maxLines = 12,
+                )
+                Spacer(Modifier.height(JarvisSpacing.md))
+                Text("What JARVIS knows about you", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    "Curated facts it has learned (and you can edit). Grows as you talk.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(JarvisSpacing.xs))
+                OutlinedTextField(
+                    value = facts,
+                    onValueChange = { facts = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 12,
+                )
+                Spacer(Modifier.height(JarvisSpacing.sm))
+                JarvisSecondaryButton(
+                    if (vm.profileBusy) "Saving…" else "Save memory",
+                    onClick = { vm.saveProfile(soul, facts) },
+                    enabled = !vm.profileBusy,
+                )
+            }
         }
 
         SectionLabel("Control")

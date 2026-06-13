@@ -317,6 +317,42 @@ class EchoBackend(
         }
     }
 
+    /** Read the assistant profile (SOUL + curated user facts). */
+    suspend fun getProfile(): ProfileDto = withContext(Dispatchers.IO) {
+        json.decodeFromString(ProfileDto.serializer(), get("/functions/v1/profile"))
+    }
+
+    /** Update the profile — pass only the field(s) to change (encodeDefaults=false drops the nulls). */
+    suspend fun setProfile(soul: String? = null, userFacts: String? = null): ProfileDto = withContext(Dispatchers.IO) {
+        val body = json.encodeToString(ProfileUpdate.serializer(), ProfileUpdate(soul, userFacts))
+        json.decodeFromString(ProfileDto.serializer(), post("/functions/v1/profile", body))
+    }
+
+    /** Explicit "remember that…" — pin a fact into the profile immediately (v1.3). */
+    suspend fun remember(text: String): Unit = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = json.encodeToString(RememberRequest.serializer(), RememberRequest(text))
+            post("/functions/v1/remember", body)
+        }
+    }
+
+    private fun get(path: String): String {
+        var (code, txt) = getOnce(path)
+        if (code == 401 && refreshSession()) { val r = getOnce(path); code = r.first; txt = r.second }
+        if (code !in 200..299) error("HTTP $code: $txt")
+        return txt
+    }
+
+    private fun getOnce(path: String): Pair<Int, String> {
+        val builder = Request.Builder()
+            .url(session.baseUrl + path)
+            .addHeader("apikey", session.anonKey)
+        session.accessToken?.let { builder.addHeader("Authorization", "Bearer $it") }
+        http.newCall(builder.get().build()).execute().use { resp ->
+            return resp.code to resp.body?.string().orEmpty()
+        }
+    }
+
     private fun post(path: String, body: String): String {
         var (code, txt) = postOnce(path, body)
         // Expired access token: rotate via the refresh token and retry once.

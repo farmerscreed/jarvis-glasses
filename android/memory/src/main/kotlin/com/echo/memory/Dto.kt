@@ -103,6 +103,17 @@ data class ChatRequest(val message: String, val history: List<ChatMsg>)
 @Serializable
 data class DistillRequest(val transcript: List<ChatMsg>)
 
+/** The always-on assistant profile: JARVIS's character (soul) + curated facts about the director. */
+@Serializable
+data class ProfileDto(val soul: String = "", val user_facts: String = "")
+
+@Serializable
+data class ProfileUpdate(val soul: String? = null, val user_facts: String? = null)
+
+/** Explicit "remember that…" command (assistant memory v1.3). */
+@Serializable
+data class RememberRequest(val text: String)
+
 @Serializable
 data class ChatResponse(
     val answer: String = "",

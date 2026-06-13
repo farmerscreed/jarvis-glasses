@@ -76,6 +76,24 @@ class HomeViewModel @Inject constructor(
     var sttModelStatus by mutableStateOf(""); private set
     @Volatile private var sttModelTriggered = false
 
+    // v1.5 editable profile (Settings → "JARVIS's memory"): SOUL (character) + curated facts.
+    var profileSoul by mutableStateOf(""); private set
+    var profileFacts by mutableStateOf(""); private set
+    var profileBusy by mutableStateOf(false); private set
+
+    fun loadProfile() = viewModelScope.launch {
+        profileBusy = true
+        runCatching { backend.getProfile() }.getOrNull()?.let { profileSoul = it.soul; profileFacts = it.user_facts }
+        profileBusy = false
+    }
+
+    fun saveProfile(soul: String, facts: String) = viewModelScope.launch {
+        profileBusy = true
+        runCatching { backend.setProfile(soul = soul, userFacts = facts) }
+            .getOrNull()?.let { profileSoul = it.soul; profileFacts = it.user_facts; status = "Memory saved" }
+        profileBusy = false
+    }
+
     /** Email-OTP sign-in state. The dev password login only exists in the dev flavor. */
     val devLoginEnabled = BuildConfig.DEV_LOGIN
     var email by mutableStateOf("")
@@ -457,6 +475,17 @@ class HomeViewModel @Inject constructor(
             question = heard
             transcript.add(TurnLine(fromUser = true, text = heard))
 
+            // v1.3 explicit memory: "remember that…" pins a fact immediately (no LLM round-trip).
+            if (isRememberCommand(heard)) {
+                backend.remember(heard)
+                answer = "Noted."
+                transcript.add(TurnLine(fromUser = false, text = "Noted."))
+                tts.speak("Noted.")
+                if (!continuous) { status = "Noted"; break }
+                status = "Listening…"
+                continue
+            }
+
             if (continuous && isClosing(heard)) {
                 status = "Conversation ended"
                 tts.speak("Talk soon.")
@@ -531,6 +560,14 @@ class HomeViewModel @Inject constructor(
      * Short closing phrases that end a conversation. Deliberately conservative — only brief
      * utterances match, so a real question that happens to contain "stop"/"bye" doesn't hang up.
      */
+    // Explicit "remember that/to/this…" memory command (requires that/to/this so a question like
+    // "remember when we…" doesn't trip it). The backend strips the prefix and pins the fact.
+    private val rememberRe = Regex(
+        "^\\s*(please\\s+)?(jarvis[,!.]?\\s+)?(remember|note|don'?t\\s+forget|make\\s+a\\s+note)\\s+(that|to|this|:)",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isRememberCommand(s: String) = rememberRe.containsMatchIn(s)
+
     private fun isClosing(s: String): Boolean {
         // Strip punctuation/case (Gemini returns "Thanks, Jarvis." / "Alright, thank you. Bye.").
         val t = s.lowercase()

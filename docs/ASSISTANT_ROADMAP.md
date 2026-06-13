@@ -59,12 +59,23 @@ and keeps a clean distilled profile the director can edit.**
 
 Goal: it doesn't just *know* — it **does**, truthfully and on the director's behalf.
 
-### v2.1 Skills (the "goes and finds out" layer)
-- A skill = a reusable, declared procedure the model can invoke (tool-use): **web research /
-  search**, calculations, reading the director's data, calendar/email actions, price-checks, etc.
-- The honesty loop closes here: "I don't know" → **pick a skill → find the answer → report with
-  sources**, instead of guessing. (Mirrors the V2 "Ask Jarvis" deliberate lane already in the roadmap.)
-- Skill results that are durable get distilled into memory.
+### v2.1 Skills (the "goes and finds out" + "does things" layer)
+- A skill = a reusable, declared procedure the model can invoke (tool-use). The honesty loop closes
+  here: "I don't know" → **pick a skill → find the answer → report with sources**, instead of guessing.
+  Skill results that are durable get distilled into memory. Implemented as Anthropic tool-use in the
+  chat path (the v1.3 explicit-remember was a deliberately simple stand-in for the full tool loop).
+- **Voice-controlled glasses (director ask, 2026-06-13) — high priority.** Mid-conversation voice
+  commands that drive the hardware: *"what am I looking at"* → take a photo → describe it; *"record
+  this"* / *"take a photo of this"* / *"look at this and …"*. JARVIS already has the camera/BLE/Wi-Fi
+  capture pipeline (`GlassesCaptureReactor`, Look&Ask vision); this wires **voice intent → capture →
+  vision/transcribe → spoken answer**, all hands-free in the conversation loop. A natural first skill.
+- **Information & work skills (director ask, 2026-06-13):** **web browsing/research**, **document
+  editing**, **coding**, calculations, calendar/email, price-checks, reading the director's data.
+- **Leverage Claude Code (brainstorm, 2026-06-13):** explore using the existing Claude Code / Agent
+  SDK as the engine for the heavier "do things" skills (research, code, doc edits) — JARVIS as the
+  voice/glasses front-end delegating deliberate tasks to a Claude Code agent backend, which already
+  has tools (browsing, files, shell, MCP). Open design question: hosted agent the app calls vs. the
+  deliberate "Ask Jarvis" lane. To brainstorm before building.
 
 ### v2.2 Autonomy — crons / heartbeat (the "noticer")
 - A scheduled background loop (Hermes "crons" / OpenClaw `HEARTBEAT.md`): proactive reminders,
@@ -89,11 +100,15 @@ Goal: it doesn't just *know* — it **does**, truthfully and on the director's b
 2. **v1.2 distillation — ✅ DEPLOYED + VERIFIED.** `distill` deployed; app fires it at conversation
    end. Verified: a test convo distilled to clean bullets (`Daughter: Maya`, `Prefers concise answers`)
    and the next answer recalled them. (Test facts cleared afterward; profile starts clean.)
-3. **NEXT:** v1.3 memory tool (explicit "remember X" mid-conversation) → v1.4 self-improvement (the
-   distill merge already applies corrections) → v1.5 editable-profile Settings UI (director can hand-
-   edit SOUL + facts in-app; today editable via the `profile` function). The director will edit
-   `docs/assistant/SOUL.md`; re-seed via the `profile` function (or the v1.5 UI).
-4. Then v2.1 skills (highest-value agentic step) → v2.2 crons → v2.3 reach.
+3. **v1.3 explicit memory — ✅ BUILT.** `remember` function + app detection: "remember that/to/this…"
+   pins a fact immediately (no LLM round-trip) and confirms "Noted." (`isRememberCommand`). Same-
+   conversation recall already works via history threading; durable via distillation; this adds the
+   reliable explicit pin. *(Full model-invoked tool-use deferred to v2.1 — it shares the tool loop.)*
+4. **v1.4 self-improvement — ✅ covered** by the distill merge (it applies corrections to user_facts).
+5. **v1.5 editable profile — ✅ BUILT.** Settings → "JARVIS's memory": view/edit SOUL + curated facts,
+   Save (`getProfile`/`setProfile` + `profile` function). The director edits the character in-app.
+6. Then **v2.1 skills** — incl. the **voice-controlled glasses** + browsing/doc/coding tools +
+   Claude Code leverage (see v2 below) → v2.2 crons → v2.3 reach.
 
 Cloud deploys (migration + function changes) are director-authorized per the Phase E pattern. Each
 increment is committed + verified before the next.
