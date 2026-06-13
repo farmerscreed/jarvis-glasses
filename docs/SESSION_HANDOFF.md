@@ -40,7 +40,8 @@ pgvector) every feature reads/writes. Built offline-first: it must work in a tun
 | **B** glasses-button reactions | ✅ (in-app) | Button event protocol decoded; press → auto-sync → route (photo→caption, audio→transcribe, AI-gesture→Look&Ask). |
 | **C** offline-first | ✅ **complete** | Local-first core + outbox + idempotency, background drain (survives app kill), on-device embeddings (offline semantic recall), Jarvis Lite floor, deferred AI re-run, LEAN tier. |
 | **D** latency | 🟡 **partial** | D1 done (VAD endpointing, earcons, instrumentation). **D2 streaming VERIFIED on device vs cloud (2026-06-12):** text Ask spoke the answer streamed sentence-by-sentence. Voice-path `EchoLatency` numbers still to capture (needs a glasses voice turn). |
-| **E** real users | 🟢 **core done (2026-06-12)** | Cloud `jarvis-prod` fully deployed (migrations/secrets/6 functions); dev/prod flavors; **director signed in on device via emailed 6-digit code (Resend)** and got a streamed spoken answer. Remaining: Google One-Tap, function rate limits, foreground service. |
+| **E** real users | 🟢 **core done (2026-06-12)** | Cloud `jarvis-prod` fully deployed (migrations/secrets/6 functions); dev/prod flavors; **director signed in on device via emailed 6-digit code (Resend)** and got a streamed spoken answer. Remaining: Google One-Tap, function rate limits. |
+| **B+** foreground service | 🟢 **built + device-verified (2026-06-13)** | `ConnectedCompanionService` (foregroundServiceType=connectedDevice) keeps the glasses link + capture reactions alive with the app backgrounded/killed. Capture pipeline extracted into the shared `GlassesCaptureReactor`. Settings toggle "Keep listening in the background". **Background capture-while-killed not yet director-verified;** glasses Look & Ask (foreground) verified working after the BLE-connect fix. |
 | **UI** design integration | 🟢 **core done (2026-06-12)** | Steps 1–5 of the director's UI plan: tokens → JarvisTheme (M3, dark-only, tri-font, amber via CompositionLocal) → shared components → animated PresenceOrb (6 states) → designed screens (Live console ×4 variants, Timeline river, Gallery grid, photo/video **detail** with delete, Settings) wired to HomeViewModel. Dev console preserved under Settings → Developer console. Library has read-only `recent`/`mediaMemories` queries; **delete** (local+cloud) and **video playback** added. **Help & Learn center** (the "?" → Hub/Gestures/Guides/Say, real decoded content) and the **6-step onboarding wizard** (Welcome→SignIn→Permissions→FindingGlasses→HardwareCheck→WakeWord, first-run gated) both built + **device-verified 2026-06-12**. |
 
 **Phase C detail (all six increments verified 2026-06-12):**
@@ -70,6 +71,21 @@ pgvector) every feature reads/writes. Built offline-first: it must work in a tun
 - `:app` — UI (Compose), `HomeViewModel.kt` (the orchestrator),
   Hilt DI (`di/AppModule.kt`), `JarvisApp.kt`, `JarvisLite.kt`, `SentenceChunker.kt`,
   `GlassesButtonController.kt`, `sync/SyncWorker.kt` + `SyncScheduler.kt`, `ml/MediaPipeEmbedder.kt`.
+- **`:app` capture pipeline + background (2026-06-13):**
+  - `GlassesCaptureReactor.kt` — **the shared, injectable (`@Singleton`) autonomous capture
+    pipeline**, extracted from `HomeViewModel`. Listens to `ble.notifications`; on a button-press
+    event runs the sync ceremony (BLE→Wi-Fi Direct→HTTP pull) then enriches each file into a memory
+    (photo→caption, AI-gesture→spoken Look&Ask, audio→transcribe). Refcounted `start()/stop()` =
+    one shared collection across hosts (UI + service), no double-processing; a mutex serializes
+    auto-capture vs manual sync. **`start()` calls `ble.connectGlasses()`** — without it, foreground
+    button presses never reach the app. Exposes `status`/`working`/`lastAnswer` StateFlows the UI
+    mirrors. `HomeViewModel` delegates here (`syncGlasses`, reconcile, capture reactions).
+  - `ConnectedCompanionService.kt` — foreground service (`foregroundServiceType=connectedDevice`)
+    that hosts the reactor + holds the BLE link with **no UI** (app backgrounded/killed). Ongoing
+    notification reflects pipeline status; `START_STICKY`. Toggled by Settings "Keep listening in
+    the background" (`CompanionPrefs`); `AppRoot` restarts it on launch when enabled + signed in.
+  - `ui/help/HelpScreen.kt` (Help center, opened from the "?"), `ui/onboarding/` (first-run wizard
+    + `OnboardingPrefs`).
 - `:core` — `model/Memory.kt`, `MemoryType`.
 - `:memory` — backend + offline-first core: `EchoBackend.kt` (OkHttp to Supabase),
   `SupabaseSession.kt` (persisted token), `MemoryStore.kt` (local-first remember/recall/drain/
@@ -176,6 +192,16 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
   (silent recordings → "Didn't catch that"; answers inaudible). Power the glasses off to test
   phone-only. The Live console now reads the true audio route (`rememberGlassesAudioConnected`)
   and appends "audio in glasses" to the always-visible status line.
+- **Glasses button reactions need the GATT link UP first.** The app can only receive button-press
+  notifications (capture, double-click-BACK Look&Ask) while connected over BLE. `GlassesCaptureReactor
+  .start()` now connects on launch, but **the link can drop after a Wi-Fi-Direct transfer or on
+  idle timeout, with no auto-reconnect yet** — if button presses stop reaching the app, a manual
+  "Sync from glasses" reconnects it. (A reconnect/keepalive is a good follow-up.)
+- **A recording in progress hijacks the BACK button.** Native firmware: hold BACK = start audio
+  recording; single-click BACK *while recording* = stop. So if a recording is live (you'll see
+  `0B` RecordingTick heartbeats in `EchoBle` logcat), a "double-click BACK" manages the recording
+  instead of firing the AI gesture (`0x02`) → **Look & Ask won't trigger until the recording is
+  stopped.** Confirmed live 2026-06-13.
 - **Decoded device gotchas** (full detail in `docs/recon/Glasses_Controls.md` §4): glasses **delete
   their files after a successful sync** and emit a zero-inventory event (only an inventory *increase*
   = a new capture); `BC 41` frames on `de5bf729` are **command-ACK echoes, NOT events** (parsing
