@@ -102,6 +102,7 @@ class GlassesCaptureReactor @Inject constructor(
     private fun onCaptureSaved(total: Int) {
         val prev = lastInventoryTotal
         lastInventoryTotal = total
+        android.util.Log.i("EchoVision", "CaptureSaved event total=$total prev=$prev (new=${total > 0 && total > prev})")
         if (total == 0 || total <= prev) return // post-sync clear or duplicate echo, not a capture
         if (!backend.isLoggedIn) { _status.value = "Glasses captured — sign in to auto-sync"; return }
         scope.launch {
@@ -176,6 +177,7 @@ class GlassesCaptureReactor @Inject constructor(
 
     /** The transfer ceremony: BLE start cmd → Wi-Fi Direct → HTTP pull. Returns the NEW files. */
     private suspend fun doSync(): List<File> {
+        android.util.Log.i("EchoVision", "doSync: connecting BLE + starting Wi-Fi Direct")
         ble.connectGlasses()
         p2p.start()
         delay(1500) // let the BLE link come up
@@ -183,16 +185,18 @@ class GlassesCaptureReactor @Inject constructor(
         ble.startWifiTransfer() // glasses bring up Wi-Fi; IP arrives via BLE notify
         _status.value = "Waiting for glasses Wi-Fi…"
         val ip = withTimeoutOrNull(30_000) { ble.glassesWifiIp.filterNotNull().first() }
+        android.util.Log.i("EchoVision", "doSync: glasses Wi-Fi ip=$ip")
         if (ip == null) {
             _status.value = "Timed out waiting for glasses Wi-Fi"
             p2p.stop()
             return emptyList()
         }
-        withTimeoutOrNull(15_000) { p2p.connected.first { it } } // P2P link up before HTTP
+        val p2pUp = withTimeoutOrNull(15_000) { p2p.connected.first { it } } // P2P link up before HTTP
         _status.value = "Downloading from $ip…"
         // Bind the pull to the Wi-Fi Direct network, else the socket routes out home Wi-Fi.
         val net = p2p.boundNetwork()
         val files = transfer.pull(ip, net) { i, n -> _status.value = "Downloading $i/$n…" }
+        android.util.Log.i("EchoVision", "doSync: p2pConnected=$p2pUp pulled=${files.size} files: ${files.map { it.name }}")
         ble.resetP2p()
         p2p.stop()
         return files
@@ -214,6 +218,7 @@ class GlassesCaptureReactor @Inject constructor(
                         else "One short sentence: caption this photo for a personal memory index.",
                     )
                 }.getOrNull()
+                android.util.Log.i("EchoVision", "routeNewFile photo=${f.name} ask=$ask vision=${if (visioned != null) "ok(${visioned.length})" else "FAILED"}")
                 val desc = visioned ?: "(photo captured — description pending)"
                 val tags = if (visioned == null) listOf("needs_vision") else emptyList()
                 store.rememberLocal(Memory(type = MemoryType.PHOTO, text = desc, tags = tags), f, "media")
