@@ -216,14 +216,36 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 
 ## 6. What's NEXT — the critical path
 
-### 🎯 IMMEDIATE NEXT (director, 2026-06-13): conversation context/memory deep-dive
-The conversation stack + on-device STT below are **all built and device-verified working**. The
-director's next ask: revisit **context/memory** — reliably remembering what was said earlier (within a
-conversation and across sessions), and being smarter about what's saved to the memory index (today the
-backend saves *every* Q&A verbatim, which clutters recall). Get a concrete "it forgot X" example from
-the director to localize the gap (in-conversation history vs cross-session semantic recall vs what's
-persisted). Also still open: barge-in lives only in the held-SCO conversation path (narrowband answer
-audio is the trade-off); fine as-is.
+### 🎯 IMMEDIATE NEXT (director, 2026-06-13): Agent Delegation (heavy tasks via Claude Code)
+The big new direction: JARVIS as a **chief of staff that acts** — delegating heavy multi-step tasks
+(research → coding → email/calendar, in that order) to **Claude Code on the director's Max
+subscription**. Fully designed in **`docs/AGENT_DELEGATION.md`** (Phase 1 local bridge → Phase 2 hosted
++ async; subscription/ToS clarified: running Claude Code the product on the sub is legit, distinct from
+raw-API-via-sub). **Build starts at M0** (a local Agent Bridge wrapping `claude -p`) after director
+review. Vision/roadmap context: `docs/ASSISTANT_ROADMAP.md`, `docs/ASSISTANT_MEMORY.md`.
+
+**✅ DONE THIS SESSION — Assistant Memory v1 (Hermes/OpenClaw pattern), DEPLOYED to prod + verified:**
+- **Profile layer** — `profile` table (SOUL + curated user facts) injected into `chat`/`chat-stream`
+  with a **non-negotiable TRUTH charter** (never fabricate; "I don't know" then go find out). SOUL
+  seeded from `docs/assistant/SOUL.md` (director to edit). Verified: in-character + admits ignorance.
+- **Distillation** (`distill` fn) — extracts durable facts from a finished conversation into the
+  profile instead of hoarding raw Q&A; app fires it at conversation end. Verified end-to-end.
+- **Explicit memory** (`remember` fn) — "remember that…" pins a fact instantly ("Noted").
+- **Editable profile** — Settings → "JARVIS's memory" (view/edit SOUL + facts; `profile` fn).
+- Migration + 5 functions deployed (director-authorized). **CAUTION: don't test cleanup against the
+  live profile** — a `user_facts=""` wipe during testing cleared the director's real distilled facts
+  (Name/children); restoring blocked (can't write unverified personal facts). Director re-adds via
+  Settings or by talking.
+
+**🟡 WIP — voice-controlled glasses skill (first v2.1 skill):** "what am I looking at" / "take a photo
+of this" → capture + describe aloud (`reactor.captureAndDescribe`, `isVisionCommand`). **Not working on
+device yet** — capture times out inside a conversation (camera/Wi-Fi/SCO/BLE contention). Fixes so far:
+release held SCO for the capture; ensure GATT link + retry capturePhoto until sent; `EchoVision`
+logging. **Needs a focused on-device debugging pass** (pull `EchoVision` right after a fresh attempt).
+
+**Context/memory original ask: ADDRESSED by v1** — within-conversation recall via history threading
+(last 3–6 turns), cross-session via distilled profile + RAG, no more verbatim hoarding. Barge-in lives
+only in the held-SCO path (narrowband answer audio is the trade-off); fine as-is.
 
 **✅ DONE + VERIFIED THIS SESSION — the conversation stack:**
 - **On-device STT (sherpa-onnx / Whisper-tiny.en)** is the **primary** transcriber — offline, no
