@@ -221,9 +221,18 @@ The daily-driver feature set is built; the open problem is **conversation qualit
 reports JARVIS "often doesn't pick up what I'm saying and makes too many errors" in spoken use.
 **The next session's job is a structured root-cause analysis** of the voice loop (record → VAD →
 STT → RAG → TTS): is it the transcription (Gemini STT), endpointing/timing (cut-offs, SCO warm-up),
-the RAG/answer grounding, or the speaking environment? See `docs/VOICE_QUALITY_INVESTIGATION.md`
-(create it) and the dedicated handoff prompt the director will paste in. Do NOT start building fixes
-until the analysis names the dominant failure mode with evidence (logged transcripts vs. ground truth).
+the RAG/answer grounding, or the speaking environment? Do NOT start building fixes until the
+analysis names the dominant failure mode with evidence (logged transcripts vs. ground truth).
+
+**STATUS 2026-06-13 — diagnostics built + installed, awaiting a live voice session.** See
+`docs/VOICE_QUALITY_INVESTIGATION.md` (full method, run protocol, scripted phrase set, findings).
+Debug-only instrumentation is in `devDebug` on the Pixel: per-turn WAV + `index.tsv` +
+`EchoVoice` logcat (`HomeViewModel.dumpVoiceDebug`), VAD stop-reason/threshold on `Recording`
+(`BtAudio.kt`), and a self-tested Node spectral analyser `scripts/analyze_wav.mjs` (narrowband-vs-
+wideband verdict — the WAV header always says 16 kHz, only the spectrum reveals CVSD). **Prime
+suspect = hypothesis #1 (narrowband SCO mic), not yet confirmed** — needs the director wearing the
+glasses to run the scripted turns and capture the three artifacts. Instrumentation is temporary
+(debug-gated); remove once the dominant failure mode is named.
 
 ### Status as of 2026-06-13 — what's DONE (don't redo)
 Phases 0–2, A, B (+foreground service), C, D2, **E** (cloud/auth/Resend OTP/streaming), the full

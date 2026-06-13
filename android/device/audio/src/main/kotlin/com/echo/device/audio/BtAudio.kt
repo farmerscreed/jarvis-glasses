@@ -26,6 +26,12 @@ data class Recording(
     val sampleRate: Int,
     val peak: Int, // 0..32767
     val rms: Int,
+    // --- voice-quality diagnostics (Phase: voice-quality investigation 2026-06-13) ---
+    // Why the VAD stopped recording: "trailingSilence" | "maxMs" | "noSpeechTimeout" | "fixed".
+    val stopReason: String = "fixed",
+    val noiseFloor: Int = 0, // calibrated noise RMS over the first ~250 ms
+    val threshold: Int = 0,  // speech-detection threshold actually used
+    val speechStarted: Boolean = true, // did any frame ever cross the threshold?
 ) {
     val seconds: Double get() = pcm.size / 2.0 / sampleRate
 }
@@ -102,6 +108,11 @@ class BtAudioEngine(private val context: Context) {
         )
         val out = ByteArrayOutputStream()
         val frame = ByteArray(960) // ~30 ms at 16 kHz mono 16-bit
+        // voice-quality diagnostics, carried out of the try so the Recording can report them
+        var stopReason = "maxMs"
+        var speechEver = false
+        var noiseFloorOut = 0
+        var thresholdOut = 0
         try {
             recorder.startRecording()
             val start = System.currentTimeMillis()
@@ -119,8 +130,8 @@ class BtAudioEngine(private val context: Context) {
             var lastVoiceMs = start
             while (true) {
                 val now = System.currentTimeMillis()
-                if (now - start > maxMs) break
-                if (!speechStarted && now - start > noSpeechTimeoutMs) break
+                if (now - start > maxMs) { stopReason = "maxMs"; break }
+                if (!speechStarted && now - start > noSpeechTimeoutMs) { stopReason = "noSpeechTimeout"; break }
                 val n = recorder.read(frame, 0, frame.size)
                 if (n <= 0) continue
                 out.write(frame, 0, n)
@@ -128,9 +139,12 @@ class BtAudioEngine(private val context: Context) {
                     speechStarted = true
                     lastVoiceMs = now
                 } else if (speechStarted && now - lastVoiceMs > silenceMs) {
-                    break // endpoint: trailing silence after speech
+                    stopReason = "trailingSilence"; break // endpoint: trailing silence after speech
                 }
             }
+            speechEver = speechStarted
+            noiseFloorOut = noiseFloor.toInt()
+            thresholdOut = threshold.toInt()
         } finally {
             runCatching { recorder.stop() }
             recorder.release()
@@ -138,7 +152,7 @@ class BtAudioEngine(private val context: Context) {
         }
         val pcm = out.toByteArray()
         val (peak, rms) = analyze(pcm)
-        Recording(pcm, sampleRate, peak, rms)
+        Recording(pcm, sampleRate, peak, rms, stopReason, noiseFloorOut, thresholdOut, speechEver)
     }
 
     /** Best-effort earcon (in-ear via A2DP) so silence never reads as a hang. */

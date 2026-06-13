@@ -9,6 +9,7 @@ import com.echo.core.model.Memory
 import com.echo.core.model.MemoryType
 import com.echo.device.audio.BtAudioEngine
 import com.echo.device.audio.EarconKind
+import com.echo.device.audio.Recording
 import com.echo.device.audio.TtsEngine
 import com.echo.device.audio.WakeWordEngine
 import com.echo.device.audio.WavUtil
@@ -309,8 +310,10 @@ class HomeViewModel @Inject constructor(
         val tRecord = System.currentTimeMillis() - t0
         status = "Transcribing…"
         val sttStart = System.currentTimeMillis()
-        val heard = runCatching { backend.transcribe(WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)) }.getOrDefault("")
+        val wav = WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)
+        val heard = runCatching { backend.transcribe(wav) }.getOrDefault("")
         val tStt = System.currentTimeMillis() - sttStart
+        dumpVoiceDebug(wav, rec, heard, tRecord, tStt) // no-op in release builds
         question = heard.ifBlank { "(didn't catch that)" }
         if (heard.isNotBlank()) {
             audio.earcon(EarconKind.THINKING)
@@ -340,6 +343,44 @@ class HomeViewModel @Inject constructor(
             status = "Done · ${toSpeak}ms to first word"
         } else {
             status = "Didn't catch that — try again"
+        }
+    }
+
+    /**
+     * VOICE-QUALITY INVESTIGATION (temporary, 2026-06-13) — debug builds only.
+     * Persists each turn's exact mic WAV + the VAD/STT diagnostics so we can compare three artifacts
+     * per turn: the audio actually captured (listen + spectral-analyse), the transcript Gemini
+     * returned, and the spoken ground truth. Files land in the app's external files dir, pullable via
+     *   adb pull /sdcard/Android/data/com.echo.companion/files/voicedbg ./voicedbg
+     * Remove this (and the diagnostics on Recording) once the dominant failure mode is named.
+     */
+    private fun dumpVoiceDebug(wav: ByteArray, rec: Recording, heard: String, tRecord: Long, tStt: Long) {
+        if (!BuildConfig.DEBUG) return
+        runCatching {
+            val dir = java.io.File(appContext.getExternalFilesDir(null), "voicedbg").apply { mkdirs() }
+            val ts = System.currentTimeMillis()
+            java.io.File(dir, "turn_$ts.wav").writeBytes(wav)
+            val line = listOf(
+                ts.toString(),
+                "%.2f".format(rec.seconds),
+                rec.sampleRate.toString(),
+                rec.peak.toString(),
+                rec.rms.toString(),
+                rec.noiseFloor.toString(),
+                rec.threshold.toString(),
+                rec.stopReason,
+                "speech=${rec.speechStarted}",
+                "rec=${tRecord}ms",
+                "stt=${tStt}ms",
+                heard.ifBlank { "(blank)" }.replace("\t", " ").replace("\n", " "),
+            ).joinToString("\t")
+            java.io.File(dir, "index.tsv").appendText(line + "\n")
+            android.util.Log.i(
+                "EchoVoice",
+                "turn=$ts ${"%.2f".format(rec.seconds)}s sr=${rec.sampleRate} peak=${rec.peak} rms=${rec.rms} " +
+                    "noiseFloor=${rec.noiseFloor} thr=${rec.threshold} stop=${rec.stopReason} speech=${rec.speechStarted} " +
+                    "heard=\"${heard.take(80)}\"",
+            )
         }
     }
 
