@@ -61,6 +61,11 @@ class HomeViewModel @Inject constructor(
     var inConversation by mutableStateOf(false); private set
     @Volatile private var stopConversation = false
 
+    // Barge-in held SCO open and played the answer over the SCO mic link — the echo bled into the
+    // next recording and Gemini returned blank transcripts (it "couldn't hear"). DISABLED until
+    // reworked so it doesn't pollute capture; conversation mode uses the reliable per-turn SCO path.
+    private val bargeInEnabled = false
+
     /** Running transcript of the current conversation for the scrollable on-screen chat. */
     val transcript = mutableStateListOf<TurnLine>()
 
@@ -345,10 +350,10 @@ class HomeViewModel @Inject constructor(
         if (continuous) { inConversation = true; stopConversation = false }
         transcript.clear() // fresh on-screen transcript for this conversation
         try {
-        if (continuous) {
+        if (continuous && bargeInEnabled) {
             // Hold SCO open for the whole conversation: the answer plays over the SCO output and the
             // mic stays available for barge-in (A2DP is suspended while SCO is up). Narrowband but
-            // intelligible — the price of being able to interrupt.
+            // intelligible — the price of being able to interrupt. (Disabled — see bargeInEnabled.)
             audio.beginScoSession()
             tts.useCommunicationRoute(true)
         }
@@ -413,7 +418,7 @@ class HomeViewModel @Inject constructor(
             // Speak the answer; in a conversation, concurrently watch for the user to barge in and,
             // if they do, cut the answer short and go capture what they're saying.
             coroutineScope {
-                val monitor = if (continuous) launch {
+                val monitor = if (continuous && bargeInEnabled) launch {
                     if (runCatching { audio.awaitBargeIn(active = { speaking }) }.getOrDefault(false)) {
                         barged = true
                         tts.stop() // cut the answer; unblocks the speak below
@@ -453,8 +458,10 @@ class HomeViewModel @Inject constructor(
         } finally {
             if (continuous) {
                 inConversation = false
-                audio.endScoSession()       // release the held SCO link
-                tts.useCommunicationRoute(false) // back to the hi-fi media route for one-shot answers
+                if (bargeInEnabled) {
+                    audio.endScoSession()       // release the held SCO link
+                    tts.useCommunicationRoute(false) // back to the hi-fi media route
+                }
             }
         }
     }
