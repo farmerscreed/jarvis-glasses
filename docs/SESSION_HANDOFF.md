@@ -222,8 +222,22 @@ The big new direction: JARVIS as a **chief of staff that acts** — delegating h
 (research → coding → email/calendar, in that order) to **Claude Code on the director's Max
 subscription**. Fully designed in **`docs/AGENT_DELEGATION.md`** (Phase 1 local bridge → Phase 2 hosted
 + async; subscription/ToS clarified: running Claude Code the product on the sub is legit, distinct from
-raw-API-via-sub). **Build starts at M0** (a local Agent Bridge wrapping `claude -p` — **headless verified
-working, returns JSON**). Vision/roadmap: `docs/ASSISTANT_ROADMAP.md`, `docs/ASSISTANT_MEMORY.md`.
+raw-API-via-sub). Vision/roadmap: `docs/ASSISTANT_ROADMAP.md`, `docs/ASSISTANT_MEMORY.md`.
+
+**✅ M0 DONE + verified (2026-06-13):** zero-dep Node **Agent Bridge** at `agent-bridge/` wrapping
+`claude -p --output-format json`. `POST /task {prompt, cwd?, allowedTools?, timeoutMs?}` + `GET /health`;
+binds **127.0.0.1 only** (phone reaches it via `adb reverse tcp:8765 tcp:8765`), shared bearer token in
+gitignored `agent-bridge/.env`, prompt via stdin (no injection), research-preset least-privilege tools,
+timeout-kill. Subscription-authed (no API key). Run `node agent-bridge\server.js`; see `agent-bridge/README.md`.
+**Verified by curl:** health ok, 401 without token, a research prompt → sourced summary (~28 s).
+**Carry into M1 (the next step):** headless `claude -p` only web-searches when the model decides it's
+needed and otherwise over-trusts training (one prompt returned an unverified "latest version" with
+`webSearch:0`); `WebSearch` works when forced. **M1 research preset must instruct it to verify
+time-sensitive/factual claims with WebSearch + cite** (`--append-system-prompt` or in the task prompt).
+Full detail + the M2 allowedTools-isn't-a-sandbox caveat in `docs/AGENT_DELEGATION.md` §10.
+
+**M1 (next):** app dispatches "Jarvis, research…" → bridge (dev flavor + `adb reverse tcp:8765`) →
+speaks the summary → distills into memory. Detect the intent like `isRememberCommand`/`isVisionCommand`.
 
 **Also queued (director asks, 2026-06-13):** (a) **glasses battery gauge in the app** — battery is NOT
 yet exposed in our BLE impl; the protocol's "oudmon" device-info/battery command (recon) is

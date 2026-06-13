@@ -1,0 +1,15 @@
+{
+  "name": "jarvis-agent-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JARVIS Agent Bridge (M0) — local HTTP wrapper around headless Claude Code for the deliberate lane. Zero deps.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

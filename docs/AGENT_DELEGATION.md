@@ -111,8 +111,15 @@ the repo, research anywhere. The task store tracks `env`.
 - **Per-task-type allowed-tools / permission** presets.
 
 ## 10. Build plan
-- **M0 (Phase 1 bridge):** Node/py bridge wrapping `claude -p`; `POST /task`; run on the PC. Verify by
-  curl with a **research** prompt → sourced summary. *(no app changes yet.)*
+- **M0 (Phase 1 bridge):** ✅ **DONE + verified (2026-06-13).** Zero-dep Node bridge at `agent-bridge/`
+  (`server.js`) wrapping `claude -p --output-format json`; `POST /task {prompt, cwd?, allowedTools?,
+  timeoutMs?}` + `GET /health`. Binds **127.0.0.1 only**, shared bearer token (gitignored
+  `agent-bridge/.env`), prompt via **stdin** (no shell/injection), least-privilege default tools
+  (research preset: `WebSearch,WebFetch,Read,Glob,Grep`), timeout-kill. Returns `{id,status,result,
+  summary,toolsUsed,durationMs,cost,sessionId,raw}`. **Verified by curl:** `/health` ok, POST without
+  token → 401, a **research** prompt returned a sourced summary in ~28 s. Subscription-authed (no
+  `ANTHROPIC_API_KEY`; `total_cost_usd` is the reported equivalent, not an API charge). Run: `node
+  agent-bridge\server.js`. *(no app changes yet.)*
 - **M1 (voice → research):** app dispatches "Jarvis, research…" to the bridge (dev flavor, `adb
   reverse`), speaks the summary, distills it into memory. End-to-end on this machine.
 - **M2 (coding):** add a repo working-dir + edit/run tools + git-diff review + confirm-before-commit.
@@ -121,5 +128,20 @@ the repo, research anywhere. The task store tracks `env`.
   bridge moved to a hosted env. Agent SDK streaming.
 - Trust/audit + memory-distill threaded through every milestone.
 
-**Status:** design only (2026-06-13). Build starts at M0 after director review. Claude Code verified
-present on the dev machine (v2.1.175, headless capable).
+**Status:** M0 built + verified (2026-06-13); M1 next. Claude Code verified present (v2.1.175, headless).
+
+### M0 finding — research grounding (carry into M1)
+Headless `claude -p` only web-searches when **the model judges it necessary**. For well-known topics
+(JWST) it answered from training and cited sources; for a "latest version this week" prompt it
+**over-trusted training and returned an unverified/likely-stale answer with `webSearch:0`** even though
+the prompt asked it to search. Diagnosed via `stream-json --verbose`: **`WebSearch` IS offered and the
+model DOES call it when explicitly forced** ("you MUST call WebSearch" → it searched and returned the
+correct current date with sources). So this is a **prompt-layer issue, not a bridge bug.** **M1 fix:**
+the research preset must instruct the agent to *verify time-sensitive/factual claims with WebSearch and
+cite sources before answering* (via `--append-system-prompt` in the bridge research preset, or baked
+into the dispatched task prompt). Aligns with the SOUL truth charter — no confident guesses.
+
+Also note for **M2 (coding):** `--allowedTools` is a **no-prompt allowlist, not a hard sandbox** — all
+tools are still *offered* to the model; non-allowlisted ones that need permission are **auto-denied** in
+headless mode (recorded in `permission_denials`). Safe for read-only M0/research; when M2 needs edits,
+grant them explicitly per task and rely on git-diff review + confirm-before-commit.
