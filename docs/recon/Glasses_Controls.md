@@ -81,6 +81,17 @@ arrives on `de5bf729`** (the same char as the Wi-Fi IP notify), framed as
 Parser: `GlassesEvent.kt` in `:device:ble` (enforces the `BC 73` rule). Reactions (inventory-gated
 auto-sync + route by file type) live in `HomeViewModel` (`onCaptureSaved`/`onAiGesture`/`routeNewFile`).
 
+4. **The camera is GATED while the glasses are in a Bluetooth-audio conversation (verified 2026-06-13).**
+   A capture command sent during/just after a voice conversation (SCO held + A2DP) is *received and
+   ACK'd* (`BC 41` frames) but **no photo is taken and no `CaptureSaved` event follows** — so the
+   sync→vision chain never starts (30 s timeout). Single-host Jieli firmware can't run the camera and
+   a BT-audio session at once. Releasing the app's SCO + a short settle is NOT enough (the system also
+   holds A2DP, which the app can't force-drop). Confirmed across two device tests via `EchoVision` stage
+   logging. **Implication for the voice "what am I looking at" skill:** either fully drop the BT-audio
+   link before capturing (disruptive — conversation pauses while audio reconnects) or decouple capture
+   from the live conversation (physical button / AI-gesture capture, then discuss the photo by voice).
+   The AI-gesture path works precisely because the button is pressed when there's no active call audio.
+
 - Trackpad/music keys, *if* ever repurposed, go through the already-built `GlassesButtonController` (`MediaSession`). For now that session can stay inactive so we don't disturb music/volume.
 
 ## 5. Status
