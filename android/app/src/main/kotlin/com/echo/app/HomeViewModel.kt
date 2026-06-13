@@ -490,13 +490,14 @@ class HomeViewModel @Inject constructor(
             // photo through the glasses and describe it aloud (the reactor speaks the description).
             if (isVisionCommand(heard)) {
                 status = "Looking…"
-                // The glasses gate the camera while their Bluetooth audio link is up: a capture sent
-                // mid-teardown is ACK'd but no photo is taken. So release the audio FIRST, restore the
-                // hi-fi (media) route, and let it fully settle before capturing.
+                // The glasses gate the camera while their BT audio is ACTIVE (the working AI-gesture
+                // path captures when A2DP is idle). So: cue the user FIRST (over the current route),
+                // then release SCO and give a SILENT settle (no A2DP streaming) so the audio fully
+                // idles before we capture — anything playing right before the capture re-gates it.
+                tts.speak("Let me look.")
                 val hadHeldSco = continuous && bargeInEnabled
                 if (hadHeldSco) { audio.endScoSession(); tts.useCommunicationRoute(false) }
-                tts.speak("Let me look.") // plays over A2DP/media; also gives the SCO teardown time
-                delay(1200)               // extra settle so the camera isn't gated by the audio link
+                delay(2500) // silent settle — let the BT audio fully idle so the camera is reachable
                 val desc = reactor.captureAndDescribe()
                 if (hadHeldSco) { tts.useCommunicationRoute(true); audio.beginScoSession() }
                 val ans = desc ?: "Sorry — I couldn't get a clear look. Try again."
