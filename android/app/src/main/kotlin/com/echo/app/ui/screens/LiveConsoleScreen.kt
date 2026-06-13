@@ -211,6 +211,18 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
             modifier = Modifier.fillMaxWidth(),
         )
 
+        // On-device voice model: first-run download / load progress.
+        if (vm.sttModelStatus.isNotBlank()) {
+            Spacer(Modifier.height(JarvisSpacing.xs))
+            Text(
+                vm.sttModelStatus,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
         Spacer(Modifier.height(JarvisSpacing.md))
 
         // Sync + input-route chips, from real outbox/BLE state. The mic-route chip only appears

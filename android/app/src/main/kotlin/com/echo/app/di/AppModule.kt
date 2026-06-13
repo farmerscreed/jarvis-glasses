@@ -4,6 +4,7 @@ import android.content.Context
 import com.echo.app.BuildConfig
 import com.echo.app.GlassesButtonController
 import com.echo.device.audio.BtAudioEngine
+import com.echo.device.audio.SherpaStt
 import com.echo.device.audio.TtsEngine
 import com.echo.device.audio.WakeWordEngine
 import com.echo.device.ble.GlassesBleManager
@@ -90,6 +91,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideTts(@ApplicationContext ctx: Context): TtsEngine = TtsEngine(ctx)
+
+    @Provides
+    @Singleton
+    fun provideSherpaStt(@ApplicationContext ctx: Context): SherpaStt = SherpaStt(ctx)
 
     @Provides
     @Singleton

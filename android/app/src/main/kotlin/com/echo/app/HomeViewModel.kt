@@ -10,6 +10,7 @@ import com.echo.core.model.Memory
 import com.echo.core.model.MemoryType
 import com.echo.device.audio.BtAudioEngine
 import com.echo.device.audio.Recording
+import com.echo.device.audio.SherpaStt
 import com.echo.device.audio.TtsEngine
 import com.echo.device.audio.WakeWordEngine
 import com.echo.device.audio.WavUtil
@@ -45,6 +46,7 @@ class HomeViewModel @Inject constructor(
     private val audio: BtAudioEngine,
     private val ble: GlassesBleManager,
     private val tts: TtsEngine,
+    private val sherpa: SherpaStt,
     private val wake: WakeWordEngine,
     private val buttons: GlassesButtonController,
     private val p2p: GlassesP2pManager,
@@ -68,6 +70,10 @@ class HomeViewModel @Inject constructor(
 
     /** Running transcript of the current conversation for the scrollable on-screen chat. */
     val transcript = mutableStateListOf<TurnLine>()
+
+    /** On-device STT model state for the UI: "" when ready/absent-but-idle, or a download/loading note. */
+    var sttModelStatus by mutableStateOf(""); private set
+    @Volatile private var sttModelTriggered = false
 
     /** Email-OTP sign-in state. The dev password login only exists in the dev flavor. */
     val devLoginEnabled = BuildConfig.DEV_LOGIN
@@ -103,6 +109,9 @@ class HomeViewModel @Inject constructor(
         if (backend.isLoggedIn) { loggedIn = true; status = "Signed in (restored)" }
         // Offline-first: mirror connectivity + tier + outbox depth into Compose state.
         viewModelScope.launch { governor.online.collect { online = it } }
+        // On-device STT: download the Whisper model on first run (needs network once), then it's the
+        // primary, offline, no-quota transcriber. Fires once when we're online.
+        viewModelScope.launch { governor.online.collect { if (it) ensureSttModel() } }
         viewModelScope.launch { governor.tier.collect { tier = it.name.lowercase() } }
         viewModelScope.launch { store.pendingCount().collect { pendingSync = it } }
         // Mirror the BLE manager's status into Compose state (declared after the state it sets).
@@ -319,6 +328,30 @@ class HomeViewModel @Inject constructor(
         withRecordingConsent { run("Listening — speak into the glasses…") { converse(continuous = true) } }
     }
 
+    /**
+     * Ensure the on-device STT model is downloaded (first run, ~103 MB) and loaded. Idempotent and
+     * safe to call repeatedly; reports progress via [sttModelStatus] for the UI. Falls back silently
+     * to cloud STT until ready.
+     */
+    fun ensureSttModel() {
+        if (sherpa.isReady || sttModelTriggered) {
+            if (sherpa.isDownloaded && !sherpa.isReady) viewModelScope.launch { sherpa.ensureLoaded() }
+            return
+        }
+        sttModelTriggered = true
+        viewModelScope.launch {
+            if (sherpa.isDownloaded) {
+                sttModelStatus = "Loading offline voice…"
+                sttModelStatus = if (sherpa.ensureLoaded()) "" else "Offline voice failed to load"
+                return@launch
+            }
+            if (!online) { sttModelTriggered = false; return@launch } // retry when back online
+            sttModelStatus = "Downloading offline voice model…"
+            val ok = sherpa.download { p -> sttModelStatus = "Downloading offline voice model… ${(p * 100).toInt()}%" }
+            sttModelStatus = if (ok && sherpa.ensureLoaded()) "" else { sttModelTriggered = false; "Offline voice download failed" }
+        }
+    }
+
     /** Explicit End (orb re-tap or the End button): stop the conversation now — cut any current
      *  speech and abort the open mic within a frame, rather than waiting out the turn. */
     fun endConversation() {
@@ -379,8 +412,17 @@ class HomeViewModel @Inject constructor(
             status = "Transcribing…"
             val sttStart = System.currentTimeMillis()
             val wav = WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)
-            val sttResult = if (noSpeech) Result.success("") else runCatching { backend.transcribe(wav) }
+            // On-device STT first (offline, fast, no quota); cloud only as a fallback when the model
+            // isn't downloaded/loaded yet or comes back empty on real speech.
+            val onDevice = if (!noSpeech && sherpa.isReady) sherpa.transcribe(rec.pcm, rec.sampleRate) else ""
+            val sttResult = when {
+                noSpeech -> Result.success("")
+                onDevice.isNotBlank() -> Result.success(onDevice)
+                else -> runCatching { backend.transcribe(wav) }
+            }
+            val sttSource = if (onDevice.isNotBlank()) "device" else if (noSpeech) "skip" else "cloud"
             val tStt = System.currentTimeMillis() - sttStart
+            android.util.Log.i("EchoLatency", "stt-source=$sttSource stt=${tStt}ms")
             dumpVoiceDebug(wav, rec, sttResult.getOrElse { "(stt error: ${it.message})" }, tRecord, tStt)
             // Surface a real STT failure (e.g. Gemini quota / 429 / service down) instead of silently
             // showing "didn't catch that" — otherwise an outage looks like the mic going deaf.
