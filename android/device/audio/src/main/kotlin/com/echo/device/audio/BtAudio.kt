@@ -233,12 +233,12 @@ class BtAudioEngine(private val context: Context) {
     @SuppressLint("MissingPermission")
     suspend fun awaitBargeIn(
         active: () -> Boolean,
-        graceMs: Int = 1_000,
-        sustainMs: Int = 300,
-        // Floor sits between the measured TTS echo (~1150 RMS) and the user's voice (~1700+ RMS).
-        // v1 floor=1100 tripped on echo; v2 floor=3000 was above the user's own voice (never fired).
-        floor: Double = 1_700.0,
-        margin: Double = 1.5,
+        graceMs: Int = 700,
+        sustainMs: Int = 180,
+        // With AEC on, the residual TTS echo measured only ~34–54 RMS while the user's barge-in voice
+        // hit 6000–8000, so a low floor is safe and the adaptive baseline×margin guards the rest.
+        floor: Double = 900.0,
+        margin: Double = 2.5,
     ): Boolean = withContext(Dispatchers.IO) {
         if (!scoHeld) return@withContext false // need the full-duplex SCO link up
         val minBuf = AudioRecord.getMinBufferSize(
@@ -273,10 +273,13 @@ class BtAudioEngine(private val context: Context) {
                 }
                 val threshold = (baseline * margin).coerceAtLeast(floor)
                 if (level > threshold) {
+                    // Hangover counter, not a consecutive run: natural speech dips between syllables,
+                    // so +1 over threshold / -1 under tolerates those dips while still requiring a real
+                    // sustained burst (not a single click) to fire.
                     if (++voiced >= sustainFrames) { fired = true; return@withContext true }
                 } else {
-                    voiced = 0
-                    baseline = baseline * 0.92 + level * 0.08 // track the echo while it's not being beaten
+                    voiced = (voiced - 1).coerceAtLeast(0)
+                    if (voiced == 0) baseline = baseline * 0.92 + level * 0.08 // track echo when idle
                 }
             }
             false
