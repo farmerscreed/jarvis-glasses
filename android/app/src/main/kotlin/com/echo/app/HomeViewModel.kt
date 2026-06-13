@@ -723,9 +723,15 @@ class HomeViewModel @Inject constructor(
     )
     private fun isCalendarAdd(s: String) = calAddRe.containsMatchIn(s)
 
-    // M3 calendar query — any calendar/schedule mention not already consumed by the add check.
+    // M3 calendar query — must clearly be ABOUT the schedule, not just mention a meeting in passing
+    // (a bare "meeting"/"schedule" used to hijack normal conversation). Requires either "my
+    // calendar/schedule/agenda" or a scheduling QUESTION ("what/when/do I have … meeting/appointment/
+    // scheduled/on my calendar").
     private val calQueryRe = Regex(
-        "\\b(calendar|schedule|agenda|meetings?|appointments?)\\b", RegexOption.IGNORE_CASE,
+        "\\bmy (calendar|schedule|agenda)\\b|" +
+            "\\b(what'?s|what is|what do i have|do i have|when'?s|when is|anything|any)\\b" +
+            ".{0,40}\\b(on (my )?(calendar|schedule|agenda)|scheduled|meetings?|appointments?)\\b",
+        RegexOption.IGNORE_CASE,
     )
     private fun isCalendarQuery(s: String) = calQueryRe.containsMatchIn(s)
 
