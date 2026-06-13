@@ -303,17 +303,22 @@ class HomeViewModel @Inject constructor(
             return
         }
         val t0 = System.currentTimeMillis()
-        audio.earcon(EarconKind.LISTENING)
-        // Phase D: stop recording when you stop talking, not after a fixed 5 s.
+        // The audible "listening" cue now plays inside recordUntilSilence (over the SCO route, so it
+        // actually reaches the ear) the moment the mic is hot — no earcon here.
         micActive = true
         val rec = try { audio.recordUntilSilence() } finally { micActive = handsFree }
         val tRecord = System.currentTimeMillis() - t0
         status = "Transcribing…"
         val sttStart = System.currentTimeMillis()
         val wav = WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)
-        val heard = runCatching { backend.transcribe(wav) }.getOrDefault("")
+        val rawHeard = runCatching { backend.transcribe(wav) }.getOrDefault("")
         val tStt = System.currentTimeMillis() - sttStart
-        dumpVoiceDebug(wav, rec, heard, tRecord, tStt) // no-op in release builds
+        dumpVoiceDebug(wav, rec, rawHeard, tRecord, tStt) // no-op in release builds
+        // Silence guard: Gemini hallucinates confident transcripts from near-silent audio (the blank
+        // guard alone never fires because the text isn't empty). If the mic captured essentially
+        // nothing, treat it as "didn't catch that" and never feed the fabrication to the LLM.
+        val tooQuiet = rec.peak < 700 || rec.rms < 60
+        val heard = if (tooQuiet) "" else rawHeard
         question = heard.ifBlank { "(didn't catch that)" }
         if (heard.isNotBlank()) {
             audio.earcon(EarconKind.THINKING)
@@ -343,6 +348,7 @@ class HomeViewModel @Inject constructor(
             status = "Done · ${toSpeak}ms to first word"
         } else {
             status = "Didn't catch that — try again"
+            tts.speak("Sorry, I didn't catch that.") // audible so a miss isn't a silent hang
         }
     }
 

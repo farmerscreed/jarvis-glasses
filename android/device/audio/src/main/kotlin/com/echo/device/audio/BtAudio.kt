@@ -86,19 +86,32 @@ class BtAudioEngine(private val context: Context) {
     }
 
     /**
-     * Record from the glasses mic until the user stops talking (Phase D — VAD endpointing), instead
-     * of a fixed window. Energy-based: calibrate a noise floor, then stop after [silenceMs] of
-     * trailing silence once speech has started. Caps at [maxMs]; if no speech is heard within
-     * [noSpeechTimeoutMs], returns early. Cuts seconds off the round trip vs a fixed 5 s record.
+     * Record from the glasses mic until the user stops talking (VAD endpointing). Reworked after the
+     * 2026-06-13 voice-quality investigation, which found the old endpointer was the dominant failure
+     * (cut speech off on natural pauses; a fragile one-shot noise calibration missed speech entirely;
+     * no audible cue ever reached the ear; the blind warm-up clipped word onsets). The fixes:
+     *  - **SCO-hot gating + warm-up flush:** wait for the link, then read & DISCARD ramp-up frames
+     *    until real audio is flowing, so the first word isn't lost to a cold mic.
+     *  - **Audible "listening" cue over the SCO route** ([cueListening]) — plays in the glasses
+     *    speaker the moment the mic is live, so the user knows when to speak. Played before recording
+     *    starts so it isn't captured.
+     *  - **Robust noise floor:** a low-percentile estimate over the calibration window (resistant to
+     *    the user speaking early) plus a rolling update during trailing silence — no more one-shot
+     *    250 ms reading that caps the threshold and goes deaf.
+     *  - **Speech-start debounce + long trailing silence** ([silenceMs] default 1.5 s) so a noise blip
+     *    doesn't false-start and natural pauses no longer end the turn mid-sentence.
      */
     @SuppressLint("MissingPermission")
     suspend fun recordUntilSilence(
-        maxMs: Int = 12_000,
-        silenceMs: Int = 700,
-        noSpeechTimeoutMs: Int = 4_000,
+        maxMs: Int = 15_000,
+        silenceMs: Int = 1_500,
+        noSpeechTimeoutMs: Int = 7_000,
     ): Recording = withContext(Dispatchers.IO) {
         enableSco()
-        delay(1500) // SCO link needs a moment to come up
+        delay(900) // let the SCO link come fully up before the cue, so the beep isn't clipped/dropped
+        // The mic is live now: cue the user in their ear (over SCO) BEFORE we start capturing, so the
+        // beep isn't recorded. This is the "speak now" signal the old ToneGenerator earcon never gave.
+        cueListening()
         val minBuf = AudioRecord.getMinBufferSize(
             sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
         ).coerceAtLeast(sampleRate)
@@ -115,17 +128,35 @@ class BtAudioEngine(private val context: Context) {
         var thresholdOut = 0
         try {
             recorder.startRecording()
-            val start = System.currentTimeMillis()
 
-            // Calibrate the noise floor from the first ~250 ms (before the user likely speaks).
-            var noiseSum = 0.0; var noiseN = 0
-            while (System.currentTimeMillis() - start < 250) {
-                val n = recorder.read(frame, 0, frame.size)
-                if (n > 0) { out.write(frame, 0, n); noiseSum += frameRms(frame, n); noiseN++ }
+            // Warm-up flush: drop frames until audio is actually flowing (non-trivial energy) or a
+            // short cap elapses. DISCARDED (not written to out) so SCO ramp garbage can't corrupt the
+            // noise floor or be mistaken for speech. Onset is preserved because the mic is hot after.
+            run {
+                val flushEnd = System.currentTimeMillis() + 600
+                var stableFlowing = 0
+                while (System.currentTimeMillis() < flushEnd) {
+                    val n = recorder.read(frame, 0, frame.size)
+                    if (n <= 0) continue
+                    if (frameRms(frame, n) > 1.0) { if (++stableFlowing >= 3) break } else stableFlowing = 0
+                }
             }
-            val noiseFloor = if (noiseN > 0) noiseSum / noiseN else 0.0
-            val threshold = (noiseFloor * 2.5).coerceIn(600.0, 2500.0)
 
+            // Robust noise calibration: gather ~350 ms of frames and take a low percentile as the
+            // floor (so a user who speaks early doesn't inflate it). These frames ARE real audio → keep.
+            val start = System.currentTimeMillis()
+            val calib = ArrayList<Double>()
+            while (System.currentTimeMillis() - start < 350) {
+                val n = recorder.read(frame, 0, frame.size)
+                if (n > 0) { out.write(frame, 0, n); calib.add(frameRms(frame, n)) }
+            }
+            var noiseFloor = percentile(calib, 0.3).coerceAtLeast(1.0)
+            fun threshold() = (noiseFloor * 2.5).coerceIn(500.0, 2200.0)
+
+            // Speech-start debounce: require a few consecutive voiced frames (~120 ms) so a single
+            // blip can't both start and end an "utterance".
+            val startFrames = 4
+            var voicedRun = 0
             var speechStarted = false
             var lastVoiceMs = start
             while (true) {
@@ -135,16 +166,23 @@ class BtAudioEngine(private val context: Context) {
                 val n = recorder.read(frame, 0, frame.size)
                 if (n <= 0) continue
                 out.write(frame, 0, n)
-                if (frameRms(frame, n) > threshold) {
-                    speechStarted = true
-                    lastVoiceMs = now
-                } else if (speechStarted && now - lastVoiceMs > silenceMs) {
-                    stopReason = "trailingSilence"; break // endpoint: trailing silence after speech
+                val level = frameRms(frame, n)
+                if (level > threshold()) {
+                    voicedRun++
+                    if (!speechStarted && voicedRun >= startFrames) speechStarted = true
+                    if (speechStarted) lastVoiceMs = now
+                } else {
+                    voicedRun = 0
+                    if (!speechStarted) {
+                        noiseFloor = noiseFloor * 0.9 + level * 0.1 // rolling: adapt to the room
+                    } else if (now - lastVoiceMs > silenceMs) {
+                        stopReason = "trailingSilence"; break // real pause after speech → endpoint
+                    }
                 }
             }
             speechEver = speechStarted
             noiseFloorOut = noiseFloor.toInt()
-            thresholdOut = threshold.toInt()
+            thresholdOut = threshold().toInt()
         } finally {
             runCatching { recorder.stop() }
             recorder.release()
@@ -153,6 +191,66 @@ class BtAudioEngine(private val context: Context) {
         val pcm = out.toByteArray()
         val (peak, rms) = analyze(pcm)
         Recording(pcm, sampleRate, peak, rms, stopReason, noiseFloorOut, thresholdOut, speechEver)
+    }
+
+    /** Low-percentile of a sample list (0..1); robust noise-floor estimate. */
+    private fun percentile(values: List<Double>, p: Double): Double {
+        if (values.isEmpty()) return 0.0
+        val sorted = values.sorted()
+        val idx = (p * (sorted.size - 1)).toInt().coerceIn(0, sorted.size - 1)
+        return sorted[idx]
+    }
+
+    /**
+     * Short "listening" beep played into the glasses over the SCO/communication route (the only
+     * output path live during a recording — the old A2DP ToneGenerator earcon never reached the ear).
+     * Blocks until the tone finishes so it isn't captured by the recorder that starts right after.
+     */
+    private suspend fun cueListening() {
+        runCatching {
+            // Two rising beeps (880→1320 Hz) so the cue is unmistakable, near full-scale amplitude —
+            // the SCO call channel is quiet on these glasses, so a faint tone goes unheard.
+            val ms = 260
+            val n = sampleRate * ms / 1000
+            val pcm = ShortArray(n)
+            val fade = (sampleRate * 8 / 1000).coerceAtLeast(1)
+            val gapLo = n * 46 / 100; val gapHi = n * 54 / 100 // brief silence splits it into two beeps
+            for (i in 0 until n) {
+                val env = when {
+                    i < fade -> i.toDouble() / fade
+                    i > n - fade -> (n - i).toDouble() / fade
+                    else -> 1.0
+                }
+                val gate = if (i in gapLo until gapHi) 0.0 else 1.0
+                val freq = if (i < n / 2) 880.0 else 1320.0
+                pcm[i] = (kotlin.math.sin(2 * kotlin.math.PI * freq * i / sampleRate) * 28000 * env * gate).toInt().toShort()
+            }
+            val track = AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build(),
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(sampleRate)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build(),
+                )
+                .setBufferSizeInBytes(n * 2)
+                .setTransferMode(AudioTrack.MODE_STATIC) // short one-shot: fill buffer THEN play (no underrun)
+                .build()
+            try {
+                track.write(pcm, 0, n) // load the static buffer before playing so the start isn't dropped
+                track.play()
+                delay((ms + 180).toLong()) // let the tone fully drain before the recorder opens
+            } finally {
+                runCatching { track.stop() }
+                track.release()
+            }
+        }
     }
 
     /** Best-effort earcon (in-ear via A2DP) so silence never reads as a hang. */
