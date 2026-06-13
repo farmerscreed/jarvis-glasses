@@ -253,9 +253,16 @@ All fixes from the "fix direction" above were implemented (`BtAudio.recordUntilS
 Premature endpointing eliminated; noise floor now calibrates correctly (81–104, threshold floored at
 500) so speech is reliably detected; no silence-hallucinations reach the LLM.
 
-**Open follow-up:** the in-ear cue was **too faint / sometimes inaudible** (director). The SCO call
-channel is quiet on these glasses. Fix in progress: louder near-full-scale **two rising beeps**
-(880→1320 Hz, `MODE_STATIC` one-shot, played after the link is hot) — pending device re-verification.
-**Possible further work if still faint:** boost in-call (`STREAM_VOICE_CALL`) volume during the cue,
-or repeat the beep. Also consider raising maxMs (one long turn hit the 15 s cap, though it still
-captured fully).
+**Cue follow-up — RESOLVED + verified (2026-06-13).** The first cue was too faint on these glasses
+(the SCO call channel is quiet). Replaced with louder **two rising beeps** (880→1320 Hz, `MODE_STATIC`
+one-shot, played after the link is hot): director confirmed **loud and clear on every turn**. Then
+dialed back one step per director taste (amplitude 28000 → **22000**, commit `48bb372`). **Done.**
+
+## Status: CLOSED
+The voice-conversation quality investigation is complete — dominant failure mode (VAD endpointing)
+named with evidence, fixed, and device-verified across two capture sessions; audible cue added and
+tuned. Commits: `5fb3986` (fixes), `48bb372` (cue level), docs `6603028`. Remaining housekeeping:
+the debug capture (`dumpVoiceDebug` + `voicedbg/` + `scripts/analyze_wav.mjs`) is **temporary** — keep
+while tuning, strip when fully closing. Possible later polish: raise `maxMs` (one long turn hit the
+15 s cap but still captured fully). **Next focus moves to conversation usability** — see
+SESSION_HANDOFF §6.

@@ -216,7 +216,23 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 
 ## 6. What's NEXT — the critical path
 
-### 🎯 IMMEDIATE NEXT (director, 2026-06-13): voice-conversation quality deep-dive
+### 🎯 IMMEDIATE NEXT (director, 2026-06-13): conversation usability — continuous turn-taking
+Voice-quality is fixed (below). The new focus is making JARVIS feel like a **real back-and-forth
+conversation**: after it answers, it should keep listening so the director can reply, continuing
+until the director is done — rather than every turn being a one-shot "tap → speak → answer → stop".
+**Design discussion first, no code yet (director, 2026-06-13).** Key framing:
+- **Three entry points, all must work**: (1) the on-screen mic orb (`talk()`), (2) the wake word
+  "Jarvis" (`WakeWordEngine`/`toggleHandsFree`/`startWake`), (3) the **glasses button**
+  (`GlassesCaptureReactor` → AI-gesture/double-click-BACK → `onGlassesTalk`/`doTalk`). Each should be
+  able to either start a *continuing conversation* or pass a *single message*, as appropriate.
+- Open design questions to resolve before building: how the assistant knows the conversation is over
+  (explicit "thanks/that's all" vs a silence timeout vs an end earcon), barge-in while it's speaking,
+  multi-turn context (the `chat`/`chat-stream` functions are currently stateless per call), how each
+  trigger maps to one-shot vs continuous, and the foreground-service implications for hands-free
+  follow-up listening. The reflexive voice loop is `HomeViewModel.doTalk()`; the conversation layer
+  wraps it. **Do NOT change the voice flow until the design is agreed.**
+
+### ✅ DONE (2026-06-13): voice-conversation quality deep-dive
 The daily-driver feature set is built; the open problem is **conversation quality** — the director
 reports JARVIS "often doesn't pick up what I'm saying and makes too many errors" in spoken use.
 **The next session's job is a structured root-cause analysis** of the voice loop (record → VAD →
