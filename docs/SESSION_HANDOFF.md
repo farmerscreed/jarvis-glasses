@@ -41,7 +41,7 @@ pgvector) every feature reads/writes. Built offline-first: it must work in a tun
 | **C** offline-first | ✅ **complete** | Local-first core + outbox + idempotency, background drain (survives app kill), on-device embeddings (offline semantic recall), Jarvis Lite floor, deferred AI re-run, LEAN tier. |
 | **D** latency | 🟡 **partial** | D1 done (VAD endpointing, earcons, instrumentation). **D2 streaming VERIFIED on device vs cloud (2026-06-12):** text Ask spoke the answer streamed sentence-by-sentence. Voice-path `EchoLatency` numbers still to capture (needs a glasses voice turn). |
 | **E** real users | 🟢 **core done (2026-06-12)** | Cloud `jarvis-prod` fully deployed (migrations/secrets/6 functions); dev/prod flavors; **director signed in on device via emailed 6-digit code (Resend)** and got a streamed spoken answer. Remaining: Google One-Tap, function rate limits. |
-| **B+** foreground service | 🟢 **built + device-verified (2026-06-13)** | `ConnectedCompanionService` (foregroundServiceType=connectedDevice) keeps the glasses link + capture reactions alive with the app backgrounded/killed. Capture pipeline extracted into the shared `GlassesCaptureReactor`. Settings toggle "Keep listening in the background". **Background capture-while-killed not yet director-verified;** glasses Look & Ask (foreground) verified working after the BLE-connect fix. |
+| **B+** foreground service | 🟢 **built + device-verified (2026-06-13)** | `ConnectedCompanionService` (foregroundServiceType=connectedDevice) keeps the glasses link + capture reactions alive with the app backgrounded/killed. Capture pipeline extracted into the shared `GlassesCaptureReactor`. Settings toggle "Keep listening in the background". **BLE link auto-reconnects** (backoff + BT-state receiver, verified). **Background capture-while-killed not yet director-verified;** glasses Look & Ask (foreground) verified working. |
 | **UI** design integration | 🟢 **core done (2026-06-12)** | Steps 1–5 of the director's UI plan: tokens → JarvisTheme (M3, dark-only, tri-font, amber via CompositionLocal) → shared components → animated PresenceOrb (6 states) → designed screens (Live console ×4 variants, Timeline river, Gallery grid, photo/video **detail** with delete, Settings) wired to HomeViewModel. Dev console preserved under Settings → Developer console. Library has read-only `recent`/`mediaMemories` queries; **delete** (local+cloud) and **video playback** added. **Help & Learn center** (the "?" → Hub/Gestures/Guides/Say, real decoded content) and the **6-step onboarding wizard** (Welcome→SignIn→Permissions→FindingGlasses→HardwareCheck→WakeWord, first-run gated) both built + **device-verified 2026-06-12**. |
 
 **Phase C detail (all six increments verified 2026-06-12):**
@@ -194,9 +194,11 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
   and appends "audio in glasses" to the always-visible status line.
 - **Glasses button reactions need the GATT link UP first.** The app can only receive button-press
   notifications (capture, double-click-BACK Look&Ask) while connected over BLE. `GlassesCaptureReactor
-  .start()` now connects on launch, but **the link can drop after a Wi-Fi-Direct transfer or on
-  idle timeout, with no auto-reconnect yet** — if button presses stop reaching the app, a manual
-  "Sync from glasses" reconnects it. (A reconnect/keepalive is a good follow-up.)
+  .start()` connects on launch, and the link now **auto-reconnects** (2026-06-13): on a dropped
+  GATT callback (post-Wi-Fi-transfer / out-of-range / timeout) it retries with capped backoff
+  (2/4/8/16/30s); a `BluetoothAdapter` state receiver also reconnects when BT is toggled back on
+  (BT-off delivers no disconnect callback). `disconnectGlasses()` tears down when the last reactor
+  host detaches. Device-verified self-heal across a BT off/on cycle.
 - **A recording in progress hijacks the BACK button.** Native firmware: hold BACK = start audio
   recording; single-click BACK *while recording* = stop. So if a recording is live (you'll see
   `0B` RecordingTick heartbeats in `EchoBle` logcat), a "double-click BACK" manages the recording
