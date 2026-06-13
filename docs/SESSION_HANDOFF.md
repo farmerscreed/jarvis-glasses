@@ -217,12 +217,21 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 ## 6. What's NEXT — the critical path
 
 ### 🎯 IMMEDIATE NEXT (director, 2026-06-13): Agent Delegation (heavy tasks via Claude Code)
+**Full session record: `docs/SESSION_LOG_2026-06-13.md` (read it — covers everything done + next).**
 The big new direction: JARVIS as a **chief of staff that acts** — delegating heavy multi-step tasks
 (research → coding → email/calendar, in that order) to **Claude Code on the director's Max
 subscription**. Fully designed in **`docs/AGENT_DELEGATION.md`** (Phase 1 local bridge → Phase 2 hosted
 + async; subscription/ToS clarified: running Claude Code the product on the sub is legit, distinct from
-raw-API-via-sub). **Build starts at M0** (a local Agent Bridge wrapping `claude -p`) after director
-review. Vision/roadmap context: `docs/ASSISTANT_ROADMAP.md`, `docs/ASSISTANT_MEMORY.md`.
+raw-API-via-sub). **Build starts at M0** (a local Agent Bridge wrapping `claude -p` — **headless verified
+working, returns JSON**). Vision/roadmap: `docs/ASSISTANT_ROADMAP.md`, `docs/ASSISTANT_MEMORY.md`.
+
+**Also queued (director asks, 2026-06-13):** (a) **glasses battery gauge in the app** — battery is NOT
+yet exposed in our BLE impl; the protocol's "oudmon" device-info/battery command (recon) is
+unimplemented → decode + issue it. (b) **Glasses recovery:** by session end the glasses wedged (no
+buttons / no `BC 73` events / front-button capture dead — a firmware/battery state, app-independent);
+director is **charging + will hard-reset** them. After recovery, test front-button photo → AI-gesture →
+voice-vision, and decide the camera-vs-conversation-audio handling. (c) Fix the BLE bug: auto-reconnect
+doesn't re-subscribe notifications.
 
 **✅ DONE THIS SESSION — Assistant Memory v1 (Hermes/OpenClaw pattern), DEPLOYED to prod + verified:**
 - **Profile layer** — `profile` table (SOUL + curated user facts) injected into `chat`/`chat-stream`
