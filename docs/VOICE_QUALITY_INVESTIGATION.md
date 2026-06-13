@@ -157,6 +157,73 @@ Run each as one voice turn; note any that felt cut off. Designed to separate the
   - `noSpeechTimeoutMs = 4000` ms after a fixed **1.5 s** SCO warm-up → a first word landing in the
     warm-up window can be clipped or missed.
 
-### Confirmed dominant failure mode
-- _(fill in after the capture session — name it with the WAV verdicts + `index.tsv` + ground truth
-  before building any fix)_
+### Capture session 1 — 2026-06-13 (prodDebug / cloud, director wearing the glasses)
+
+12 real turns captured (`voicedbg/index.tsv` + WAVs + `EchoVoice` logcat + BT-stack log + spoken
+ground truth). The evidence is decisive.
+
+**Mic codec — hypothesis #1 (narrowband) DEFINITIVELY REFUTED.** The Bluetooth HFP stack log during
+SCO setup: `bta_ag_sco_open: sco_codec = 2` (2 = mSBC), `HeadsetStateMachine … hasWbsEnabled=true`,
+`SetScoConfig … mode: SCO_WB … bt_wbs=on`. The glasses mic negotiates **mSBC wideband (16 kHz)**, not
+CVSD telephone. Captured levels are healthy whenever the director actually spoke (peak 5 000–10 900
+of 32 767). *Caveat: `analyze_wav.mjs`'s "effective cutoff" reads "NARROWBAND" on quiet/short real
+speech — an artifact of speech's natural HF roll-off + the 5%-of-peak threshold, NOT a codec limit.
+The BT-stack log is authoritative; trust it over the FFT cutoff for real speech.*
+
+**Turn-by-turn (ground truth → transcript, key fields):**
+
+| GT phrase | transcript returned | speech? · stop · secs | what happened |
+|---|---|---|---|
+| What time is it? | "Trees that I mean to look you to your car." | false · noSpeechTimeout · 4.0 | silence (no beep cue) → **STT hallucinated** |
+| (silence) | "sit" | false · noSpeechTimeout · 4.0 | silence → STT hallucinated |
+| What time is it? | "is it. What time is it?" | true · trailingSilence · 4.6 | onset artifact "is it." (SCO warm-up) |
+| What time is it? | "What time is it? What time is it?" | **false · noSpeechTimeout** · 4.0 | audio HAD speech but **VAD missed it** (noiseFloor 1048→thr 2500) |
+| Remember that I parked on level three. | "Remember that I packed on level three." | true · trailingSilence · 3.0 | **good** — only "parked→packed" STT slip |
+| My flight is BA 275 at gate 42. | "My flight is BA275.My flight is BA275." | true · trailingSilence · 3.9 | **lost "at gate forty two"** — cut on the pause |
+| (flight retry) | "My flight is" | true · trailingSilence · 1.3 | **cut after "is"** |
+| (flight retry) | "So, sell." | true · trailingSilence · 1.1 | cut / garbled |
+| Tell Aoife about dinner on Friday. | "Oi fe." | true · trailingSilence · 1.8 | **cut after the name; everything else lost** |
+| I need to buy milk and call my mother. | "Buy milk and call my mother." | false · noSpeechTimeout · 4.0 | **lost "I need to" onset**; VAD missed speech (thr 2500) |
+| One two three four five. | "one" | true · trailingSilence · 1.1 | **cut after "one"** |
+| (count retry) | "two three four" | true · trailingSilence · 3.0 | **cut before "five"** |
+
+### ⇒ DOMINANT FAILURE MODE: the VAD endpointer (`recordUntilSilence`), not the mic, not STT.
+
+The energy-based VAD fails in **two** directions, both visible above:
+
+1. **Premature endpointing cuts speech off mid-utterance (the primary quality killer).** `silenceMs =
+   700` ms ends the recording on any natural inter-word/inter-clause pause, and **the rest of the
+   utterance is never recorded → permanent data loss.** Proven: "…at gate forty two", "…about dinner
+   on Friday", and "…five" were all spoken but never captured; "One two three four five" was split
+   into "one" / "two three four". This is exactly the director's own diagnosis ("the time is too
+   short… it cuts you off while you're still speaking").
+2. **Fragile one-shot noise calibration misses speech entirely.** The noise floor is sampled only in
+   the first 250 ms (during SCO warm-up, sometimes while the user is already talking). A high reading
+   caps the threshold at 2 500, so real speech frames never cross it → `speech=false` →
+   `noSpeechTimeout`. Two turns whose audio plainly contained speech (Gemini transcribed it) were
+   declared speechless this way.
+
+**Compounding factors (real, secondary):**
+- **The "listening" earcon never reaches the glasses** — director confirmed *no beep on any of the
+  12 turns*. The A2DP output path works (spoken answers are audible), so it's specifically
+  `BtAudioEngine.earcon()` (`ToneGenerator` on `STREAM_MUSIC`) not routing to the glasses. With no
+  audible cue the user can't time speech to the uncued window → silence/onset-clip turns.
+- **Blind 1.5 s SCO warm-up clips word onsets** — "I need to…"→"Buy milk…", the "is it." prefix.
+- **STT hallucinates on silence** — empty/near-silent audio returns confident fabrications ("Trees
+  that I mean to look you to your car", "sit") instead of blank, so the `heard.isBlank()` guard never
+  fires and JARVIS answers a question that was never asked. A meaningful "makes too many errors"
+  driver layered on top of the VAD failures.
+
+**What is NOT the problem:** the Bluetooth mic (wideband mSBC, healthy levels) and Gemini STT on
+complete audio (near-perfect on the one clean full-length turn: "Remember that I parked on level
+three" → one-word slip). Hypotheses #1 and #3 are refuted; #5 (RAG) was never reached because hearing
+fails first.
+
+### Fix direction (for the NEXT session — do not build until director signs off)
+Rework endpointing in `recordUntilSilence`: (a) much longer/adaptive trailing-silence (≈1.5–2.5 s,
+or a proper VAD like WebRTC/Silero) so natural pauses don't cut speech; (b) continuous/rolling noise
+estimation instead of a one-shot 250 ms window, decoupled from the SCO warm-up; (c) a real audible
+"listening" cue that actually reaches the glasses (fix/replace the earcon, or a short spoken "go");
+(d) start recording only once SCO is confirmed hot (kill onset clipping); (e) treat near-silent/low-
+energy or low-confidence STT as "didn't catch that" to stop silence-hallucinations reaching the LLM.
+Re-run this exact 12-phrase protocol to verify each change moves the numbers.

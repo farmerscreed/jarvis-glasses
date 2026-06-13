@@ -224,15 +224,27 @@ STT → RAG → TTS): is it the transcription (Gemini STT), endpointing/timing (
 the RAG/answer grounding, or the speaking environment? Do NOT start building fixes until the
 analysis names the dominant failure mode with evidence (logged transcripts vs. ground truth).
 
-**STATUS 2026-06-13 — diagnostics built + installed, awaiting a live voice session.** See
-`docs/VOICE_QUALITY_INVESTIGATION.md` (full method, run protocol, scripted phrase set, findings).
-Debug-only instrumentation is in `devDebug` on the Pixel: per-turn WAV + `index.tsv` +
+**STATUS 2026-06-13 — DOMINANT FAILURE MODE NAMED (capture session 1 done).** Full evidence in
+`docs/VOICE_QUALITY_INVESTIGATION.md` (12 real turns, prodDebug/cloud, director wearing glasses).
+
+**Verdict: the VAD endpointer (`BtAudio.recordUntilSilence`) is the dominant failure — NOT the mic,
+NOT STT.** (1) `silenceMs=700` cuts speech off on natural pauses and the rest of the utterance is
+never recorded → proven word loss ("…at gate forty two", "…about dinner on Friday", "…five" all
+spoken, never captured; "one two three four five" split into "one"/"two three four"). (2) The
+one-shot 250 ms noise calibration intermittently caps the threshold at 2500 and misses real speech
+entirely (`noSpeechTimeout` on audio that plainly contained speech). Compounders: the **earcon never
+reaches the glasses** (director: no beep on any turn — `ToneGenerator` route bug), the blind 1.5 s
+SCO warm-up clips onsets, and **Gemini STT hallucinates confident transcripts from silence** ("Trees
+that I mean to look you to your car") so the blank-guard never fires. **Mic = mSBC WIDEBAND 16 kHz
+(BT-stack log: `sco_codec=2`, `bt_wbs=on`) → hypothesis #1 REFUTED.** STT near-perfect on the one
+clean full-length turn.
+
+Instrumentation (debug-only, temporary — remove when fixes land): per-turn WAV + `index.tsv` +
 `EchoVoice` logcat (`HomeViewModel.dumpVoiceDebug`), VAD stop-reason/threshold on `Recording`
-(`BtAudio.kt`), and a self-tested Node spectral analyser `scripts/analyze_wav.mjs` (narrowband-vs-
-wideband verdict — the WAV header always says 16 kHz, only the spectrum reveals CVSD). **Prime
-suspect = hypothesis #1 (narrowband SCO mic), not yet confirmed** — needs the director wearing the
-glasses to run the scripted turns and capture the three artifacts. Instrumentation is temporary
-(debug-gated); remove once the dominant failure mode is named.
+(`BtAudio.kt`), Node spectral analyser `scripts/analyze_wav.mjs` (note: its cutoff metric is
+unreliable on real speech — trust the BT-stack codec log). **NEXT: build the endpointing fix**
+(longer/adaptive silence or a real VAD, rolling noise est., a working audible cue, SCO-hot gating,
+silence→"didn't catch that") — director sign-off first, then re-run the 12-phrase protocol to verify.
 
 ### Status as of 2026-06-13 — what's DONE (don't redo)
 Phases 0–2, A, B (+foreground service), C, D2, **E** (cloud/auth/Resend OTP/streaming), the full
