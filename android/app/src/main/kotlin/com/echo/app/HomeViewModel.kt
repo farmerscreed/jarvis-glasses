@@ -53,6 +53,10 @@ class HomeViewModel @Inject constructor(
     var busy by mutableStateOf(false); private set
     var status by mutableStateOf("Not signed in"); private set
 
+    /** True while a continuous conversation is in progress (so the orb tap can toggle it off). */
+    var inConversation by mutableStateOf(false); private set
+    @Volatile private var stopConversation = false
+
     /** Email-OTP sign-in state. The dev password login only exists in the dev flavor. */
     val devLoginEnabled = BuildConfig.DEV_LOGIN
     var email by mutableStateOf("")
@@ -298,7 +302,10 @@ class HomeViewModel @Inject constructor(
      * The flagship voice loop: glasses mic -> STT -> Claude (RAG) -> TTS in your ear.
      * The orb starts a **conversation** (keeps listening for follow-ups until you're done).
      */
-    fun talk() = withRecordingConsent { run("Listening — speak into the glasses…") { converse(continuous = true) } }
+    fun talk() {
+        if (inConversation) { stopConversation = true; status = "Ending…"; return } // tap again ends it
+        withRecordingConsent { run("Listening — speak into the glasses…") { converse(continuous = true) } }
+    }
 
     /** Single message (e.g. the glasses button): one turn, no follow-up listening. */
     private suspend fun doTalk() = converse(continuous = false)
@@ -319,9 +326,12 @@ class HomeViewModel @Inject constructor(
             tts.speak("I can't hear you in detail off-grid yet. Type your question.")
             return
         }
+        if (continuous) { inConversation = true; stopConversation = false }
+        try {
         val history = ArrayDeque<ChatMsg>() // last few turns, threaded for context
         var repromptUsed = false
         while (true) {
+            if (stopConversation) { status = "Conversation ended"; break } // orb tapped again
             val t0 = System.currentTimeMillis()
             // The audible "listening" cue plays inside recordUntilSilence the moment the mic is hot.
             micActive = true
@@ -391,6 +401,9 @@ class HomeViewModel @Inject constructor(
 
             if (!continuous) { status = "Done · ${toSpeak}ms to first word"; break }
             status = "Listening…" // loop back and re-open the mic for the follow-up
+        }
+        } finally {
+            if (continuous) inConversation = false
         }
     }
 
