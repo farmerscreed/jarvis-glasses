@@ -220,17 +220,26 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 Voice-quality is fixed (below). The new focus is making JARVIS feel like a **real back-and-forth
 conversation**: after it answers, it should keep listening so the director can reply, continuing
 until the director is done — rather than every turn being a one-shot "tap → speak → answer → stop".
-**Design discussion first, no code yet (director, 2026-06-13).** Key framing:
-- **Three entry points, all must work**: (1) the on-screen mic orb (`talk()`), (2) the wake word
-  "Jarvis" (`WakeWordEngine`/`toggleHandsFree`/`startWake`), (3) the **glasses button**
-  (`GlassesCaptureReactor` → AI-gesture/double-click-BACK → `onGlassesTalk`/`doTalk`). Each should be
-  able to either start a *continuing conversation* or pass a *single message*, as appropriate.
-- Open design questions to resolve before building: how the assistant knows the conversation is over
-  (explicit "thanks/that's all" vs a silence timeout vs an end earcon), barge-in while it's speaking,
-  multi-turn context (the `chat`/`chat-stream` functions are currently stateless per call), how each
-  trigger maps to one-shot vs continuous, and the foreground-service implications for hands-free
-  follow-up listening. The reflexive voice loop is `HomeViewModel.doTalk()`; the conversation layer
-  wraps it. **Do NOT change the voice flow until the design is agreed.**
+**Increment A SHIPPED (2026-06-13, commits `6e9a324`+`50f95f6`) — turn-taking + multi-turn + ending.**
+`HomeViewModel.converse(continuous)` replaces the old one-shot `doTalk()`:
+- **Orb** (`talk()`) and **wake word "Jarvis"** (`startWake`) now start a **continuous conversation**
+  — after answering, the mic re-opens for a follow-up and loops until you go quiet (one "still there?"
+  reprompt, then a soft close) or say a **closing phrase** (`isClosing()`: thanks/that's all/stop/…).
+  The **glasses button** stays **one-shot** (`doTalk() = converse(continuous=false)`).
+- **Tap the orb again to end** a conversation (`inConversation`/`stopConversation`); re-entry guarded.
+- **Multi-turn context**: threads the last 3–6 turns (cap 12 msgs) via the new `history` field on
+  `ChatRequest` (non-defaulted — dodges the `encodeDefaults=false` trap). The `chat`/`chat-stream`
+  functions **already** accept `history` and **already persist every Q&A to the memory index**, so
+  **no backend changes / no deploy** were needed.
+- Verified headless: the loop runs, reprompts, threads context, and ends; **needs a live voice test**
+  (real multi-turn feel + the tap-again-to-end, which a fixed adb tap can't hit on the animated orb).
+
+**Increment B NEXT — barge-in (interrupt JARVIS mid-answer).** The hard part: listen while speaking.
+On these single-host glasses, SCO is full-duplex (phone-call style) so we can play TTS over the SCO
+output while monitoring the SCO mic — the risk is acoustic **echo** (TTS bleeding into the mic →
+false barge-in). Plan: keep SCO up during the answer, route TTS to the voice-comm output, monitor with
+`AcousticEchoCanceler` + an echo-aware sustained-speech threshold; on barge-in, stop TTS and capture.
+**Requires an on-device echo-tuning pass with the director** — build + verify together, don't ship blind.
 
 ### ✅ DONE (2026-06-13): voice-conversation quality deep-dive
 The daily-driver feature set is built; the open problem is **conversation quality** — the director

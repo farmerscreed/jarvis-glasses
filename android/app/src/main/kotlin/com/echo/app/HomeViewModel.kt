@@ -303,8 +303,17 @@ class HomeViewModel @Inject constructor(
      * The orb starts a **conversation** (keeps listening for follow-ups until you're done).
      */
     fun talk() {
-        if (inConversation) { stopConversation = true; status = "Ending…"; return } // tap again ends it
+        if (inConversation) { endConversation(); return } // tap again ends it
         withRecordingConsent { run("Listening — speak into the glasses…") { converse(continuous = true) } }
+    }
+
+    /** Explicit End (orb re-tap or the End button): stop the conversation now — cut any current
+     *  speech and abort the open mic within a frame, rather than waiting out the turn. */
+    fun endConversation() {
+        if (!inConversation) return
+        stopConversation = true // recordUntilSilence(shouldAbort) bails; the loop breaks
+        tts.stop()              // cut any answer that's mid-sentence
+        status = "Ending…"
     }
 
     /** Single message (e.g. the glasses button): one turn, no follow-up listening. */
@@ -335,7 +344,10 @@ class HomeViewModel @Inject constructor(
             val t0 = System.currentTimeMillis()
             // The audible "listening" cue plays inside recordUntilSilence the moment the mic is hot.
             micActive = true
-            val rec = try { audio.recordUntilSilence() } finally { micActive = handsFree }
+            val rec = try {
+                audio.recordUntilSilence(shouldAbort = { stopConversation })
+            } finally { micActive = handsFree }
+            if (stopConversation) { status = "Conversation ended"; break } // End pressed during capture
             val tRecord = System.currentTimeMillis() - t0
             status = "Transcribing…"
             val sttStart = System.currentTimeMillis()
@@ -344,10 +356,12 @@ class HomeViewModel @Inject constructor(
             val tStt = System.currentTimeMillis() - sttStart
             dumpVoiceDebug(wav, rec, rawHeard, tRecord, tStt) // no-op in release builds
             // Silence guard: Gemini hallucinates confident transcripts from near-silent audio (the
-            // blank guard alone never fires because the text isn't empty). If the mic captured
-            // essentially nothing, treat it as "didn't catch that" and never feed it to the LLM.
-            val tooQuiet = rec.peak < 700 || rec.rms < 60
-            val heard = if (tooQuiet) "" else rawHeard
+            // blank guard alone never fires because the text isn't empty). Treat a turn as "no speech"
+            // — and never feed it to the LLM — when the (now-reliable) VAD never detected speech, or
+            // the level is near-silent. This is what lets a conversation END when you stop talking:
+            // otherwise room noise keeps yielding a hallucinated transcript and JARVIS answers forever.
+            val noSpeech = !rec.speechStarted || rec.peak < 900 || rec.rms < 70
+            val heard = if (noSpeech) "" else rawHeard
 
             if (heard.isBlank()) {
                 question = "(didn't catch that)"
@@ -412,15 +426,27 @@ class HomeViewModel @Inject constructor(
      * utterances match, so a real question that happens to contain "stop"/"bye" doesn't hang up.
      */
     private fun isClosing(s: String): Boolean {
-        val t = s.lowercase().trim().trim('.', '!', '?', ',', ' ')
-        if (t.split(Regex("\\s+")).size > 4) return false
-        val closers = listOf(
-            "thanks", "thank you", "thanks jarvis", "thank you jarvis", "that's all", "thats all",
-            "that'll be all", "that is all", "goodbye", "good bye", "bye", "bye bye", "stop",
-            "stop jarvis", "we're done", "were done", "i'm done", "im done", "that's it", "thats it",
-            "nothing else", "no that's all", "go to sleep", "never mind", "nevermind", "cancel",
+        // Strip punctuation/case (Gemini returns "Thanks, Jarvis.") and drop a trailing "jarvis".
+        val t = s.lowercase()
+            .replace(Regex("[^a-z0-9' ]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .removeSuffix(" jarvis").trim()
+        if (t.isEmpty()) return false
+        val words = t.split(" ")
+        if (words.size > 5) return false
+        // Clear, intent-unambiguous closers: match if the utterance is or ends with one.
+        val clear = listOf(
+            "that's all", "thats all", "that'll be all", "that is all", "that's it", "thats it",
+            "that's enough", "thats enough", "thank you", "thanks", "thanks a lot", "goodbye",
+            "good bye", "go to sleep", "never mind", "nevermind", "we're done", "were done",
+            "i'm done", "im done", "all done", "nothing else", "no thanks", "ok thanks", "okay thanks",
         )
-        return closers.any { t == it || t.endsWith(" $it") }
+        if (clear.any { t == it || t.endsWith(" $it") }) return true
+        // Ambiguous single words ("stop", "bye"): only when the utterance is essentially just that,
+        // so "stop the timer" / "goodbye party tonight" don't accidentally hang up.
+        val ambiguous = setOf("stop", "bye", "cancel", "quit", "exit", "goodbye")
+        return words.size <= 2 && words.any { it in ambiguous }
     }
 
     /**

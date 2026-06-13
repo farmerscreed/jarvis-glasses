@@ -106,6 +106,7 @@ class BtAudioEngine(private val context: Context) {
         maxMs: Int = 15_000,
         silenceMs: Int = 1_500,
         noSpeechTimeoutMs: Int = 7_000,
+        shouldAbort: () -> Boolean = { false }, // e.g. the user pressed End — bail out promptly
     ): Recording = withContext(Dispatchers.IO) {
         enableSco()
         delay(900) // let the SCO link come fully up before the cue, so the beep isn't clipped/dropped
@@ -161,6 +162,7 @@ class BtAudioEngine(private val context: Context) {
             var lastVoiceMs = start
             while (true) {
                 val now = System.currentTimeMillis()
+                if (shouldAbort()) { stopReason = "aborted"; break }
                 if (now - start > maxMs) { stopReason = "maxMs"; break }
                 if (!speechStarted && now - start > noSpeechTimeoutMs) { stopReason = "noSpeechTimeout"; break }
                 val n = recorder.read(frame, 0, frame.size)

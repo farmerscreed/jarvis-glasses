@@ -242,7 +242,8 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
                     icon = Icons.Outlined.Mic,
                     contentDescription = "talk to Jarvis",
                     onClick = vm::talk,
-                    enabled = !vm.busy,
+                    // tappable mid-conversation so it can end it (vm.talk toggles), else gated on busy
+                    enabled = !vm.busy || vm.inConversation,
                     accent = if (vm.online) cyan else amber,
                 )
                 RoundIconButton(
@@ -250,6 +251,10 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
                     contentDescription = "type instead",
                     onClick = { typeMode = true },
                 )
+            }
+            if (vm.inConversation) {
+                Spacer(Modifier.height(JarvisSpacing.sm))
+                JarvisSecondaryButton("End conversation", onClick = vm::endConversation)
             }
             if (!vm.online) {
                 Spacer(Modifier.height(JarvisSpacing.sm))
