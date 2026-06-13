@@ -234,12 +234,22 @@ until the director is done — rather than every turn being a one-shot "tap → 
 - Verified headless: the loop runs, reprompts, threads context, and ends; **needs a live voice test**
   (real multi-turn feel + the tap-again-to-end, which a fixed adb tap can't hit on the animated orb).
 
-**Increment B NEXT — barge-in (interrupt JARVIS mid-answer).** The hard part: listen while speaking.
-On these single-host glasses, SCO is full-duplex (phone-call style) so we can play TTS over the SCO
-output while monitoring the SCO mic — the risk is acoustic **echo** (TTS bleeding into the mic →
-false barge-in). Plan: keep SCO up during the answer, route TTS to the voice-comm output, monitor with
-`AcousticEchoCanceler` + an echo-aware sustained-speech threshold; on barge-in, stop TTS and capture.
-**Requires an on-device echo-tuning pass with the director** — build + verify together, don't ship blind.
+**Ending hardened (commit `027b976`)** — the orb FAB was `enabled=!busy` so it was DISABLED during a
+conversation (couldn't tap to stop); now tappable + a dedicated **"End conversation"** button shows in
+the Live console. Silence-ending now keys off the VAD's `speechStarted` (not just a weak level guard),
+so room noise no longer keeps the conversation alive forever. Closing-phrase match is punctuation/
+case-robust. End is responsive: `recordUntilSilence(shouldAbort)` bails within a frame and
+`TtsEngine.stop()` cuts speech + unblocks the suspended speak/finishStream.
+
+**Increment B SHIPPED — barge-in (commit `6f839fd`).** You can interrupt JARVIS mid-answer. In a
+conversation, SCO is **held open for the whole session** (`BtAudio.begin/endScoSession`) and the answer
+plays over the SCO output (`TtsEngine.useCommunicationRoute(true)`; A2DP is suspended during SCO →
+narrowband but intelligible). `BtAudio.awaitBargeIn()` monitors the SCO mic with `AcousticEchoCanceler`
++ an echo-aware sustained-speech threshold; `converse()` races the answer against it and, on barge-in,
+stops TTS and loops straight into capturing the interruption (cue skipped). Held SCO also makes
+follow-ups snappier (no per-turn warm-up). **NEEDS an on-device echo-tuning pass** — the `awaitBargeIn`
+threshold (echoFloor×1.8, floor 1100, ~240 ms sustained) is a conservative first guess: too low →
+JARVIS cuts itself off on its own voice; too high → misses quiet interruptions. **Verify live, then tune.**
 
 ### ✅ DONE (2026-06-13): voice-conversation quality deep-dive
 The daily-driver feature set is built; the open problem is **conversation quality** — the director
