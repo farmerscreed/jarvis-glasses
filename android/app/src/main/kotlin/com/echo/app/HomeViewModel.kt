@@ -454,7 +454,7 @@ class HomeViewModel @Inject constructor(
      * utterances match, so a real question that happens to contain "stop"/"bye" doesn't hang up.
      */
     private fun isClosing(s: String): Boolean {
-        // Strip punctuation/case (Gemini returns "Thanks, Jarvis.") and drop a trailing "jarvis".
+        // Strip punctuation/case (Gemini returns "Thanks, Jarvis." / "Alright, thank you. Bye.").
         val t = s.lowercase()
             .replace(Regex("[^a-z0-9' ]"), " ")
             .replace(Regex("\\s+"), " ")
@@ -462,19 +462,24 @@ class HomeViewModel @Inject constructor(
             .removeSuffix(" jarvis").trim()
         if (t.isEmpty()) return false
         val words = t.split(" ")
-        if (words.size > 5) return false
-        // Clear, intent-unambiguous closers: match if the utterance is or ends with one.
-        val clear = listOf(
-            "that's all", "thats all", "that'll be all", "that is all", "that's it", "thats it",
-            "that's enough", "thats enough", "thank you", "thanks", "thanks a lot", "goodbye",
-            "good bye", "go to sleep", "never mind", "nevermind", "we're done", "were done",
-            "i'm done", "im done", "all done", "nothing else", "no thanks", "ok thanks", "okay thanks",
+        if (words.size > 7) return false // a long sentence isn't a sign-off
+        // Goodbye words almost never appear except to end — match anywhere in a short utterance, so
+        // "thank you bye", "alright thank you bye", "don't talk again bye", "okay bye" all close.
+        if (words.any { it == "bye" || it == "goodbye" || it == "byebye" } || t.contains("good bye")) return true
+        // Clear closing phrases, matched anywhere in the utterance.
+        val phrases = listOf(
+            "that's all", "thats all", "that'll be all", "thatll be all", "that is all", "that's it",
+            "thats it", "that's enough", "thats enough", "nothing else", "we're done", "were done",
+            "i'm done", "im done", "all done", "go to sleep", "never mind", "nevermind", "stop talking",
+            "don't talk", "dont talk", "talk later", "speak later", "that will be all", "shut down",
         )
-        if (clear.any { t == it || t.endsWith(" $it") }) return true
-        // Ambiguous single words ("stop", "bye"): only when the utterance is essentially just that,
-        // so "stop the timer" / "goodbye party tonight" don't accidentally hang up.
-        val ambiguous = setOf("stop", "bye", "cancel", "quit", "exit", "goodbye")
-        return words.size <= 2 && words.any { it in ambiguous }
+        if (phrases.any { t.contains(it) }) return true
+        // thanks / thank you only when it's the whole sign-off (so a mid-chat "thanks, now…" doesn't end).
+        if (t == "thanks" || t == "thank you" || t == "ok thanks" || t == "okay thanks" ||
+            t.endsWith(" thanks") || t.endsWith(" thank you")
+        ) return true
+        // single-word commands.
+        return words.size == 1 && words[0] in setOf("stop", "cancel", "quit", "exit", "done")
     }
 
     /**
