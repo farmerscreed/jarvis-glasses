@@ -35,6 +35,20 @@ data class RefreshRequest(val refresh_token: String)
 @Serializable
 data class IdTokenRequest(val provider: String, val id_token: String)
 
+/** GDPR data export shape (one user's memories). */
+@Serializable
+data class MemoryExport(val exportedAt: String, val count: Int, val memories: List<ExportMemory>)
+
+@Serializable
+data class ExportMemory(
+    val type: String,
+    val text: String?,
+    val tags: List<String>,
+    val createdAt: String,
+    val mediaPath: String?,
+    val synced: Boolean,
+)
+
 @Serializable
 data class AuthUser(val id: String? = null)
 

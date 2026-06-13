@@ -193,6 +193,11 @@ class EchoBackend(
         delete("/rest/v1/memories?id=eq.$serverId")
     }
 
+    /** Delete ALL of the caller's memory rows (RLS scopes to the user). GDPR "delete everything". */
+    suspend fun deleteAllMemories(): Unit = withContext(Dispatchers.IO) {
+        delete("/rest/v1/memories?id=not.is.null") // PostgREST requires a filter; RLS limits to the user
+    }
+
     /** Delete a stored media object (RLS: owner only). Idempotent — a missing object is fine. */
     suspend fun deleteMedia(path: String, bucket: String = "media"): Unit = withContext(Dispatchers.IO) {
         delete("/storage/v1/object/$bucket/$path")

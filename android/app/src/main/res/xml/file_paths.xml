@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- The GDPR data export is written to cacheDir/export and shared via FileProvider. -->
+    <cache-path name="export" path="export/" />
+</paths>

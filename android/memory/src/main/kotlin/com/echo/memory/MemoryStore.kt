@@ -178,6 +178,37 @@ class MemoryStore(
         dao.knownLocalPaths().toSet()
     }
 
+    /** GDPR export: all the user's memories as a pretty JSON string. */
+    suspend fun exportJson(): String = withContext(Dispatchers.IO) {
+        val items = dao.recent(100_000).map {
+            ExportMemory(
+                type = it.type,
+                text = it.text,
+                tags = if (it.tags.isBlank()) emptyList() else it.tags.split("\n"),
+                createdAt = java.time.Instant.ofEpochMilli(it.createdAt).toString(),
+                mediaPath = it.mediaPath,
+                synced = it.syncState == SyncState.SYNCED,
+            )
+        }
+        val exportJson = kotlinx.serialization.json.Json { prettyPrint = true }
+        exportJson.encodeToString(
+            MemoryExport.serializer(),
+            MemoryExport(exportedAt = java.time.Instant.now().toString(), count = items.size, memories = items),
+        )
+    }
+
+    /**
+     * GDPR "delete everything": remove every memory locally AND in the cloud (rows + storage objects
+     * + local files), best-effort on the network. Local wipe always happens so the app is clean.
+     */
+    suspend fun deleteAll(): Unit = withContext(Dispatchers.IO) {
+        // Per-memory delete handles each row + its storage object + local file (reuses [delete]).
+        dao.recent(100_000).forEach { runCatching { delete(it.toMemory()) } }
+        // Backstop: clear any cloud rows that never had a local mirror.
+        if (governor.online.value) runCatching { backend.deleteAllMemories() }
+        dao.deleteAllLocal()
+    }
+
     /**
      * Delete a memory everywhere: cloud storage object + cloud row (if synced & online), the local
      * capture file, and the Room row. Local deletion always happens so the item vanishes from the

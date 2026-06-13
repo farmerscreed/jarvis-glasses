@@ -15,10 +15,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -27,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -165,6 +170,48 @@ fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit) {
             )
             Spacer(Modifier.height(JarvisSpacing.sm))
             JarvisSecondaryButton("Sync from glasses", onClick = vm::syncGlasses, enabled = !vm.busy)
+        }
+
+        SectionLabel("Privacy & Data")
+        SettingsCard {
+            val ctx = LocalContext.current
+            var confirmWipe by remember { mutableStateOf(false) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !vm.busy) { vm.exportData(ctx) },
+            ) {
+                Icon(Icons.Outlined.FileDownload, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(JarvisSpacing.md))
+                Column(Modifier.weight(1f)) {
+                    Text("Export all my data", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Save your memories as a JSON file.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Spacer(Modifier.height(JarvisSpacing.md))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !vm.busy) { confirmWipe = true },
+            ) {
+                Icon(Icons.Outlined.DeleteForever, null, tint = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.width(JarvisSpacing.md))
+                Column(Modifier.weight(1f)) {
+                    Text("Delete everything", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                    Text("Remove all memories from this phone and the cloud.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (confirmWipe) {
+                AlertDialog(
+                    onDismissRequest = { confirmWipe = false },
+                    title = { Text("Delete everything?") },
+                    text = { Text("This permanently removes every memory, photo, and recording from this phone and the cloud, and signs you out. It can't be undone.") },
+                    confirmButton = { TextButton(onClick = { confirmWipe = false; vm.deleteEverything() }) { Text("Delete everything", color = MaterialTheme.colorScheme.error) } },
+                    dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text("Cancel") } },
+                )
+            }
         }
 
         SectionLabel("Advanced")

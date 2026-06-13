@@ -25,6 +25,9 @@ interface MemoryDao {
     @Query("DELETE FROM local_memories WHERE clientId = :clientId")
     suspend fun deleteByClientId(clientId: String)
 
+    @Query("DELETE FROM local_memories")
+    suspend fun deleteAllLocal()
+
     @Query("UPDATE local_memories SET mediaPath = :mediaPath, updatedAt = :now WHERE clientId = :clientId")
     suspend fun setMediaPath(clientId: String, mediaPath: String, now: Long)
 

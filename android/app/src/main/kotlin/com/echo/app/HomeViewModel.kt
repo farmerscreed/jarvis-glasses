@@ -181,6 +181,31 @@ class HomeViewModel @Inject constructor(
         status = if (online) "Remembered" else "Saved on phone — will sync when back online"
     }
 
+    /** GDPR export: write all memories to a JSON file and open the system share sheet. */
+    fun exportData(context: Context) = run("Preparing your data…") {
+        val jsonText = store.exportJson()
+        val dir = java.io.File(context.cacheDir, "export").apply { mkdirs() }
+        val file = java.io.File(dir, "jarvis-memories.json").apply { writeText(jsonText) }
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        val share = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "application/json"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(android.content.Intent.createChooser(share, "Export your JARVIS data").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        status = "Exported your memories"
+    }
+
+    /** GDPR "delete everything": wipe all memories locally + in the cloud, then sign out. */
+    fun deleteEverything(onDone: () -> Unit = {}) = run("Deleting everything…") {
+        store.deleteAll()
+        backend.signOut()
+        loggedIn = false
+        timeline = emptyList(); gallery = emptyList(); recalled = emptyList(); answer = ""
+        status = "All your data was deleted"
+        onDone()
+    }
+
     /**
      * D2 streaming turn: speak each sentence as Claude generates it instead of waiting for the
      * full answer. Returns null when the stream fails (caller falls back to non-streaming [EchoBackend.chat]).
