@@ -88,13 +88,14 @@ class GlassesCaptureReactor @Inject constructor(
         }
     }
 
-    /** Stop listening when the last host detaches. */
+    /** Stop listening when the last host detaches, and drop the BLE link to save battery. */
     @Synchronized
     fun stop() {
         if (--hosts <= 0) {
             hosts = 0
             collectJob?.cancel()
             collectJob = null
+            runCatching { ble.disconnectGlasses() }
         }
     }
 

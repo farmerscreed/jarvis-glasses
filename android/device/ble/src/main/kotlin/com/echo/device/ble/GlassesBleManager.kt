@@ -8,9 +8,13 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -92,11 +96,69 @@ class GlassesBleManager(private val context: Context) {
 
     // ---- Control: connect to the glasses, subscribe to notifications ----
 
+    /** True while we want to stay connected — drives auto-reconnect on an unexpected drop. */
+    @Volatile private var wantConnected = false
+    private var reconnectAttempts = 0
+    private val reconnectRunnable = Runnable { openGatt() }
+
     fun connectGlasses() {
+        wantConnected = true
+        ensureBtReceiver()
         if (glassesGatt != null) { _status.value = "BLE: already connected"; return }
+        openGatt()
+    }
+
+    /**
+     * Turning Bluetooth off does NOT deliver a GATT disconnect callback, so the
+     * onConnectionStateChange-based reconnect can't see it. Listen for the adapter coming back ON
+     * and reconnect then — covering the BT-toggle case on top of range/timeout drops.
+     */
+    private var btReceiver: BroadcastReceiver? = null
+    private fun ensureBtReceiver() {
+        if (btReceiver != null) return
+        btReceiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, intent: Intent) {
+                if (intent.action != BluetoothAdapter.ACTION_STATE_CHANGED) return
+                when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1)) {
+                    BluetoothAdapter.STATE_OFF -> glassesGatt = null // stack tore down, no callback
+                    BluetoothAdapter.STATE_ON -> if (wantConnected && glassesGatt == null) {
+                        Log.i(TAG, "BT back on — reconnecting glasses")
+                        reconnectAttempts = 0
+                        handler.postDelayed(reconnectRunnable, 1500) // let the stack settle
+                    }
+                }
+            }
+        }
+        runCatching { context.registerReceiver(btReceiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)) }
+    }
+
+    private fun openGatt() {
+        if (glassesGatt != null) return
         _status.value = "BLE: connecting…"
         val device = adapter.getRemoteDevice(GLASSES_ADDR)
         device.connectGatt(context, false, controlCallback)
+    }
+
+    /** Stop staying connected and tear the link down (called when no host needs reactions). */
+    fun disconnectGlasses() {
+        wantConnected = false
+        handler.removeCallbacks(reconnectRunnable)
+        reconnectAttempts = 0
+        btReceiver?.let { runCatching { context.unregisterReceiver(it) }; btReceiver = null }
+        glassesGatt?.let { runCatching { it.disconnect(); it.close() } }
+        glassesGatt = null
+        _status.value = "BLE idle"
+    }
+
+    /** Reconnect with capped exponential backoff (2,4,8,16,30s) as long as we want the link. */
+    private fun scheduleReconnect() {
+        if (!wantConnected) return
+        handler.removeCallbacks(reconnectRunnable)
+        val delay = minOf(30_000L, 2_000L shl minOf(reconnectAttempts, 4))
+        reconnectAttempts++
+        _status.value = "BLE: reconnecting in ${delay / 1000}s…"
+        Log.i(TAG, "scheduling reconnect in ${delay}ms (attempt $reconnectAttempts)")
+        handler.postDelayed(reconnectRunnable, delay)
     }
 
     private val controlCallback = object : BluetoothGattCallback() {
@@ -104,10 +166,13 @@ class GlassesBleManager(private val context: Context) {
             Log.i(TAG, "glasses conn status=$status newState=$newState")
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 glassesGatt = g
+                reconnectAttempts = 0 // healthy link — reset backoff
                 g.requestMtu(517)
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 glassesGatt = null
+                runCatching { g.close() } // free the GATT client or it leaks across reconnects
                 _status.value = "BLE: disconnected"
+                scheduleReconnect() // auto-recover from drops (after Wi-Fi transfer / idle timeout)
             }
         }
 
