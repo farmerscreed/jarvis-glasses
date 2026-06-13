@@ -133,12 +133,21 @@ class GlassesCaptureReactor @Inject constructor(
         val before = _lastAnswer.value
         aiAskPending = true
         _status.value = "Looking…"
-        android.util.Log.i("EchoVision", "capturePhoto() — awaiting CaptureSaved -> sync -> vision")
-        ble.capturePhoto() // CaptureSaved -> auto-sync -> Look & Ask vision (sets _lastAnswer + speaks)
+        // Ensure the GATT link is up: capturePhoto() returns false when not connected (it only kicks
+        // off an async connect), which silently drops the capture. Retry until the command sends.
+        runCatching { ble.connectGlasses() }
+        var sent = false
+        val sendDeadline = System.currentTimeMillis() + 5_000
+        while (System.currentTimeMillis() < sendDeadline) {
+            if (ble.capturePhoto()) { sent = true; break }
+            kotlinx.coroutines.delay(400)
+        }
+        android.util.Log.i("EchoVision", "capture command sent=$sent — awaiting CaptureSaved -> sync -> vision")
+        if (!sent) { aiAskPending = false; _status.value = "Glasses not reachable"; return null }
         val result = withTimeoutOrNull(timeoutMs) {
             _lastAnswer.first { it != before && it.isNotBlank() }
         }
-        android.util.Log.i("EchoVision", if (result == null) "TIMEOUT after ${timeoutMs}ms (no capture/sync/vision)" else "got description (${result.length} chars)")
+        android.util.Log.i("EchoVision", if (result == null) "TIMEOUT after ${timeoutMs}ms (capture sent but no sync/vision)" else "got description (${result.length} chars)")
         return result
     }
 
