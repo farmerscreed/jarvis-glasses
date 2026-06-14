@@ -54,6 +54,7 @@ class HomeViewModel @Inject constructor(
     private val transfer: MediaTransferClient,
     private val reactor: GlassesCaptureReactor,
     private val agent: AgentBridge,
+    private val onDeviceLlm: com.echo.app.ml.OnDeviceLlm,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -998,6 +999,46 @@ class HomeViewModel @Inject constructor(
             refreshLibrary()
             onDone()
         }
+    }
+
+    /**
+     * SPIKE (dev console): measure the on-device LLM (Brain 0). Loads Gemma 3 1B WARM (cold-load
+     * timed), runs a fixed set of simple prompts, and logs tokens/s + RAM per turn to `EchoLlmSpike`.
+     * Needs the model pushed to the device first (see OnDeviceLlm / docs/ONDEVICE_BRAIN.md).
+     */
+    fun runLlmSpike() = run("On-device LLM spike…") {
+        if (!onDeviceLlm.isPresent) {
+            status = "Push the model first: adb push <gemma>.task ${onDeviceLlm.modelPath}"
+            answer = status
+            return@run
+        }
+        status = "Loading on-device model (warm)…"
+        if (!onDeviceLlm.ensureWarm()) {
+            status = "On-device model failed to load — see EchoLlm logs"
+            return@run
+        }
+        val prompts = listOf(
+            "Say hello in three words.",
+            "What is 17 plus 26?",
+            "In one short sentence, summarize: I parked on level 3 near the blue elevator.",
+            "Reply with a brief, friendly greeting.",
+            "Turn this into a polite one-line reminder: call the dentist tomorrow.",
+        )
+        val rt = Runtime.getRuntime()
+        val sb = StringBuilder("On-device LLM spike (Gemma 3 1B)\ncold-load = ${onDeviceLlm.loadMs} ms\n\n")
+        android.util.Log.i("EchoLlmSpike", "cold-load=${onDeviceLlm.loadMs}ms")
+        for (p in prompts) {
+            val r = onDeviceLlm.generate(p) ?: continue
+            val usedMb = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024)
+            android.util.Log.i(
+                "EchoLlmSpike",
+                "ms=${r.ms} tok≈${r.approxTokens} tok/s=%.1f ramMB=%d q=\"%s\" -> %s"
+                    .format(r.tokensPerSec, usedMb, p.take(40), r.text.replace("\n", " ").take(100)),
+            )
+            sb.append("• %d ms · %.1f tok/s · ram~%d MB\n  %s\n".format(r.ms, r.tokensPerSec, usedMb, r.text.replace("\n", " ").take(120)))
+        }
+        answer = sb.toString()
+        status = "On-device spike done — see EchoLlmSpike logcat"
     }
 
     private fun run(busyMsg: String, block: suspend () -> Unit) {

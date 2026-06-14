@@ -94,6 +94,8 @@ fun DevConsoleScreen(vm: HomeViewModel) {
                     Button(onClick = vm::runBleDiagnostic) { Text("Run BLE diagnostic") }
                     Button(onClick = { vm.capturePhoto() }) { Text("Capture photo") }
                 }
+                // On-device LLM spike (Brain 0 feasibility) — needs the Gemma .task pushed to the device.
+                Button(onClick = vm::runLlmSpike, enabled = !vm.busy) { Text("On-device LLM spike") }
             }
         }
 

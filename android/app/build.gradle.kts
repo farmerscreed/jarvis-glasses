@@ -139,6 +139,7 @@ dependencies {
     implementation(libs.androidx.media)
     implementation(libs.work.runtime)
     implementation(libs.mediapipe.tasks.text)
+    implementation(libs.mediapipe.tasks.genai) // on-device LLM spike (Gemma 3 1B) — docs/ONDEVICE_BRAIN.md
 
     debugImplementation(libs.androidx.ui.tooling)
 }

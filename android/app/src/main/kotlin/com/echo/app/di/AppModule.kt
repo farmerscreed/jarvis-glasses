@@ -12,6 +12,7 @@ import com.echo.device.wifi.GlassesP2pManager
 import com.echo.device.wifi.MediaTransferClient
 import java.io.File
 import com.echo.app.ml.MediaPipeEmbedder
+import com.echo.app.ml.OnDeviceLlm
 import com.echo.memory.AgentBridge
 import com.echo.memory.ConnectivityGovernor
 import com.echo.memory.EchoBackend
@@ -84,6 +85,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideEmbedder(@ApplicationContext ctx: Context): Embedder = MediaPipeEmbedder(ctx)
+
+    /** On-device LLM spike (dev-only, Developer console). See docs/ONDEVICE_BRAIN.md. */
+    @Provides
+    @Singleton
+    fun provideOnDeviceLlm(@ApplicationContext ctx: Context): OnDeviceLlm = OnDeviceLlm(ctx)
 
     @Provides
     @Singleton
