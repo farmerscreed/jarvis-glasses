@@ -27,6 +27,7 @@ import com.echo.app.ui.dev.DevConsoleScreen
 import com.echo.app.ui.help.HelpScreen
 import com.echo.app.ui.onboarding.OnboardingPrefs
 import com.echo.app.ui.onboarding.OnboardingScreen
+import com.echo.app.ui.screens.DeviceScreen
 import com.echo.app.ui.screens.GalleryScreen
 import com.echo.app.ui.screens.LiveConsoleScreen
 import com.echo.app.ui.screens.SettingsScreen
@@ -44,6 +45,7 @@ fun AppRoot() {
     var onboarded by rememberSaveable { mutableStateOf(OnboardingPrefs.isDone(context)) }
     var tab by rememberSaveable { mutableStateOf(JarvisTab.Live) }
     var devConsole by rememberSaveable { mutableStateOf(false) }
+    var device by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
 
     // Restart the background companion on app launch if the user enabled it and is signed in.
@@ -82,19 +84,14 @@ fun AppRoot() {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            if (devConsole) {
-                JarvisTopBar(
-                    title = "Dev console",
-                    wordmark = false,
-                    onNavigate = { devConsole = false },
-                    navigateBack = true,
-                )
-            } else {
-                JarvisTopBar(onHelp = { showHelp = true }, micActive = vm.micActive)
+            when {
+                devConsole -> JarvisTopBar(title = "Dev console", wordmark = false, onNavigate = { devConsole = false }, navigateBack = true)
+                device -> JarvisTopBar(title = "Device", wordmark = false, onNavigate = { device = false }, navigateBack = true)
+                else -> JarvisTopBar(onHelp = { showHelp = true }, micActive = vm.micActive)
             }
         },
         bottomBar = {
-            if (!devConsole) {
+            if (!devConsole && !device) {
                 JarvisBottomBar(current = tab, onSelect = { tab = it })
             }
         },
@@ -106,10 +103,15 @@ fun AppRoot() {
         ) {
             when {
                 devConsole -> DevConsoleScreen(vm)
+                device -> DeviceScreen(vm)
                 tab == JarvisTab.Live -> LiveConsoleScreen(vm)
                 tab == JarvisTab.Timeline -> TimelineScreen(vm)
                 tab == JarvisTab.Gallery -> GalleryScreen(vm)
-                tab == JarvisTab.Settings -> SettingsScreen(vm, onOpenDevConsole = { devConsole = true })
+                tab == JarvisTab.Settings -> SettingsScreen(
+                    vm,
+                    onOpenDevConsole = { devConsole = true },
+                    onOpenDevice = { device = true },
+                )
             }
         }
     }

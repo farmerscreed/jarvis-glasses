@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,6 +60,7 @@ private fun dayLabel(instant: Instant): String {
 fun TimelineScreen(vm: HomeViewModel) {
     LaunchedEffect(Unit) { vm.refreshLibrary(); vm.reconcileOrphanMedia() }
     var query by rememberSaveable { mutableStateOf("") }
+    var researchOnly by rememberSaveable { mutableStateOf(false) }
     val hits = vm.searchHits
 
     LazyColumn(
@@ -86,6 +88,12 @@ fun TimelineScreen(vm: HomeViewModel) {
                         icon = Icons.Outlined.Sync,
                     )
                 }
+                // Filter to delegated research notes (tag "research") — the director's "research folder".
+                FilterChip(
+                    selected = researchOnly,
+                    onClick = { researchOnly = !researchOnly },
+                    label = { Text("Research") },
+                )
             }
         }
 
@@ -132,19 +140,33 @@ fun TimelineScreen(vm: HomeViewModel) {
                 }
             }
 
-            else -> { // the river, grouped by day
-                val groups = vm.timeline
-                    .filter { it.createdAt != null }
-                    .groupBy { dayLabel(it.createdAt!!) }
-                groups.forEach { (day, memories) ->
+            else -> { // the river, grouped by day (optionally filtered to research)
+                val river = if (researchOnly) vm.timeline.filter { "research" in it.tags } else vm.timeline
+                if (river.isEmpty()) {
                     item {
                         Text(
-                            day,
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            if (researchOnly) "No research yet — say “Jarvis, research…” and it lands here."
+                            else "Nothing here yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
                         )
                     }
-                    items(memories.size) { i -> TimelineCard(memories[i]) }
+                } else {
+                    val groups = river
+                        .filter { it.createdAt != null }
+                        .groupBy { dayLabel(it.createdAt!!) }
+                    groups.forEach { (day, memories) ->
+                        item {
+                            Text(
+                                day,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        items(memories.size) { i -> TimelineCard(memories[i]) }
+                    }
                 }
             }
         }

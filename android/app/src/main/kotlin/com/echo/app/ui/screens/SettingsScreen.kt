@@ -61,7 +61,7 @@ import com.echo.app.ui.theme.JarvisTheme
  */
 @OptIn(ExperimentalLayoutApi::class) // FlowRow
 @Composable
-fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit) {
+fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onOpenDevice: () -> Unit = {}) {
     val cyan = MaterialTheme.colorScheme.primaryContainer
     val amber = JarvisTheme.colors.presenceAmber
     Column(
@@ -259,6 +259,28 @@ fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit) {
                     text = { Text("This permanently removes every memory, photo, and recording from this phone and the cloud, and signs you out. It can't be undone.") },
                     confirmButton = { TextButton(onClick = { confirmWipe = false; vm.deleteEverything() }) { Text("Delete everything", color = MaterialTheme.colorScheme.error) } },
                     dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text("Cancel") } },
+                )
+            }
+        }
+
+        SectionLabel("Device")
+        SettingsCard {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenDevice),
+            ) {
+                Text(
+                    "Glasses & device" + (vm.glassesBattery?.let { "  ·  $it%" } ?: ""),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

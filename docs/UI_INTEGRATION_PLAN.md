@@ -47,15 +47,18 @@ the agent presets (e.g. ask the research preset for a short JSON block alongside
 add Compose card composables. **No engine rewrite — additive.**
 
 ## 3. Quick wins (small, high-value, do first)
-1. **Device screen** (`device_jarvis_glasses`) under Settings → surfaces the **battery %** we now decode,
-   Wi-Fi-Direct state, the decoded **Buttons Map** (from recon), storage, and a "Fix Connection" action
-   (re-run the BLE/Wi-Fi ceremony). High value, mostly static + the battery flow already exists.
-2. **"Which brain" indicator** — a tiny chip/orb-tint showing on-device (amber) vs cloud (cyan) vs agent
-   (deliberating). Makes the Three-Speed Brain legible and reinforces the truth posture (the user sees
-   when an answer came from the small local model vs verified cloud).
-3. **Research in Timeline** — a "Research" filter chip (tag=`research`) + the **memory detail** screen so
-   the full text + Sources read cleanly (today it's tap-to-expand on the card). Gives the director's
-   "a place to read the full research" a proper home.
+1. ✅ **DONE (2026-06-14) — Device screen** (`device_jarvis_glasses`) under **Settings → Glasses &
+   device** (`DeviceScreen.kt`): connection state, the **battery %** we now decode, the decoded
+   **Buttons Map** (front=photo, BACK-hold=record, BACK-double=Look&Ask), and a **"Fix connection"**
+   action (re-runs the sync ceremony). Settings row shows the live battery inline. Built + installed
+   (dev+prod), launches clean. *Needs an on-device look + battery-vs-real check.*
+2. ✅ **DONE (2026-06-14) — Research in Timeline:** a **"Research" filter chip** (tag=`research`) on the
+   Timeline + the existing **tap-to-expand** cards → the director's "place to read the full research".
+   (A dedicated `memory_detail` screen remains optional polish.)
+3. ⏳ **Deferred — "Which brain" indicator:** waits on **Brain 0** actually being wired (today it's only
+   the dev-console spike). When routing is live, add a chip/orb-tint: on-device (amber) / cloud (cyan) /
+   agent (deliberating). Reinforces the truth posture (user sees when an answer came from the small
+   local model vs verified cloud).
 
 ## 4. Suggested sequencing (for discussion)
 - **Phase UI-1 (quick wins):** Device screen + battery, which-brain chip, Research filter/detail.
