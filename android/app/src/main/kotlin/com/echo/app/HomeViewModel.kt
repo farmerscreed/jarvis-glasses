@@ -509,7 +509,7 @@ class HomeViewModel @Inject constructor(
                     "Try the glasses button to snap one, then ask me about it."
                 answer = ans
                 transcript.add(TurnLine(fromUser = false, text = ans))
-                if (desc == null) tts.speak(ans) // the reactor already speaks on success
+                tts.speak(ans) // captureAndDescribe returns the text now; speak it here (success or not)
                 if (!continuous) { status = "Done"; break }
                 status = "Listening…"
                 continue

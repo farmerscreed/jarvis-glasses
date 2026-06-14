@@ -100,6 +100,9 @@ class GlassesCaptureReactor @Inject constructor(
     }
 
     private fun onCaptureSaved(total: Int) {
+        // An on-demand voice-vision capture owns the pipeline end-to-end; ignore the CaptureSaved it
+        // triggers so we don't double-sync / race it.
+        if (voiceVisionInFlight) { android.util.Log.i("EchoVision", "CaptureSaved ignored — voice-vision in flight"); return }
         val prev = lastInventoryTotal
         lastInventoryTotal = total
         android.util.Log.i("EchoVision", "CaptureSaved event total=$total prev=$prev (new=${total > 0 && total > prev})")
@@ -123,33 +126,97 @@ class GlassesCaptureReactor @Inject constructor(
     /** Manual "Sync from glasses": run the ceremony + enrich, returning the count of new files. */
     suspend fun syncNow(): Int = syncAndRoute(autoTriggered = false)
 
+    /** True while an on-demand voice-vision capture owns the pipeline, so the autonomous collector
+     *  ignores the CaptureSaved that OUR OWN capture triggers (no double-processing / no race). */
+    @Volatile private var voiceVisionInFlight = false
+
     /**
-     * Voice-controlled "what am I looking at": capture a fresh photo, let the normal capture→sync→
-     * vision pipeline run (it speaks the description via [routeNewFile]), and return that description
-     * so the conversation can show it. Mirrors the AI-gesture (double-click BACK) but on demand.
-     * Returns null on timeout / not-signed-in. Requires [start] to be active (the event collector).
+     * Voice-controlled "what am I looking at": take a photo NOW and describe THAT photo —
+     * deterministically. Owns the whole flow under [syncMutex] (so the autonomous collector can't
+     * race it) and:
+     *   1. sends the capture (retry until the glasses accept it),
+     *   2. waits for the glasses to report a NEW photo saved (skipping the post-sync `photos=0` clear),
+     *   3. pulls from the glasses, and
+     *   4. describes the SINGLE NEWEST photo (the one just taken, by filename) — never a stale
+     *      backlog photo, which was the recurring "it described an old photo" bug.
+     * Any other pulled files are drained into memories silently in the background. Returns the spoken
+     * description, or null if no fresh photo could be captured (e.g. camera still gated). Bounded by
+     * [timeoutMs]. The whole ceremony is time-boxed, so it can never wedge later captures.
      */
-    suspend fun captureAndDescribe(timeoutMs: Long = 60_000): String? {
+    suspend fun captureAndDescribe(timeoutMs: Long = 45_000): String? {
         if (!backend.isLoggedIn) { android.util.Log.w("EchoVision", "not logged in"); return null }
-        val before = _lastAnswer.value
-        aiAskPending = true
-        _status.value = "Looking…"
-        // Ensure the GATT link is up: capturePhoto() returns false when not connected (it only kicks
-        // off an async connect), which silently drops the capture. Retry until the command sends.
-        runCatching { ble.connectGlasses() }
-        var sent = false
-        val sendDeadline = System.currentTimeMillis() + 5_000
-        while (System.currentTimeMillis() < sendDeadline) {
-            if (ble.capturePhoto()) { sent = true; break }
-            kotlinx.coroutines.delay(400)
+        return syncMutex.withLock {
+            voiceVisionInFlight = true
+            _working.value = true
+            try {
+                withTimeoutOrNull(timeoutMs) {
+                    val knownBefore = transfer.mediaFiles().map { it.name }.toSet()
+                    _status.value = "Looking…"
+                    // 1. Send the capture command (capturePhoto only kicks off an async connect when
+                    //    the GATT link is down, so retry until the glasses actually accept it).
+                    runCatching { ble.connectGlasses() }
+                    var sent = false
+                    val deadline = System.currentTimeMillis() + 6_000
+                    while (System.currentTimeMillis() < deadline) {
+                        if (ble.capturePhoto()) { sent = true; break }
+                        delay(400)
+                    }
+                    if (!sent) { android.util.Log.w("EchoVision", "capture not accepted"); _status.value = "Glasses not reachable"; return@withTimeoutOrNull null }
+                    // 2. Wait for a NEW photo saved (photos>0 skips the post-clear photos=0 echo), then
+                    //    a beat for the file to finish writing. Proceed regardless — the pull is truth.
+                    android.util.Log.i("EchoVision", "capture sent — waiting for photo-saved")
+                    withTimeoutOrNull(12_000) {
+                        ble.notifications.first {
+                            (GlassesEvent.parse(it.bytes) as? GlassesEvent.CaptureSaved)?.photos?.let { p -> p > 0 } == true
+                        }
+                    }
+                    delay(800)
+                    // 3. Pull (doSync is itself bounded + cleans up Wi-Fi Direct).
+                    val files = doSync()
+                    // 4. The NEWEST photo by filename is the one we just took (timestamps sort).
+                    val newest = files.filter { it.extension.lowercase() in setOf("jpg", "jpeg", "png") }
+                        .maxByOrNull { it.name }
+                    android.util.Log.i("EchoVision", "pulled=${files.size} newest=${newest?.name}")
+                    if (newest == null || newest.name in knownBefore) {
+                        _status.value = "Couldn't get a fresh photo"
+                        drainBacklog(files) // keep anything we did pull
+                        return@withTimeoutOrNull null
+                    }
+                    val desc = describePhoto(newest)
+                    drainBacklog(files.filter { it != newest }) // backlog -> memories, off the hot path
+                    desc
+                }
+            } finally {
+                voiceVisionInFlight = false
+                _working.value = false
+                lastInventoryTotal = 0 // glasses delete after a sync; re-baseline the counter
+            }
         }
-        android.util.Log.i("EchoVision", "capture command sent=$sent — awaiting CaptureSaved -> sync -> vision")
-        if (!sent) { aiAskPending = false; _status.value = "Glasses not reachable"; return null }
-        val result = withTimeoutOrNull(timeoutMs) {
-            _lastAnswer.first { it != before && it.isNotBlank() }
+    }
+
+    /** Vision-describe one photo and save it as a memory. Returns the spoken text, or null on failure. */
+    private suspend fun describePhoto(f: File): String? {
+        _status.value = "Claude is looking…"
+        val visioned = runCatching {
+            backend.describeImage(
+                f.readBytes(),
+                "You are JARVIS. The wearer asked what they are looking at. Say what you see in one or two natural spoken sentences.",
+            )
+        }.getOrNull()
+        android.util.Log.i("EchoVision", "describePhoto ${f.name} vision=${if (visioned != null) "ok(${visioned.length})" else "FAILED"}")
+        if (visioned == null) {
+            store.rememberLocal(Memory(type = MemoryType.PHOTO, text = "(photo captured — description pending)", tags = listOf("needs_vision")), f, "media")
+            return null
         }
-        android.util.Log.i("EchoVision", if (result == null) "TIMEOUT after ${timeoutMs}ms (capture sent but no sync/vision)" else "got description (${result.length} chars)")
-        return result
+        store.rememberLocal(Memory(type = MemoryType.PHOTO, text = visioned), f, "media")
+        _lastAnswer.value = visioned
+        return visioned
+    }
+
+    /** Turn already-pulled files into memories silently, off the critical path (never blocks the answer). */
+    private fun drainBacklog(files: List<File>) {
+        if (files.isEmpty()) return
+        scope.launch { files.forEach { f -> withTimeoutOrNull(30_000) { runCatching { routeNewFile(f, speak = false) } } } }
     }
 
     /** Import already-downloaded files that lack a memory (orphan reconciliation), silently. */
