@@ -129,7 +129,7 @@ class GlassesCaptureReactor @Inject constructor(
      * so the conversation can show it. Mirrors the AI-gesture (double-click BACK) but on demand.
      * Returns null on timeout / not-signed-in. Requires [start] to be active (the event collector).
      */
-    suspend fun captureAndDescribe(timeoutMs: Long = 30_000): String? {
+    suspend fun captureAndDescribe(timeoutMs: Long = 60_000): String? {
         if (!backend.isLoggedIn) { android.util.Log.w("EchoVision", "not logged in"); return null }
         val before = _lastAnswer.value
         aiAskPending = true
@@ -157,12 +157,22 @@ class GlassesCaptureReactor @Inject constructor(
         files.forEach { runCatching { routeNewFile(it, speak) } }
     }
 
-    private suspend fun syncAndRoute(autoTriggered: Boolean): Int = syncMutex.withLock {
+    private suspend fun syncAndRoute(autoTriggered: Boolean): Int {
+        // Diagnostic: surfaces lock contention — a hung sync used to hold this mutex forever, so
+        // every later capture's syncAndRoute blocked here and captureAndDescribe just timed out.
+        android.util.Log.i("EchoVision", "syncAndRoute: requesting lock (auto=$autoTriggered, locked=${syncMutex.isLocked})")
+        return syncMutex.withLock {
+        android.util.Log.i("EchoVision", "syncAndRoute: lock acquired")
         _working.value = true
         try {
             _status.value = if (autoTriggered) "Glasses captured — syncing…" else "Connecting to glasses…"
-            val files = doSync()
-            if (files.isEmpty()) { _status.value = "Nothing new on the glasses"; return 0 }
+            // Bound the whole ceremony so a flaky Wi-Fi-Direct step can NEVER hold the mutex forever
+            // (that's what wedged every subsequent capture). On timeout it returns empty + releases.
+            val files = withTimeoutOrNull(75_000) { doSync() } ?: run {
+                android.util.Log.w("EchoVision", "syncAndRoute: doSync timed out — releasing lock")
+                emptyList()
+            }
+            if (files.isEmpty()) { _status.value = "Nothing new on the glasses"; return@withLock 0 }
             _status.value = "Processing ${files.size} new capture(s)…"
             files.forEach { routeNewFile(it) }
             _status.value = "Done — ${files.size} new capture(s) processed"
@@ -173,10 +183,11 @@ class GlassesCaptureReactor @Inject constructor(
         } finally {
             _working.value = false
         }
+        } // syncMutex.withLock
     }
 
     /** The transfer ceremony: BLE start cmd → Wi-Fi Direct → HTTP pull. Returns the NEW files. */
-    private suspend fun doSync(): List<File> {
+    private suspend fun doSync(): List<File> = try {
         android.util.Log.i("EchoVision", "doSync: connecting BLE + starting Wi-Fi Direct")
         ble.connectGlasses()
         p2p.start()
@@ -184,22 +195,25 @@ class GlassesCaptureReactor @Inject constructor(
         p2p.discoverAndConnect()
         ble.startWifiTransfer() // glasses bring up Wi-Fi; IP arrives via BLE notify
         _status.value = "Waiting for glasses Wi-Fi…"
-        val ip = withTimeoutOrNull(30_000) { ble.glassesWifiIp.filterNotNull().first() }
+        val ip = withTimeoutOrNull(20_000) { ble.glassesWifiIp.filterNotNull().first() }
         android.util.Log.i("EchoVision", "doSync: glasses Wi-Fi ip=$ip")
         if (ip == null) {
             _status.value = "Timed out waiting for glasses Wi-Fi"
-            p2p.stop()
-            return emptyList()
+            emptyList()
+        } else {
+            val p2pUp = withTimeoutOrNull(15_000) { p2p.connected.first { it } } // P2P link up before HTTP
+            _status.value = "Downloading from $ip…"
+            // Bind the pull to the Wi-Fi Direct network, else the socket routes out home Wi-Fi.
+            val net = p2p.boundNetwork()
+            val files = transfer.pull(ip, net) { i, n -> _status.value = "Downloading $i/$n…" }
+            android.util.Log.i("EchoVision", "doSync: p2pConnected=$p2pUp pulled=${files.size} files: ${files.map { it.name }}")
+            files
         }
-        val p2pUp = withTimeoutOrNull(15_000) { p2p.connected.first { it } } // P2P link up before HTTP
-        _status.value = "Downloading from $ip…"
-        // Bind the pull to the Wi-Fi Direct network, else the socket routes out home Wi-Fi.
-        val net = p2p.boundNetwork()
-        val files = transfer.pull(ip, net) { i, n -> _status.value = "Downloading $i/$n…" }
-        android.util.Log.i("EchoVision", "doSync: p2pConnected=$p2pUp pulled=${files.size} files: ${files.map { it.name }}")
-        ble.resetP2p()
-        p2p.stop()
-        return files
+    } finally {
+        // Always tear down Wi-Fi Direct — even if cancelled by the outer timeout — so a flaky sync
+        // never leaves p2p engaged (which would wedge the next capture).
+        runCatching { ble.resetP2p() }
+        runCatching { p2p.stop() }
     }
 
     /**
