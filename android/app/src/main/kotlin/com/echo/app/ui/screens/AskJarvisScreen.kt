@@ -201,8 +201,8 @@ private fun AskBubble(turn: HomeViewModel.AskTurn) {
 
     val error = turn.kind == "error"
     val accent = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-    // Research: split the spoken summary from the trailing "Sources:" block into a collapsible list.
-    val (body, sources) = remember(turn.text) { splitSources(turn.text) }
+    // Split the spoken body from a structured block (research Sources / calendar EVENTS / email DRAFT).
+    val (body, blockLabel, blockLines) = remember(turn.text) { splitStructured(turn.text) }
     var showSources by remember(turn.text) { mutableStateOf(false) }
 
     Card(
@@ -220,16 +220,35 @@ private fun AskBubble(turn: HomeViewModel.AskTurn) {
                 style = MaterialTheme.typography.bodyMedium.let { if (error) it.copy(fontStyle = FontStyle.Italic) else it },
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            if (sources.isNotEmpty()) {
-                Text(
-                    (if (showSources) "▾ Sources (${sources.size})" else "▸ Sources (${sources.size})"),
-                    style = JarvisTheme.dataMono,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { showSources = !showSources }.padding(top = JarvisSpacing.xs),
-                )
-                if (showSources) {
-                    sources.forEach { url ->
-                        Text(url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            when (blockLabel) {
+                // Research: a collapsible list of source URLs.
+                "sources" -> if (blockLines.isNotEmpty()) {
+                    Text(
+                        if (showSources) "▾ Sources (${blockLines.size})" else "▸ Sources (${blockLines.size})",
+                        style = JarvisTheme.dataMono,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { showSources = !showSources }.padding(top = JarvisSpacing.xs),
+                    )
+                    if (showSources) blockLines.filter { it.startsWith("http") }.forEach {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                // Calendar: an events list.
+                "events" -> blockLines.forEach { ev ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
+                        Text("•", color = MaterialTheme.colorScheme.primary)
+                        Text(ev, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+                // Email: a To/Subject draft preview.
+                "draft" -> if (blockLines.isNotEmpty()) {
+                    Card(
+                        shape = MaterialTheme.shapes.medium,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                    ) {
+                        Column(Modifier.padding(JarvisSpacing.sm)) {
+                            blockLines.forEach { Text(it, style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        }
                     }
                 }
             }
@@ -237,14 +256,17 @@ private fun AskBubble(turn: HomeViewModel.AskTurn) {
     }
 }
 
-/** Split an agent answer into (spoken body, list of source URLs) on a trailing "Sources:" line. */
-private fun splitSources(text: String): Pair<String, List<String>> {
-    val idx = text.indexOf("Sources:", ignoreCase = true)
-    if (idx < 0) return text to emptyList()
-    val body = text.substring(0, idx).trim()
-    val urls = text.substring(idx + "Sources:".length)
-        .split("\n").map { it.trim().removePrefix("-").trim() }.filter { it.startsWith("http") }
-    return (body.ifBlank { text }) to urls
+/** Split an agent answer into (spoken body, block label, block lines) on a Sources/EVENTS/DRAFT marker. */
+private fun splitStructured(text: String): Triple<String, String?, List<String>> {
+    val markers = listOf("Sources:", "EVENTS:", "DRAFT:")
+    val hit = markers.mapNotNull { m -> text.indexOf(m, ignoreCase = true).takeIf { it >= 0 }?.let { m to it } }
+        .minByOrNull { it.second } ?: return Triple(text, null, emptyList())
+    val (marker, idx) = hit
+    val body = text.substring(0, idx).trim().ifBlank { text }
+    val lines = text.substring(idx + marker.length)
+        .split("\n").map { it.trim().removePrefix("-").trim().removePrefix("•").trim() }
+        .filter { it.isNotBlank() }
+    return Triple(body, marker.removeSuffix(":").lowercase(), lines)
 }
 
 private fun kindIcon(kind: String): ImageVector = when (kind) {

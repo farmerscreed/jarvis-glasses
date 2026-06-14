@@ -227,7 +227,7 @@ function log(msg) {
 }
 
 // ----- server --------------------------------------------------------------
-const server = http.createServer(async (req, res) => {
+const handler = async (req, res) => {
   // CORS not needed (same-origin via adb reverse), but be lenient for local tooling.
   if (req.method === 'GET' && req.url === '/health') {
     return json(res, 200, { ok: true, service: 'jarvis-agent-bridge', version: 'M0-M4', claudeBin: CLAUDE_BIN });
@@ -319,13 +319,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   json(res, 404, { status: 'error', error: 'not found', endpoints: ['GET /health', 'POST /task', 'GET /task/:id'] });
-});
+};
 
-server.listen(PORT, HOST, () => {
-  log(`JARVIS Agent Bridge (M0) listening on http://${HOST}:${PORT}`);
-  log(`  claude binary : ${CLAUDE_BIN}`);
-  log(`  default cwd   : ${DEFAULT_CWD}`);
-  log(`  default tools : ${DEFAULT_ALLOWED}`);
-  log(`  auth token    : ${TOKEN ? 'configured' : 'NONE (localhost-only; set BRIDGE_TOKEN in agent-bridge/.env)'}`);
-  log(`  phone bridge  : adb reverse tcp:${PORT} tcp:${PORT}`);
+// Bind 127.0.0.1 (dev, via `adb reverse`) AND, if set, the tunnel IP (e.g. the Tailscale tailnet IP
+// for untethered prod). Explicitly NEVER 0.0.0.0 — only loopback + the private tailnet are exposed,
+// and the bearer token still guards every /task. Each host gets its own Server sharing one handler.
+const hosts = Array.from(new Set(['127.0.0.1', ...(HOST && HOST !== '127.0.0.1' && HOST !== '0.0.0.0' ? [HOST] : [])]));
+if (HOST === '0.0.0.0') log('WARNING: BRIDGE_HOST=0.0.0.0 ignored (refusing all-interface bind); using 127.0.0.1 + tunnel IP only');
+log(`JARVIS Agent Bridge (M0-M4)`);
+log(`  claude binary : ${CLAUDE_BIN}`);
+log(`  default cwd   : ${DEFAULT_CWD}`);
+log(`  default tools : ${DEFAULT_ALLOWED}`);
+log(`  auth token    : ${TOKEN ? 'configured' : 'NONE (set BRIDGE_TOKEN in agent-bridge/.env)'}`);
+log(`  dev bridge    : adb reverse tcp:${PORT} tcp:${PORT}`);
+hosts.forEach((h) => {
+  http.createServer(handler).listen(PORT, h, () => log(`  listening on  : http://${h}:${PORT}`));
 });

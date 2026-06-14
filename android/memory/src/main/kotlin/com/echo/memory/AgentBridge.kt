@@ -205,6 +205,8 @@ class AgentBridge(
             and primary calendar unless they say otherwise.
             Reply in a natural SPOKEN style (no markdown, no URLs): summarize the relevant events with
             their times, concisely. If there are none, say the calendar is clear for that period.
+            THEN, if there are events, output a line "EVENTS:" and list each relevant event on its own
+            line as "time — title" (e.g. "9:00 AM — Standup"). Omit the EVENTS block if there are none.
         """.trimIndent()
 
         /** Calendar add preset (M3). Runs only after a spoken confirm; creates, never edits/deletes. */
@@ -228,6 +230,7 @@ class AgentBridge(
             After saving the draft, reply in a natural SPOKEN style (1 to 3 sentences, no markdown):
             confirm you drafted it, to whom, and the subject, and tell the director it's waiting in
             their Gmail drafts to review and send.
+            THEN output a line "DRAFT:" followed by "To: <recipient>" and "Subject: <subject>".
         """.trimIndent()
 
         /** Email read preset (M3). Read-only inbox summary — never drafts or sends. */

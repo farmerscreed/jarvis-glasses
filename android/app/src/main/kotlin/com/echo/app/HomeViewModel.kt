@@ -921,9 +921,13 @@ class HomeViewModel @Inject constructor(
         return words.size == 1 && words[0] in setOf("stop", "cancel", "quit", "exit", "done")
     }
 
-    /** The part of an agent answer meant to be spoken aloud (drop a trailing "Sources:" block). */
-    private fun spokenPart(text: String): String =
-        text.substringBefore("\nSources:").substringBefore("Sources:").trim().ifBlank { text }
+    /** The part of an agent answer meant to be spoken aloud (drop the structured Sources/EVENTS/DRAFT
+     *  blocks the cards render separately). */
+    private fun spokenPart(text: String): String {
+        var t = text
+        listOf("\nSources:", "Sources:", "\nEVENTS:", "EVENTS:", "\nDRAFT:", "DRAFT:").forEach { t = t.substringBefore(it) }
+        return t.trim().ifBlank { text }
+    }
 
     /**
      * Record + transcribe one short utterance (for confirmations). Returns "" when nothing
