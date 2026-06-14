@@ -550,12 +550,22 @@ class HomeViewModel @Inject constructor(
             }
 
             // M3 — draft an email (DRAFT ONLY; the Gmail MCP has no send tool, so this is safe).
-            if (agent.isConfigured && isEmailCommand(heard)) {
+            if (agent.isConfigured && isEmailDraft(heard)) {
                 status = "Drafting your email…"
                 tts.speak("I'll draft that for you.")
                 val res = agent.emailDraft(heard)
                 answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
                 status = if (res.ok) "Draft saved to Gmail" else "Couldn't draft it"
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+
+            // M3 — read/check the inbox (read-only summary; "check my email" etc.).
+            if (agent.isConfigured && isEmailRead(heard)) {
+                status = "Checking your inbox…"
+                val res = agent.emailRead(heard)
+                answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
+                status = if (res.ok) "Checked your inbox" else "Couldn't check your inbox"
                 if (!continuous) break
                 status = "Listening…"; continue
             }
@@ -731,14 +741,24 @@ class HomeViewModel @Inject constructor(
     )
     private fun isCalendarQuery(s: String) = calQueryRe.containsMatchIn(s)
 
-    // M3 email — an email keyword ("email/gmail/inbox/my mail"), or a mail verb near a message noun
-    // ("look at my mail", "check my inbox", "draft/send/reply … message/mail").
-    private val emailRe = Regex(
-        "\\b(e-?mail|gmail|inbox)\\b|\\bmy mail\\b|" +
-            "\\b(draft|write|send|compose|reply|respond|check|read|look at)\\b.{0,30}\\b(mail|message|note)\\b",
+    // M3 email — DRAFT a new message: a compose verb near a mail noun ("draft an email to X",
+    // "send a message to Y", "reply to her email"). Draft-only (the Gmail MCP can't send).
+    private val emailDraftRe = Regex(
+        "\\b(draft|compose|write|send|reply( to)?|respond to|forward)\\b.{0,30}\\b(e-?mail|mail|message|note)\\b|" +
+            "\\b(draft|compose|write) (an?|the|my) (e-?mail|message|note)\\b",
         RegexOption.IGNORE_CASE,
     )
-    private fun isEmailCommand(s: String) = emailRe.containsMatchIn(s)
+    private fun isEmailDraft(s: String) = emailDraftRe.containsMatchIn(s)
+
+    // M3 email — READ/check the inbox (read-only summary): "check my email", "look at my mail",
+    // "any new mail", "my inbox", "gmail". Distinct from draft (no compose verb).
+    private val emailReadRe = Regex(
+        "\\b(check|read|look at|go through|review|open|show me|see|any|do i have|what'?s in)\\b" +
+            ".{0,20}\\b(e-?mail|mail|inbox|messages?)\\b|" +
+            "\\bmy (inbox|mail|e-?mail)\\b|\\b(new|unread) (e-?mail|mail|messages?)\\b|\\bgmail\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isEmailRead(s: String) = emailReadRe.containsMatchIn(s)
 
     private fun isClosing(s: String): Boolean {
         // Strip punctuation/case (Gemini returns "Thanks, Jarvis." / "Alright, thank you. Bye.").

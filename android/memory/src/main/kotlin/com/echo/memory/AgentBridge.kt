@@ -95,6 +95,14 @@ class AgentBridge(
         timeoutMs = 150_000,
     )
 
+    /** M3 — read/summarize the inbox (read-only; no drafting). For "check my email" / "any new mail". */
+    suspend fun emailRead(query: String): AgentResult = task(
+        prompt = query,
+        allowedTools = GMAIL_READ,
+        appendSystemPrompt = EMAIL_READ_PRESET,
+        timeoutMs = 120_000,
+    )
+
     /** Low-level: POST a task to the bridge and normalize the result. Never throws — returns ok=false. */
     suspend fun task(
         prompt: String,
@@ -145,6 +153,9 @@ class AgentBridge(
         // Draft-only: create_draft + read tools for context. The Gmail MCP has NO send tool by design.
         const val GMAIL_DRAFT =
             "${GMAIL}__create_draft,${GMAIL}__list_drafts,${GMAIL}__search_threads,${GMAIL}__get_thread,${GMAIL}__list_labels"
+        // Read-only: search/read threads + drafts/labels, NO create_draft — for "check my email".
+        const val GMAIL_READ =
+            "${GMAIL}__search_threads,${GMAIL}__get_thread,${GMAIL}__list_drafts,${GMAIL}__list_labels"
 
         // ---- disallowedTools (defense-in-depth for the Bash-enabled lanes) ------------------------
         const val CODE_DENY = "Bash(git push:*),Bash(git commit:*),Bash(rm:*),Bash(git reset:*),Bash(sudo:*)"
@@ -217,6 +228,16 @@ class AgentBridge(
             After saving the draft, reply in a natural SPOKEN style (1 to 3 sentences, no markdown):
             confirm you drafted it, to whom, and the subject, and tell the director it's waiting in
             their Gmail drafts to review and send.
+        """.trimIndent()
+
+        /** Email read preset (M3). Read-only inbox summary — never drafts or sends. */
+        val EMAIL_READ_PRESET = """
+            You are JARVIS's email assistant, acting for the director. Use the Gmail tools to READ and
+            summarize the director's recent/relevant emails and answer their question (e.g. what's new
+            or unread, or mail from a given person). Do NOT draft, send, or modify anything.
+            Reply in a natural SPOKEN style (no markdown, no URLs): a concise summary, newest first —
+            who it's from and the gist/subject, and roughly how many. If nothing is relevant, say the
+            inbox looks clear.
         """.trimIndent()
     }
 }
