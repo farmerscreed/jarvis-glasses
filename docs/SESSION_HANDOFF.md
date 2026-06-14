@@ -20,8 +20,8 @@ device protocol) · `docs/recon/Device_Recon_Record.md` (hardware facts).
 **Newer (2026-06-14):** `docs/AGENT_DELEGATION.md` (M0–M4) · `docs/SESSION_LOG_2026-06-14.md` (latest
 session) · `docs/SETUP_TUNNEL_AND_FCM.md` (director setup: untethered agent lanes + push) ·
 `docs/ONDEVICE_BRAIN.md` (on-device "Brain 0" brief + spike) · `docs/UI_INTEGRATION_PLAN.md` (homing
-new features in the Stitch design — Device screen + Research filter DONE; "Ask JARVIS" deliberate-lane
-surface next).
+new features in the Stitch design — Device screen + Research filter + Ask-JARVIS deliberate-lane surface
++ gallery-photo chat DONE) · `docs/USER_GUIDE.md` (how to use every feature; mirrors the in-app Help).
 
 ---
 

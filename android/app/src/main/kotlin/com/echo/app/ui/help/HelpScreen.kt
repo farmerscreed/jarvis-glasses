@@ -145,7 +145,9 @@ private fun HubPage(onPick: (HelpTab) -> Unit) {
                     Text("How JARVIS Works", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
                     Text(
                         "Your glasses are the eyes and ears; the phone is the brain. Capture a photo or " +
-                            "speak, and JARVIS remembers it, then answers from your own memory — even offline.",
+                            "speak, and JARVIS remembers it, then answers from your own memory — even offline. " +
+                            "Ask JARVIS (the ✨ on the Live screen) to research, manage your email & calendar, " +
+                            "and discuss your photos.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -256,9 +258,12 @@ private fun GesturesPage() {
 private fun TutorialsPage() {
     val tutorials = listOf(
         Triple("Ask your memory", listOf("Tap the mic or say “Jarvis”", "Ask a question", "Hear the answer from your memories"), "Works offline too — JARVIS searches on-device when there's no signal."),
-        Triple("Look & Ask", listOf("Double-click the BACK button", "JARVIS captures the frame", "It describes what you're seeing"), "Great for “what is this?” moments."),
+        Triple("Look & Ask", listOf("Say “what am I looking at?”, or double-click BACK", "JARVIS captures the frame", "It describes what you're seeing, out loud"), "Great for “what is this?” moments — works mid-conversation."),
         Triple("Capture a memory", listOf("Single-click the FRONT button", "The photo syncs automatically", "It's captioned into your timeline"), "Find it later in Timeline and Gallery."),
         Triple("Voice notes", listOf("Hold the BACK button to record", "Click BACK to stop", "It's transcribed into a note"), "Meeting capture, hands-free."),
+        Triple("Ask JARVIS (get things done)", listOf("Tap ✨ on the Live screen (or type / speak)", "Ask it to research, check your calendar, or draft an email", "Read the answer card — research shows its sources"), "The deliberate lane: patient, tool-using, reviewable. (Needs the agent set up.)"),
+        Triple("Drill down on a photo", listOf("Open a photo in Gallery", "Tap “Ask about this photo”", "Ask “how many…?” or “read the text”, by text or mic"), "JARVIS re-examines that exact photo to answer follow-ups."),
+        Triple("Check your glasses", listOf("Open Settings → Glasses & device", "See battery %, connection, and the buttons map", "Tap “Fix connection” if the link drops"), "Battery also shows on the Live screen."),
     )
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = JarvisSpacing.lg),
@@ -299,8 +304,19 @@ private fun TutorialsPage() {
 private fun CommandsPage() {
     val groups = listOf(
         "The basics" to listOf("“Jarvis, what's on my schedule?”", "“Where did I park?”", "“What did I note earlier?”"),
-        "Memory" to listOf("“What did Sam say about the budget?”", "“When did I last see my keys?”", "“Find that restaurant we talked about.”"),
-        "Vision (Look & Ask)" to listOf("“What am I looking at?”", "“Describe this for me.”"),
+        "Memory" to listOf("“What did Sam say about the budget?”", "“When did I last see my keys?”", "“Find that restaurant we talked about.”", "“Remember that I parked on level 3.”"),
+        "Vision (Look & Ask)" to listOf("“What am I looking at?”", "“Describe this for me.”", "“Read this for me.”"),
+        "Get things done (Ask JARVIS)" to listOf(
+            "“Jarvis, research the best budget headphones.”",
+            "“What's on my calendar this week?”",
+            "“Add lunch to my calendar tomorrow at noon.”  (it confirms first)",
+            "“Draft an email to Sam about Friday.”",
+            "“Check my email.”",
+        ),
+        "Discuss a photo" to listOf(
+            "Open a photo → “Ask about this photo”",
+            "“How many are there?”   “Read the text.”   “What colour is it?”",
+        ),
     )
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = JarvisSpacing.lg),
