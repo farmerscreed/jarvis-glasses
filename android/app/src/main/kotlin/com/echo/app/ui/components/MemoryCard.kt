@@ -47,6 +47,7 @@ fun MemoryCard(
     isVoiceNote: Boolean = false,
     tags: List<String> = emptyList(),
     syncState: MemorySyncState = MemorySyncState.Synced,
+    maxLines: Int = 4, // callers pass Int.MAX_VALUE to show the full text (e.g. tap-to-expand)
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -100,7 +101,7 @@ fun MemoryCard(
                         if (isVoiceNote) it.copy(fontStyle = FontStyle.Italic) else it
                     },
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 4,
+                    maxLines = maxLines,
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (tags.isNotEmpty()) {

@@ -515,31 +515,6 @@ class HomeViewModel @Inject constructor(
                 continue
             }
 
-            // Deliberate lane (Agent Delegation M1): "Jarvis, research…" delegates to Claude Code on
-            // the PC via the Agent Bridge, speaks a sourced summary, and saves it to the memory index.
-            // Only when the bridge is configured (dev build); prod falls through to a normal chat answer.
-            if (agent.isConfigured && isResearchCommand(heard)) {
-                val topic = researchTopic(heard)
-                status = "Researching…"
-                tts.speak("On it — researching that now. This might take a moment.")
-                val res = agent.research(topic)
-                // The preset answers in a spoken style then lists "Sources:" — speak the spoken part,
-                // but keep the full text (with sources) on screen and in memory.
-                answer = res.text
-                transcript.add(TurnLine(fromUser = false, text = res.text))
-                status = if (res.ok) "Researched · ${res.durationMs / 1000}s" else "Research failed"
-                tts.speak(spokenPart(res.text))
-                // Persist successful research into the memory index so it's recalled later.
-                if (res.ok) runCatching {
-                    store.remember(
-                        Memory(type = MemoryType.NOTE, text = "Research — $topic:\n${res.text}", tags = listOf("research")),
-                    )
-                }
-                if (!continuous) { status = "Done"; break }
-                status = "Listening…"
-                continue
-            }
-
             // M2 — commit (gated): confirm by voice, then one local commit, never a push.
             if (agent.isConfigured && isCommitCommand(heard)) {
                 if (awaitConfirmation("I'll commit the current changes locally, without pushing. Go ahead?")) {
@@ -583,6 +558,30 @@ class HomeViewModel @Inject constructor(
                 status = if (res.ok) "Draft saved to Gmail" else "Couldn't draft it"
                 if (!continuous) break
                 status = "Listening…"; continue
+            }
+
+            // M1 — research (checked after calendar/email so "look up my calendar" routes to calendar):
+            // delegate to Claude Code, speak a sourced summary, and save the full text to the memory index.
+            if (agent.isConfigured && isResearchCommand(heard)) {
+                val topic = researchTopic(heard)
+                status = "Researching…"
+                tts.speak("On it — researching that now. This might take a moment.")
+                val res = agent.research(topic)
+                // The preset answers in a spoken style then lists "Sources:" — speak the spoken part,
+                // but keep the full text (with sources) on screen and in memory.
+                answer = res.text
+                transcript.add(TurnLine(fromUser = false, text = res.text))
+                status = if (res.ok) "Researched · ${res.durationMs / 1000}s" else "Research failed"
+                tts.speak(spokenPart(res.text))
+                // Persist successful research into the memory index (tag "research") for later viewing.
+                if (res.ok) runCatching {
+                    store.remember(
+                        Memory(type = MemoryType.NOTE, text = "Research — $topic:\n${res.text}", tags = listOf("research")),
+                    )
+                }
+                if (!continuous) { status = "Done"; break }
+                status = "Listening…"
+                continue
             }
 
             // M2 — coding (broadest agent intent → checked last). Edits the repo for review; no commit.
@@ -681,29 +680,23 @@ class HomeViewModel @Inject constructor(
     // Voice-controlled glasses (v2.1 first skill): commands that mean "use the camera + tell me".
     private val visionRe = Regex(
         "(what am i looking at|what'?s (this|that|in front)|what do you see|look at (this|that)|" +
-            "take a (photo|picture|pic|snap|shot)|describe (this|that|what)|can you see|" +
-            "what is (this|that)|read (this|that))",
+            "take a (photo|picture|pic|snap|shot)|describe (this|that)|can you see (this|that)|" +
+            "what is (this|that)|read (this|that)|what am i (holding|seeing))",
         RegexOption.IGNORE_CASE,
     )
     private fun isVisionCommand(s: String) = visionRe.containsMatchIn(s)
 
-    // Deliberate lane (Agent Delegation M1): "research…/look into…/find out…" delegates to Claude
-    // Code on the PC. Anchored at the start (after an optional "please"/"jarvis,"/"can you") so a
-    // normal question that merely contains "look" doesn't trigger a minute-long research run.
+    // M1 research — any "research / look into / find out / look up / search for …" anywhere (natural
+    // speech: "I needed to research on X", "can you find out the price of Y"). Checked AFTER calendar/
+    // email (below) so "look up my calendar" routes to calendar, not a web search.
     private val researchRe = Regex(
-        "^\\s*(please\\s+)?(jarvis[,!.]?\\s+)?(can you\\s+|could you\\s+|go\\s+|please\\s+)?" +
-            "(research|look into|look up|find out|investigate|dig into|do\\s+(some\\s+)?research(\\s+on)?)\\b",
+        "\\bresearch\\b|\\b(look into|look up|find out|find me|search (for|up)|dig (up|into)|investigate|google)\\b",
         RegexOption.IGNORE_CASE,
     )
     private fun isResearchCommand(s: String) = researchRe.containsMatchIn(s)
-
-    /** Strip the leading research trigger to get the actual topic; fall back to the whole utterance. */
-    private fun researchTopic(s: String): String {
-        val stripped = researchRe.replace(s, "").trim()
-            .removePrefix("about ").removePrefix("on ").removePrefix("into ").removePrefix("regarding ")
-            .trim()
-        return stripped.ifBlank { s.trim() }
-    }
+    /** Topic to research: the whole (lightly cleaned) utterance — the research agent extracts the gist. */
+    private fun researchTopic(s: String): String =
+        s.trim().replace(Regex("^\\s*(hey\\s+)?jarvis[,!.]?\\s+", RegexOption.IGNORE_CASE), "").trim().ifBlank { s.trim() }
 
     // M2 coding — broad verb + an explicit code-y noun (kept specific so normal chat doesn't edit files).
     private val codingRe = Regex(
@@ -727,21 +720,22 @@ class HomeViewModel @Inject constructor(
     )
     private fun isCalendarAdd(s: String) = calAddRe.containsMatchIn(s)
 
-    // M3 calendar query — must clearly be ABOUT the schedule, not just mention a meeting in passing
-    // (a bare "meeting"/"schedule" used to hijack normal conversation). Requires either "my
-    // calendar/schedule/agenda" or a scheduling QUESTION ("what/when/do I have … meeting/appointment/
-    // scheduled/on my calendar").
+    // M3 calendar query — about the schedule. "calendar"/"agenda" rarely appear except about the
+    // calendar, so match them directly; plus "my schedule"/"scheduled" and scheduling questions about
+    // meetings/appointments. (A bare "meeting" in passing still won't trip it.)
     private val calQueryRe = Regex(
-        "\\bmy (calendar|schedule|agenda)\\b|" +
+        "\\b(calendar|agenda)\\b|\\bmy schedule\\b|\\bscheduled\\b|" +
             "\\b(what'?s|what is|what do i have|do i have|when'?s|when is|anything|any)\\b" +
-            ".{0,40}\\b(on (my )?(calendar|schedule|agenda)|scheduled|meetings?|appointments?)\\b",
+            ".{0,40}\\b(meetings?|appointments?)\\b",
         RegexOption.IGNORE_CASE,
     )
     private fun isCalendarQuery(s: String) = calQueryRe.containsMatchIn(s)
 
-    // M3 email — an email keyword, or a "draft/write/send/reply" verb near a message noun.
+    // M3 email — an email keyword ("email/gmail/inbox/my mail"), or a mail verb near a message noun
+    // ("look at my mail", "check my inbox", "draft/send/reply … message/mail").
     private val emailRe = Regex(
-        "\\b(e-?mail|gmail)\\b|\\b(draft|write|send|reply to|respond to)\\b.*\\b(message|mail|note)\\b",
+        "\\b(e-?mail|gmail|inbox)\\b|\\bmy mail\\b|" +
+            "\\b(draft|write|send|compose|reply|respond|check|read|look at)\\b.{0,30}\\b(mail|message|note)\\b",
         RegexOption.IGNORE_CASE,
     )
     private fun isEmailCommand(s: String) = emailRe.containsMatchIn(s)

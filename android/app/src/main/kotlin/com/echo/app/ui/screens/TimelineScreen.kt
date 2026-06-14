@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.clickable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -156,6 +157,9 @@ fun TimelineScreen(vm: HomeViewModel) {
 private fun TimelineCard(m: Memory) {
     val localPath = m.metadata["localMediaPath"]
     val image = rememberLocalImage(localPath, targetPx = 256)
+    // Tap to expand: long memories (esp. research, with their Sources) are truncated to 4 lines until
+    // tapped, then show in full so the director can read the whole thing.
+    var expanded by rememberSaveable(m.id ?: m.text) { mutableStateOf(false) }
     MemoryCard(
         text = m.text.orEmpty(),
         timestamp = m.createdAt?.let { TIME_FMT.format(it) } ?: "—",
@@ -164,5 +168,7 @@ private fun TimelineCard(m: Memory) {
         tags = m.tags.filterNot { it.startsWith("needs_") },
         // Rows straight from the server (recall hits) have no syncState metadata — they're synced.
         syncState = if (m.metadata["syncState"] in listOf(null, "SYNCED")) MemorySyncState.Synced else MemorySyncState.OnPhone,
+        maxLines = if (expanded) Int.MAX_VALUE else 4,
+        modifier = Modifier.clickable { expanded = !expanded },
     )
 }
