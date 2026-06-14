@@ -178,6 +178,15 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
   To force a clean re-login without wiping permissions: `adb shell run-as com.echo.companion rm -f
   shared_prefs/echo-session.xml` (NOT `pm clear`). Distinct from the public `/auth/v1/health` ping the
   governor uses for `online` — that has no JWT, so the app can read "online" yet still 401 on chat.
+- **The LOCAL DB drifts behind the migration files** (migrations were deployed to *prod* but the
+  local stack predates them). On 2026-06-14 the local DB was missing `rate_limits`, `profile`, and
+  `agent_tasks` → `check_rate_limit` errored on every call and **the `profile` table was absent, so the
+  SOUL/character was "missing" on dev** (Settings→"JARVIS's memory" empty). Applied them manually via
+  `docker exec -i supabase_db_jarvis psql -U postgres -d postgres < supabase/migrations/<file>.sql` +
+  `NOTIFY pgrst, 'reload schema';`, and **seeded the dev user's `profile.soul` from `docs/assistant/
+  SOUL.md`** (dev user `tester@local.dev` = `eb23a08e-c6b1-48e0-aba5-2270ac552f36`). Note these manual
+  applies aren't recorded in `schema_migrations`, and `profile.sql`'s `create policy` is not idempotent
+  (a `supabase migration up`/`db reset` would re-run/clash) — re-seed after any reset.
 - **`supabase functions serve` must be running for chat/vision/recall** — it does NOT survive across
   sessions. If `curl http://127.0.0.1:54421/functions/v1/chat-stream` times out (HTTP 000), it's down;
   start it (`supabase functions serve --env-file supabase\functions\.env --workdir $w`). A 401 means
