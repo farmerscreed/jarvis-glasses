@@ -80,7 +80,69 @@ A tiny **spike**, not a commitment: drop Gemma 3 1B (Q4) behind a feature flag v
 tokens/s, RAM, battery, and answer quality on a fixed set of simple prompts. Decide from real numbers
 whether to extend it to routing (b/c). No engine changes until the spike's numbers are in.
 
-**Status:** brainstorm/research only (2026-06-14). No build started; awaiting director direction.
+## 9. Director direction + refined router (2026-06-14)
+**Director's call:** Brain 0 is a **router**; the on-device LLM is used for (a) routing, (b) **offline /
+no-network** scenarios, and (c) **mundane/simple** questions. **Priority order: LATENCY first, then
+COST, then other factors.**
+
+That priority order has sharp design consequences:
+
+1. **The router must be ~instant — so it is NOT an LLM call.** If we used the small model to *classify*
+   difficulty, that classification is itself latency (load + inference) on every turn — the opposite of
+   the goal. So **rank difficulty with a cheap heuristic** (microseconds) computed from signals we
+   already have, and only *run* the on-device LLM once we've decided to answer locally.
+   - **Difficulty/route signals (instant):** intent type (we already detect command vs Q&A vs chit-chat);
+     utterance length; factual/temporal markers ("today", "latest", "price", "who/when/how many");
+     whether a memory-recall hit is high-confidence (answer is in *our* data); personal-vs-world; and
+     **network availability**.
+
+2. **Difficulty ≠ safety — rank on BOTH.** "Simple/mundane" is not the same as "safe to answer
+   on-device." "What's the population of X?" is *simple* but a 1B model will **confidently hallucinate**
+   it (truth-charter violation). So the router scores **difficulty AND factual-risk**: on-device only
+   takes a turn when it's **(offline) OR (non-factual: chit-chat, rewrite/summarize given text, a
+   command) OR (grounded: the answer is in our memory/profile)**. Anything world-factual goes to the
+   cloud even if "easy" — unless we're offline (then best-effort + clearly flagged).
+
+3. **Latency reality (worth measuring, not assuming):** on-device skips the network RTT (~0.3–1 s) but a
+   1B model generates slower per token. So **on-device wins on SHORT answers and offline; cloud
+   streaming wins on longer/complex** (fast first word, then streams). Route by difficulty *and expected
+   length*. Also: a **cold model load is seconds** — to get the latency win we must keep the on-device
+   model **warm/resident** (a RAM cost), or accept lazy-load latency on the first use.
+
+4. **Cost lever (2nd priority) rides along:** on-device = free, so routing simple→local cuts cost too
+   (aligned with latency). And when we *must* hit the cloud, the router can pick the **model tier by
+   difficulty** — Haiku (cheap/fast) for simple-needs-network, Sonnet for moderate, rare Opus for hard
+   — which is itself a latency+cost win and uses our existing tiered-models decision.
+
+**Proposed router (latency-first):**
+```
+on each turn (after STT):
+  if command intent (remember/vision/calendar/email/research/coding) -> existing handler / Brain 2
+  else compute {difficulty, factualRisk, hasMemoryHit, online} instantly
+  if !online            -> Brain 0 (on-device, best-effort, flagged "offline")
+  else if factualRisk    -> Brain 1 cloud (model tier by difficulty), streaming
+  else if simple && (chit-chat || hasMemoryHit) -> Brain 0 (fast, free)
+  else                   -> Brain 1 cloud, streaming
+```
+
+**Reality check on the latency win:** today's biggest latency costs are STT (already on-device ~0.4 s) +
+network + endpointing, and the cloud path already **streams** (quick first word). So Brain 0's latency
+gain is **targeted**: trivial turns, offline, and avoiding a wasted cloud round-trip for things we can
+answer from our own data. Real but not universal — which is why the next step is **measurement, not a
+big build.**
+
+**Next step (proposed): a flagged spike, measure on the Pixel 8 —** Gemma 3 1B (Q4) via LiteRT-LM, kept
+warm, wired first as the **offline answerer + a grounded "answer from memory" responder**; measure
+cold-load, warm tokens/s, time-to-first-word for short answers, RAM, battery, and the **latency
+crossover** vs cloud streaming by answer length. Those numbers decide whether/how far to extend the
+router. No engine changes until the spike's numbers are in.
+
+**Open for you:** (1) keep the on-device model **warm/resident** for the latency win (accept the RAM),
+or lazy-load? (2) for *world-factual but simple* questions while **online**, always prefer cloud
+(safe), yes? (3) do the spike now, or after the tunnel + FCM land?
+
+**Status:** brainstorm/research only (2026-06-14); director direction captured (router; latency>cost).
+No build started; next is a measured spike on director's go-ahead.
 
 ## Sources
 - [MediaPipe / LiteRT LLM Inference guide (Android)](https://ai.google.dev/edge/mediapipe/solutions/genai/llm_inference/android)
