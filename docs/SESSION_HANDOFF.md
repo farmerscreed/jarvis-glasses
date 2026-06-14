@@ -168,6 +168,20 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 - **Provider keys** live only in `supabase/functions/.env` (gitignored). If functions 500 on AI
   calls, the env file / keys are the first suspect. Past quota dodges: OpenAI→Gemini, Gemini
   2.0-flash STT→2.5-flash.
+- **Stale session token after a local-stack recreation breaks EVERYTHING silently.** The dev app
+  persists the Supabase session (`shared_prefs/echo-session.xml`); local Supabase signs JWTs with
+  **asymmetric (ES256) keys**. If the local stack is recreated (new keys), the persisted token no
+  longer verifies → every Edge Function call 401s with `JWKSNoMatchingKey` (seen in `functions serve`
+  logs) → chat goes off-grid / `vision=FAILED`, looking like "nothing works." **Fix: sign out + sign
+  in again** (fresh token; verified `chat-stream` then returns 200). The app now detects this
+  (`run()` catches 401/JWKS, drops the session, says "sign in again") instead of failing cryptically.
+  To force a clean re-login without wiping permissions: `adb shell run-as com.echo.companion rm -f
+  shared_prefs/echo-session.xml` (NOT `pm clear`). Distinct from the public `/auth/v1/health` ping the
+  governor uses for `online` — that has no JWT, so the app can read "online" yet still 401 on chat.
+- **`supabase functions serve` must be running for chat/vision/recall** — it does NOT survive across
+  sessions. If `curl http://127.0.0.1:54421/functions/v1/chat-stream` times out (HTTP 000), it's down;
+  start it (`supabase functions serve --env-file supabase\functions\.env --workdir $w`). A 401 means
+  it's up (awaiting a user JWT).
 - **CRLF warnings** on `git commit` are normal (Windows line endings) — ignore.
 - **PowerShell:** no heredoc; for multi-line commit messages write the message to a temp file and
   `git commit -F <file>` (double-quotes in `-m` break it).
