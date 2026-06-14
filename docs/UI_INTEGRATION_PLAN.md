@@ -23,6 +23,14 @@ That's the gap: the design has richer, purpose-built surfaces for exactly these 
 | **Async tasks + push** (M4, when FCM lands) | `notification_system_showcase`, `captures_in_progress_sync` | n/a | **Task/notification** surfacing: "researching…", "done" push, a task list |
 | **OCR / translation / meeting** (future skills) | `ocr_read_it_to_me`, `live_translation_console`, `meeting_strategy_sync` | n/a | Build alongside each skill when it lands |
 
+> ✅ **UI-2 v1 BUILT (2026-06-14):** `AskJarvisScreen.kt` — a deliberate-lane surface reached from the
+> Live console (the ✨ button, not a 5th tab). Text input dispatches to the agent lanes
+> (research/calendar/email/coding) via `HomeViewModel.askJarvis()`, renders a reviewable **thread of
+> result cards** (by kind), pins the **latest photo as context**, and **confirms-before-act** for
+> calendar-add + commit (on-screen dialog mirroring the spoken gate). Off-agent text falls back to chat.
+> Built dev+prod; **install/on-device verify pending** (phone disconnected). Next: richer per-kind
+> cards (research Sources disclosure, calendar list, email draft preview) + optional voice input here.
+
 ## 2. The headline: an "Ask JARVIS" deliberate-lane surface
 `ask_jarvis_multimodal_conversation` is purpose-built for everything we just shipped on the heavy lane.
 What the design shows and how it maps:

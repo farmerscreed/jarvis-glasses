@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Sync
@@ -71,7 +72,7 @@ private fun orbStateOf(vm: HomeViewModel): OrbState = when {
  */
 @OptIn(ExperimentalLayoutApi::class) // FlowRow
 @Composable
-fun LiveConsoleScreen(vm: HomeViewModel) {
+fun LiveConsoleScreen(vm: HomeViewModel, onOpenAsk: () -> Unit = {}) {
     if (!vm.loggedIn) {
         SignInPane(vm)
         return
@@ -296,6 +297,13 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
                     icon = Icons.Outlined.Keyboard,
                     contentDescription = "type instead",
                     onClick = { typeMode = true },
+                )
+                // Deliberate lane (UI-2): the "Ask JARVIS" surface — research/calendar/email/coding,
+                // reviewable, with a pinned photo. The patient lane vs the fast voice loop.
+                RoundIconButton(
+                    icon = Icons.Outlined.AutoAwesome,
+                    contentDescription = "Ask JARVIS (deliberate lane)",
+                    onClick = onOpenAsk,
                 )
             }
             if (vm.inConversation) {

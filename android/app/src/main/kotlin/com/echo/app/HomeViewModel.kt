@@ -387,6 +387,78 @@ class HomeViewModel @Inject constructor(
         status = "Ending…"
     }
 
+    // ── UI-2: "Ask JARVIS" deliberate-lane surface ───────────────────────────────────────────────
+    /** One entry in the deliberate-lane thread. [kind] = user | research | calendar | email | coding |
+     *  chat | error, so the screen can render result cards by type. */
+    data class AskTurn(val fromUser: Boolean, val text: String, val kind: String = "chat")
+
+    /** The deliberate-lane (Ask JARVIS) thread — reviewable agent results, separate from the fast loop. */
+    val askThread = mutableStateListOf<AskTurn>()
+
+    /** A pending confirm-before-act prompt for the Ask screen (calendar-add / commit); null = none. */
+    var askConfirmPrompt by mutableStateOf<String?>(null); private set
+    private var askConfirmAction: (suspend () -> Unit)? = null
+
+    private fun kindOf(res: com.echo.memory.AgentResult, ok: String) = if (res.ok) ok else "error"
+
+    /**
+     * Submit a deliberate-lane request by TEXT (the Ask JARVIS surface). Routes to the agent lanes the
+     * same way the voice loop does — but outward/irreversible actions (calendar-add, commit) ask for an
+     * on-screen confirm first (the screen's equivalent of the spoken gate). Read-only/draft/coding lanes
+     * run directly; otherwise falls back to a normal chat answer. Agent lanes need `agent.isConfigured`
+     * (dev or a configured prod tunnel); else everything routes to chat.
+     */
+    fun askJarvis(text: String) {
+        val q = text.trim()
+        if (q.isBlank()) return
+        askThread.add(AskTurn(fromUser = true, text = q, kind = "user"))
+        // Confirm-gated (outward / hard to undo) — prompt first, no work yet.
+        if (agent.isConfigured && isCommitCommand(q)) {
+            askConfirmPrompt = "Commit the current code changes locally (no push)?"
+            askConfirmAction = { val r = agent.commitChanges(); askThread.add(AskTurn(false, r.text, kindOf(r, "coding"))) }
+            return
+        }
+        if (agent.isConfigured && isCalendarAdd(q)) {
+            askConfirmPrompt = "Add this to your calendar?"
+            askConfirmAction = { val r = agent.calendarAdd(q); askThread.add(AskTurn(false, r.text, kindOf(r, "calendar"))) }
+            return
+        }
+        run("Working…") {
+            when {
+                agent.isConfigured && isCalendarQuery(q) -> agent.calendarQuery(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "calendar"))) }
+                agent.isConfigured && isEmailDraft(q) -> agent.emailDraft(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "email"))) }
+                agent.isConfigured && isEmailRead(q) -> agent.emailRead(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "email"))) }
+                agent.isConfigured && isResearchCommand(q) -> {
+                    val topic = researchTopic(q)
+                    val r = agent.research(topic)
+                    askThread.add(AskTurn(false, r.text, kindOf(r, "research")))
+                    if (r.ok) runCatching {
+                        store.remember(Memory(type = MemoryType.NOTE, text = "Research — $topic:\n${r.text}", tags = listOf("research")))
+                    }
+                }
+                agent.isConfigured && isCodingCommand(q) -> agent.coding(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "coding"))) }
+                online -> backend.chat(q).let { askThread.add(AskTurn(false, it.answer, "chat")) }
+                else -> askThread.add(AskTurn(false, "I'm off-grid right now — reconnect and I can research, check your calendar, or answer online.", "error"))
+            }
+            status = "Done"
+        }
+    }
+
+    /** Proceed with a confirm-gated Ask action (calendar-add / commit). */
+    fun confirmAsk() {
+        val action = askConfirmAction
+        askConfirmPrompt = null
+        askConfirmAction = null
+        if (action != null) run("Working…") { action(); status = "Done" }
+    }
+
+    /** Decline a confirm-gated Ask action. */
+    fun dismissAskConfirm() {
+        askConfirmPrompt = null
+        askConfirmAction = null
+        askThread.add(AskTurn(false, "Okay — I won't do that.", "chat"))
+    }
+
     /** Single message (e.g. the glasses button): one turn, no follow-up listening. */
     private suspend fun doTalk() = converse(continuous = false)
 

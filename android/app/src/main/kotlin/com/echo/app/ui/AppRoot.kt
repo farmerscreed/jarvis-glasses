@@ -27,6 +27,7 @@ import com.echo.app.ui.dev.DevConsoleScreen
 import com.echo.app.ui.help.HelpScreen
 import com.echo.app.ui.onboarding.OnboardingPrefs
 import com.echo.app.ui.onboarding.OnboardingScreen
+import com.echo.app.ui.screens.AskJarvisScreen
 import com.echo.app.ui.screens.DeviceScreen
 import com.echo.app.ui.screens.GalleryScreen
 import com.echo.app.ui.screens.LiveConsoleScreen
@@ -46,6 +47,7 @@ fun AppRoot() {
     var tab by rememberSaveable { mutableStateOf(JarvisTab.Live) }
     var devConsole by rememberSaveable { mutableStateOf(false) }
     var device by rememberSaveable { mutableStateOf(false) }
+    var ask by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
 
     // Restart the background companion on app launch if the user enabled it and is signed in.
@@ -87,11 +89,12 @@ fun AppRoot() {
             when {
                 devConsole -> JarvisTopBar(title = "Dev console", wordmark = false, onNavigate = { devConsole = false }, navigateBack = true)
                 device -> JarvisTopBar(title = "Device", wordmark = false, onNavigate = { device = false }, navigateBack = true)
+                ask -> JarvisTopBar(title = "Ask JARVIS", wordmark = false, onNavigate = { ask = false }, navigateBack = true)
                 else -> JarvisTopBar(onHelp = { showHelp = true }, micActive = vm.micActive)
             }
         },
         bottomBar = {
-            if (!devConsole && !device) {
+            if (!devConsole && !device && !ask) {
                 JarvisBottomBar(current = tab, onSelect = { tab = it })
             }
         },
@@ -104,7 +107,8 @@ fun AppRoot() {
             when {
                 devConsole -> DevConsoleScreen(vm)
                 device -> DeviceScreen(vm)
-                tab == JarvisTab.Live -> LiveConsoleScreen(vm)
+                ask -> AskJarvisScreen(vm)
+                tab == JarvisTab.Live -> LiveConsoleScreen(vm, onOpenAsk = { ask = true })
                 tab == JarvisTab.Timeline -> TimelineScreen(vm)
                 tab == JarvisTab.Gallery -> GalleryScreen(vm)
                 tab == JarvisTab.Settings -> SettingsScreen(
