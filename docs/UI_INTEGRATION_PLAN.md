@@ -28,7 +28,10 @@ That's the gap: the design has richer, purpose-built surfaces for exactly these 
 > (research/calendar/email/coding) via `HomeViewModel.askJarvis()`, renders a reviewable **thread of
 > result cards** (by kind), pins the **latest photo as context**, and **confirms-before-act** for
 > calendar-add + commit (on-screen dialog mirroring the spoken gate). Off-agent text falls back to chat.
-> Built dev+prod; **install/on-device verify pending** (phone disconnected). Next: richer per-kind
+> ✅ **Device-verified (2026-06-14):** on prod (untethered), the screen renders per the design — back
+> header, PINNED CONTEXT photo card, user bubble, kind-labeled result card; a typed "say hi in three
+> words" dispatched → chat replied "Hey there, Lawrence!" (used the profile name). Agent-lane cards
+> (research/calendar/email/coding) render the same way on dev / prod-with-tunnel. Next: richer per-kind
 > cards (research Sources disclosure, calendar list, email draft preview) + optional voice input here.
 
 ## 2. The headline: an "Ask JARVIS" deliberate-lane surface
