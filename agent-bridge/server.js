@@ -50,7 +50,11 @@ loadDotEnv(path.join(__dirname, '.env'));
 
 // ----- config --------------------------------------------------------------
 const PORT = parseInt(process.env.BRIDGE_PORT || '8765', 10);
-const HOST = '127.0.0.1';
+// Bind host. Default 127.0.0.1 (localhost-only — reached via `adb reverse`). For untethered use over a
+// Tailscale tunnel, set BRIDGE_HOST to the PC's tailnet IP (100.x.y.z) so only the private tailnet can
+// reach it. A Cloudflare tunnel needs NO change (cloudflared connects to localhost). The bearer token
+// guards it either way — do NOT set 0.0.0.0 on an untrusted network. See docs/SETUP_TUNNEL_AND_FCM.md.
+const HOST = process.env.BRIDGE_HOST || '127.0.0.1';
 const TOKEN = process.env.BRIDGE_TOKEN || '';
 const REPO_ROOT = path.resolve(__dirname, '..');
 const DEFAULT_CWD = process.env.BRIDGE_DEFAULT_CWD || REPO_ROOT;

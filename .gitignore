@@ -7,6 +7,9 @@
 # ---- Agent Bridge audit log (contains task prompts/results) ----
 agent-bridge/audit.log
 
+# ---- Firebase (identifies your project; service-account stays a Supabase secret) ----
+android/app/google-services.json
+
 # ---- Android / Gradle ----
 **/build/
 .gradle/
