@@ -17,6 +17,11 @@ Space Grotesk embedded), `play_store_icon_512.png`. Adaptive launcher icon wired
 `PROJECT_STATUS.md` (feature status) · `docs/PRODUCTION_ROADMAP.md` (the full plan A→H + UI/UX
 design prompt) · `docs/recon/Glasses_Controls.md` & `docs/recon/Transfer_Protocol.md` (decoded
 device protocol) · `docs/recon/Device_Recon_Record.md` (hardware facts).
+**Newer (2026-06-14):** `docs/AGENT_DELEGATION.md` (M0–M4) · `docs/SESSION_LOG_2026-06-14.md` (latest
+session) · `docs/SETUP_TUNNEL_AND_FCM.md` (director setup: untethered agent lanes + push) ·
+`docs/ONDEVICE_BRAIN.md` (on-device "Brain 0" brief + spike) · `docs/UI_INTEGRATION_PLAN.md` (homing
+new features in the Stitch design — Device screen + Research filter DONE; "Ask JARVIS" deliberate-lane
+surface next).
 
 ---
 
