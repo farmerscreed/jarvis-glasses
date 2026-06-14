@@ -62,6 +62,22 @@ class BtAudioEngine(private val context: Context) {
         if (scoHeld) { scoHeld = false; disableSco() }
     }
 
+    /**
+     * Fully quiet the phone→glasses BT audio so the firmware will let the camera capture. The glasses
+     * are single-host and **gate the camera while their BT audio (SCO/A2DP) is active** (recon, verified
+     * 2026-06-13): a capture sent during a call/media stream is ACK'd but takes no photo. This tears
+     * down any held SCO, drops to MODE_NORMAL, clears the communication device, and waits [settleMs]
+     * for the A2DP stream to go SUSPENDED (idle). Returns once the radio should be quiet enough to
+     * capture. On-device tuning point — raise [settleMs] if captures are still gated.
+     */
+    suspend fun releaseForCamera(settleMs: Long = 3500) = withContext(Dispatchers.IO) {
+        scoHeld = false
+        disableSco()                       // stopBluetoothSco/clearCommunicationDevice + mode NORMAL
+        am.mode = AudioManager.MODE_NORMAL // be explicit: media route, so nothing holds the SCO link
+        android.util.Log.i("EchoBtAudio", "releaseForCamera: SCO down, MODE_NORMAL — settling ${settleMs}ms for A2DP suspend")
+        delay(settleMs)                    // let the idle A2DP stream suspend so the camera is reachable
+    }
+
     /** Record [durationMs] from the glasses mic over SCO, then play it back over A2DP. */
     suspend fun recordAndPlay(durationMs: Int = 4000): Recording {
         val rec = record(durationMs)

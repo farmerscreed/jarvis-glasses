@@ -492,17 +492,21 @@ class HomeViewModel @Inject constructor(
             // photo through the glasses and describe it aloud (the reactor speaks the description).
             if (isVisionCommand(heard)) {
                 status = "Looking…"
-                // The glasses gate the camera while their BT audio is ACTIVE (the working AI-gesture
-                // path captures when A2DP is idle). So: cue the user FIRST (over the current route),
-                // then release SCO and give a SILENT settle (no A2DP streaming) so the audio fully
-                // idles before we capture — anything playing right before the capture re-gates it.
-                tts.speak("Let me look.")
+                // The glasses gate the camera while their BT audio (SCO/A2DP) is ACTIVE (recon: a
+                // capture during a call/stream is ACK'd but takes no photo). So: cue the user FIRST
+                // over the current route, kill TTS so it releases the audio session, then FULLY quiet
+                // the BT audio and let the A2DP stream suspend before capturing. Restore the
+                // conversation audio afterwards.
                 val hadHeldSco = continuous && bargeInEnabled
-                if (hadHeldSco) { audio.endScoSession(); tts.useCommunicationRoute(false) }
-                delay(2500) // silent settle — let the BT audio fully idle so the camera is reachable
+                tts.speak("Let me look.")
+                tts.stop() // release the TTS output stream so A2DP can go idle
+                if (hadHeldSco) tts.useCommunicationRoute(false)
+                audio.releaseForCamera(settleMs = 3500L) // tears down SCO + settles for A2DP suspend
                 val desc = reactor.captureAndDescribe()
                 if (hadHeldSco) { tts.useCommunicationRoute(true); audio.beginScoSession() }
-                val ans = desc ?: "Sorry — I couldn't get a clear look. Try again."
+                val ans = desc
+                    ?: "I couldn't get a photo just now — the camera can't run while we're on a voice call. " +
+                    "Try the glasses button to snap one, then ask me about it."
                 answer = ans
                 transcript.add(TurnLine(fromUser = false, text = ans))
                 if (desc == null) tts.speak(ans) // the reactor already speaks on success
@@ -985,7 +989,19 @@ class HomeViewModel @Inject constructor(
             try {
                 block()
             } catch (e: Exception) {
-                status = "Error: ${e.message}"
+                val msg = e.message ?: ""
+                // A 401/JWKS failure that survived the one-shot refresh means the session is no longer
+                // valid (e.g. the local stack was recreated and our persisted token is stale) — don't
+                // fail cryptically or silently; drop the session and prompt a fresh sign-in.
+                val authDead = "HTTP 401" in msg || "JWKS" in msg || "JWT" in msg ||
+                    "no applicable key" in msg || "invalid token" in msg.lowercase()
+                if (authDead) {
+                    runCatching { backend.signOut() }
+                    loggedIn = false
+                    status = "Your session expired — please sign in again"
+                } else {
+                    status = "Error: ${e.message}"
+                }
             } finally {
                 busy = false
             }
