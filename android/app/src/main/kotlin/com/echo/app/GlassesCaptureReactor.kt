@@ -174,7 +174,13 @@ class GlassesCaptureReactor @Inject constructor(
             }
             if (files.isEmpty()) { _status.value = "Nothing new on the glasses"; return@withLock 0 }
             _status.value = "Processing ${files.size} new capture(s)…"
-            files.forEach { routeNewFile(it) }
+            // Bound EACH file: a single stuck vision/upload call (common on a stale backlog file) used
+            // to hang the whole loop while holding syncMutex, wedging every later capture. Skip a slow
+            // one instead — the lock is then always released promptly.
+            files.forEach { f ->
+                withTimeoutOrNull(45_000) { routeNewFile(f) }
+                    ?: android.util.Log.w("EchoVision", "routeNewFile timed out, skipping ${f.name}")
+            }
             _status.value = "Done — ${files.size} new capture(s) processed"
             files.size
         } catch (e: Exception) {
