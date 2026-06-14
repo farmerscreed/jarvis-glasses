@@ -186,8 +186,11 @@ after a reconnect. The earlier "doesn't re-subscribe" concern isn't present in t
 - **Agent lanes untethered = future:** they need the local bridge; set `agentBridge.prodUrl` (a tunnel
   to the PC bridge, or a hosted bridge) in `local.properties` to enable them in prod. Empty ⇒ agent
   intents fall through to chat in prod.
-- **Pending:** device-verify prod untethered (phone was unplugged at session end). prodDebug APK is
-  built at `android/app/build/outputs/apk/prod/debug/app-prod-debug.apk`.
+- **✅ Verified untethered (2026-06-14):** on the prod build over real internet (USB out), conversation
+  is pristine and **voice-vision works**. No new code change — the deterministic capture pipeline +
+  cloud functions handle it. One earlier untethered attempt had vision "stuck" (didn't reproduce);
+  likely a transient (cloud `vision` call lacking internet while Wi-Fi-Direct held the radio). If it
+  recurs: have `describePhoto` await connectivity-restore after the p2p teardown + retry once.
 
 ## 9. What's left (after this session)
 - **Device-verify:** prod untethered (chat + voice-vision over Wi-Fi/cellular, USB out); battery % vs

@@ -329,9 +329,14 @@ calendar) are the exception** — they need the local Agent Bridge, so they only
   `android/local.properties` to a tunnel URL (Tailscale/Cloudflare to the PC bridge, or a hosted
   bridge), rebuild prod → `AgentBridge.isConfigured` becomes true in prod and the lanes work over the
   internet. Empty ⇒ they fall through to normal chat in prod.
-- **NOT yet device-verified untethered:** build prodDebug, sign in (OTP email), and exercise
-  conversation + voice-vision over Wi-Fi/cellular with the USB unplugged. (Pending — phone was
-  unplugged at end of session.)
+- **✅ DEVICE-VERIFIED UNTETHERED (2026-06-14):** on the prod build over real internet (USB unplugged),
+  **conversation is pristine and voice-vision works** ("what am I looking at" captured + described). No
+  new code change was needed — the already-committed deterministic capture pipeline + cloud functions
+  do it. ⚠️ One earlier untethered attempt had vision "stuck" (photo taken, not described); it did NOT
+  reproduce and was **likely a transient** — the cloud `vision` call momentarily lacking internet while
+  Wi-Fi-Direct held the radio during the pull (on the dev build that call went over USB so it never
+  showed). **If it recurs:** harden `describePhoto` to wait for connectivity to restore after the
+  Wi-Fi-Direct teardown and retry the vision call once. (Agent lanes still need the tunnel — §above.)
 
 **✅ DONE THIS SESSION — Assistant Memory v1 (Hermes/OpenClaw pattern), DEPLOYED to prod + verified:**
 - **Profile layer** — `profile` table (SOUL + curated user facts) injected into `chat`/`chat-stream`
