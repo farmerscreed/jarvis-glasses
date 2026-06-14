@@ -22,11 +22,13 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -64,9 +66,9 @@ fun AskJarvisScreen(vm: HomeViewModel) {
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    LaunchedEffect(Unit) { vm.refreshLibrary() }
-    // A photo the user chose to discuss (Gallery → "Ask about this") takes priority; else the latest.
-    val pinned = vm.askPhoto ?: vm.gallery.firstOrNull()
+    // Pinned context shows ONLY when the user is actually discussing a photo (Gallery → "Ask about
+    // this") — in the general lane there's no photo, so we don't imply one.
+    val pinned = vm.askPhoto
     val pinnedImage = rememberLocalImage(pinned?.metadata?.get("localMediaPath"), targetPx = 128)
     val photoMode = vm.askPhoto != null
 
@@ -137,6 +139,19 @@ fun AskJarvisScreen(vm: HomeViewModel) {
                 }
             }
             items(vm.askThread.size) { i -> AskBubble(vm.askThread[i]) }
+            if (vm.busy) {
+                item {
+                    Card(
+                        shape = MaterialTheme.shapes.large,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    ) {
+                        Row(Modifier.padding(JarvisSpacing.md), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
+                            CircularProgressIndicator(strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                            Text(vm.status, style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
         }
 
         Row(
@@ -151,15 +166,20 @@ fun AskJarvisScreen(vm: HomeViewModel) {
                 placeholder = { Text(if (photoMode) "Ask about this photo…" else "Ask JARVIS…") },
                 singleLine = false,
             )
+            // Voice input: dictate the request hands-free (same STT as the voice loop).
+            IconButton(onClick = vm::askByVoice, enabled = !vm.busy) {
+                Icon(
+                    Icons.Outlined.Mic,
+                    contentDescription = "ask by voice",
+                    tint = if (vm.micActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             IconButton(
                 onClick = { if (input.isNotBlank() && !vm.busy) { vm.askJarvis(input); input = "" } },
                 enabled = input.isNotBlank() && !vm.busy,
             ) {
                 Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "send", tint = MaterialTheme.colorScheme.primary)
             }
-        }
-        if (vm.busy) {
-            Text(vm.status, style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = JarvisSpacing.sm))
         }
     }
 }

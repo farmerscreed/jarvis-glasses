@@ -36,6 +36,13 @@ That's the gap: the design has richer, purpose-built surfaces for exactly these 
 > are a future step.) Builds dev+prod, prod launches clean, photo-detail button renders; the final
 > tap-through + a real vision-question pass need a human tap (Compose isn't adb-tappable).
 >
+> ✅ **UI-2 polish (2026-06-14):** **voice input** on the Ask screen (mic → STT → dispatch; works in
+> photo or general mode), a **thinking bubble** while an answer is in flight, and pinned-context shows
+> **only** when a photo is actually being discussed (no misleading latest-photo in the general lane).
+> *Still open (beyond polish):* structured calendar events-list + email draft-preview cards (need the
+> agent presets to emit a little structured data); the which-brain chip (waits on Brain 0); cross-photo
+> aggregate vision.
+>
 > ✅ **Device-verified (2026-06-14):** on prod (untethered), the screen renders per the design — back
 > header, PINNED CONTEXT photo card, user bubble, kind-labeled result card; a typed "say hi in three
 > words" dispatched → chat replied "Hey there, Lawrence!" (used the profile name). Agent-lane cards

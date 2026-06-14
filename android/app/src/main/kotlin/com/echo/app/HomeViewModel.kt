@@ -466,6 +466,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Dictate a deliberate-lane request by voice (mic on the Ask screen), then dispatch it. */
+    fun askByVoice() {
+        withRecordingConsent {
+            run("Listening…") {
+                val heard = captureUtterance(playCue = true)
+                if (heard.isBlank()) { status = "Didn't catch that"; return@run }
+                askJarvis(heard)
+            }
+        }
+    }
+
     /** Proceed with a confirm-gated Ask action (calendar-add / commit). */
     fun confirmAsk() {
         val action = askConfirmAction
