@@ -4,6 +4,35 @@
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
 *Last updated: 2026-06-14. Keep this current at the end of every working session.*
 
+---
+### ▶ LATEST (end of 2026-06-14) — start here next session
+Full record: **`docs/SESSION_LOG_2026-06-14.md`** + **`docs/USER_GUIDE.md`** (how every feature works).
+**Shipped + on the phone (dev `com.echo.companion.dev` + prod `com.echo.companion`, all pushed):**
+- **Agent Delegation M0–M4** — `agent-bridge/` (Node, wraps `claude -p` on the Max sub). Voice + the
+  **Ask JARVIS** screen route research / calendar / email / coding to it. Bridge-verified; voice/agent
+  legs work on **dev** (adb reverse) and on **prod via Tailscale** once the phone's Tailscale is on.
+- **Voice-vision** — "what am I looking at" captures + describes mid-conversation (device-verified). The
+  06-13 "camera gated, can't fix" was WRONG (corrected in recon §4).
+- **Conversation** pristine; **untethered** (cloud/prod) verified for chat + vision.
+- **UI:** Device/battery screen, Timeline **Research** filter, the **Ask JARVIS** deliberate-lane
+  surface (pinned-photo context, per-kind cards incl. research **Sources** / calendar **events** /
+  email **draft** preview, **voice input**), **gallery-photo drill-down** ("how many rods?", "read the
+  text"). Help center + `USER_GUIDE.md` cover it all.
+- **Battery** decoded over BLE (shown on Live + Device screen). **On-device "Brain 0"** spike built
+  (dev console), awaiting the Gemma model.
+
+**Director's open tasks (set aside — do when ready):** (1) toggle **Tailscale ON on the Pixel** → agent
+lanes go untethered (PC side is done: bridge binds `127.0.0.1` + tailnet `100.75.255.113`; prod build
+points at it). (2) Accept the Gemma license + grab the `.task` to run the on-device spike. (3) Firebase/
+FCM console for push. All steps in `docs/SETUP_TUNNEL_AND_FCM.md` / `docs/ONDEVICE_BRAIN.md`.
+
+**Engineering left (next session can pick from):** live-test the agent voice lanes + structured cards
+(needs Tailscale on, or use dev); **app-wiring for M4 async + FCM push** (after Firebase); the
+**"which-brain" chip** + on-device Brain 0 routing (after the spike numbers); **cross-photo aggregate
+vision** ("how many blocks today"); Google One-Tap (OAuth); Phase G release engineering. The voice loop,
+agent presets, and Edge Functions are stable — don't relitigate §7.
+---
+
 **Repo is PUBLIC since 2026-06-12:** https://github.com/farmerscreed/jarvis-glasses (director's
 call). History was secret-swept before the flip — real keys live only in gitignored `.env` files;
 the committed `sb_*` keys are the CLI's shared local-dev defaults + the cloud anon key (public by
