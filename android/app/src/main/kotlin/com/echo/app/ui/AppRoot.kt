@@ -108,9 +108,9 @@ fun AppRoot() {
                 devConsole -> DevConsoleScreen(vm)
                 device -> DeviceScreen(vm)
                 ask -> AskJarvisScreen(vm)
-                tab == JarvisTab.Live -> LiveConsoleScreen(vm, onOpenAsk = { ask = true })
+                tab == JarvisTab.Live -> LiveConsoleScreen(vm, onOpenAsk = { vm.clearAskPhoto(); ask = true })
                 tab == JarvisTab.Timeline -> TimelineScreen(vm)
-                tab == JarvisTab.Gallery -> GalleryScreen(vm)
+                tab == JarvisTab.Gallery -> GalleryScreen(vm, onAskAboutPhoto = { mem -> vm.openAskPhoto(mem); ask = true })
                 tab == JarvisTab.Settings -> SettingsScreen(
                     vm,
                     onOpenDevConsole = { devConsole = true },

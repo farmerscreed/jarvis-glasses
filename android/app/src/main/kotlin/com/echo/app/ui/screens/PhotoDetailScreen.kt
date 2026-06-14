@@ -63,7 +63,7 @@ private val DETAIL_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm").wit
  * capture file if present, else a signed URL for the synced copy.
  */
 @Composable
-fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit) {
+fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit, onAskAboutPhoto: () -> Unit = {}) {
     val localPath = memory.metadata["localMediaPath"]
     val localFile = remember(localPath) { localPath?.let { File(it) }?.takeIf { it.exists() } }
     val isVideo = (localFile?.extension ?: memory.mediaPath?.substringAfterLast('.', ""))
@@ -159,6 +159,14 @@ fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit) {
                     }
                 }
             }
+
+            Spacer(Modifier.height(JarvisSpacing.sm))
+            // Drill down on this photo in the deliberate lane (count things, read text, etc.).
+            com.echo.app.ui.components.JarvisPrimaryButton(
+                text = "Ask about this photo",
+                onClick = onAskAboutPhoto,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             Spacer(Modifier.height(JarvisSpacing.sm))
             // Destructive: removes the capture locally AND from the cloud (row + storage).

@@ -1,7 +1,8 @@
 package com.echo.app.ui.screens
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,34 +41,35 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.echo.app.HomeViewModel
 import com.echo.app.ui.components.rememberLocalImage
 import com.echo.app.ui.theme.JarvisSpacing
 import com.echo.app.ui.theme.JarvisTheme
-import androidx.compose.foundation.Image
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.draw.clip
 
 /**
- * UI-2: the "Ask JARVIS" deliberate-lane surface (from the Stitch `ask_jarvis_multimodal_conversation`
- * design). A reviewable thread of agent results — research / calendar / email / coding — submitted by
- * TEXT, with the latest captured photo pinned as context (voice-vision discussion), and confirm-before-
- * act for outward actions. The fast voice loop stays in the Live console; this is the patient lane.
+ * UI-2: the "Ask JARVIS" deliberate-lane surface (Stitch `ask_jarvis_multimodal_conversation`).
+ * A reviewable thread of agent results (research / calendar / email / coding) submitted by text, with
+ * **rich per-kind cards** (research shows a collapsible Sources list), and a **pinned photo** you can
+ * drill down on with vision Q&A ("how many rods?", "read the text"). The fast voice loop stays in Live.
  */
 @Composable
 fun AskJarvisScreen(vm: HomeViewModel) {
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    // Pin the most recent photo as "context" to discuss (mirrors the design's pinned-context card).
     LaunchedEffect(Unit) { vm.refreshLibrary() }
-    val pinned = vm.gallery.firstOrNull()
+    // A photo the user chose to discuss (Gallery → "Ask about this") takes priority; else the latest.
+    val pinned = vm.askPhoto ?: vm.gallery.firstOrNull()
     val pinnedImage = rememberLocalImage(pinned?.metadata?.get("localMediaPath"), targetPx = 128)
+    val photoMode = vm.askPhoto != null
 
-    // Auto-scroll to the newest turn.
     LaunchedEffect(vm.askThread.size) {
         if (vm.askThread.isNotEmpty()) listState.animateScrollToItem(vm.askThread.size - 1)
     }
@@ -86,15 +96,20 @@ fun AskJarvisScreen(vm: HomeViewModel) {
                         painter = BitmapPainter(pinnedImage),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(44.dp).clip(MaterialTheme.shapes.medium),
+                        modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.medium),
                     )
-                    Column {
-                        Text("PINNED CONTEXT", style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.primary)
+                    Column(Modifier.weight(1f)) {
+                        Text(if (photoMode) "DISCUSSING THIS PHOTO" else "PINNED CONTEXT", style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.primary)
                         Text(
-                            pinned?.text?.take(60) ?: "Your latest capture",
+                            pinned?.text?.take(70) ?: "Your latest capture",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                    if (photoMode) {
+                        IconButton(onClick = vm::clearAskPhoto) {
+                            Icon(Icons.Outlined.Close, contentDescription = "stop discussing this photo", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -108,10 +123,11 @@ fun AskJarvisScreen(vm: HomeViewModel) {
             if (vm.askThread.isEmpty()) {
                 item {
                     Column(Modifier.fillMaxWidth().padding(top = JarvisSpacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Ask JARVIS", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(if (photoMode) "Ask about this photo" else "Ask JARVIS", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(Modifier.height(JarvisSpacing.sm))
                         Text(
-                            "The deliberate lane. Try: “research the best noise-cancelling headphones”, " +
+                            if (photoMode) "Drill down: “how many are there?”, “read the text”, “what colour is it?”."
+                            else "The deliberate lane. Try: “research the best noise-cancelling headphones”, " +
                                 "“what's on my calendar this week”, “draft an email to Sam about Friday”, " +
                                 "or “fix the typo in the README”.",
                             style = MaterialTheme.typography.bodyMedium,
@@ -123,7 +139,6 @@ fun AskJarvisScreen(vm: HomeViewModel) {
             items(vm.askThread.size) { i -> AskBubble(vm.askThread[i]) }
         }
 
-        // Input row.
         Row(
             Modifier.fillMaxWidth().padding(vertical = JarvisSpacing.sm),
             verticalAlignment = Alignment.CenterVertically,
@@ -133,7 +148,7 @@ fun AskJarvisScreen(vm: HomeViewModel) {
                 value = input,
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Ask JARVIS…") },
+                placeholder = { Text(if (photoMode) "Ask about this photo…" else "Ask JARVIS…") },
                 singleLine = false,
             )
             IconButton(
@@ -161,25 +176,63 @@ private fun AskBubble(turn: HomeViewModel.AskTurn) {
                 Text(turn.text, Modifier.padding(JarvisSpacing.md), color = MaterialTheme.colorScheme.onPrimary)
             }
         }
-    } else {
-        val error = turn.kind == "error"
-        Card(
-            Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        ) {
-            Column(Modifier.padding(JarvisSpacing.md), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.xs)) {
+        return
+    }
+
+    val error = turn.kind == "error"
+    val accent = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    // Research: split the spoken summary from the trailing "Sources:" block into a collapsible list.
+    val (body, sources) = remember(turn.text) { splitSources(turn.text) }
+    var showSources by remember(turn.text) { mutableStateOf(false) }
+
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(Modifier.padding(JarvisSpacing.md), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.xs)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.xs)) {
+                Icon(kindIcon(turn.kind), contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
+                Text(turn.kind.uppercase(), style = JarvisTheme.dataMono, color = accent)
+            }
+            Text(
+                body,
+                style = MaterialTheme.typography.bodyMedium.let { if (error) it.copy(fontStyle = FontStyle.Italic) else it },
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (sources.isNotEmpty()) {
                 Text(
-                    turn.kind.uppercase(),
+                    (if (showSources) "▾ Sources (${sources.size})" else "▸ Sources (${sources.size})"),
                     style = JarvisTheme.dataMono,
-                    color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { showSources = !showSources }.padding(top = JarvisSpacing.xs),
                 )
-                Text(
-                    turn.text,
-                    style = MaterialTheme.typography.bodyMedium.let { if (error) it.copy(fontStyle = FontStyle.Italic) else it },
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                if (showSources) {
+                    sources.forEach { url ->
+                        Text(url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         }
     }
+}
+
+/** Split an agent answer into (spoken body, list of source URLs) on a trailing "Sources:" line. */
+private fun splitSources(text: String): Pair<String, List<String>> {
+    val idx = text.indexOf("Sources:", ignoreCase = true)
+    if (idx < 0) return text to emptyList()
+    val body = text.substring(0, idx).trim()
+    val urls = text.substring(idx + "Sources:".length)
+        .split("\n").map { it.trim().removePrefix("-").trim() }.filter { it.startsWith("http") }
+    return (body.ifBlank { text }) to urls
+}
+
+private fun kindIcon(kind: String): ImageVector = when (kind) {
+    "research" -> Icons.Outlined.Search
+    "calendar" -> Icons.Outlined.CalendarMonth
+    "email" -> Icons.Outlined.MailOutline
+    "coding" -> Icons.Outlined.Code
+    "vision" -> Icons.Outlined.Visibility
+    "error" -> Icons.Outlined.ErrorOutline
+    else -> Icons.Outlined.AutoAwesome
 }

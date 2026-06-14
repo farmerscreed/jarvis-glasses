@@ -53,7 +53,7 @@ import com.echo.core.model.MemoryType
  * (memory_detail_photo). Empty state until the first sync.
  */
 @Composable
-fun GalleryScreen(vm: HomeViewModel) {
+fun GalleryScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit = {}) {
     LaunchedEffect(Unit) { vm.refreshLibrary(); vm.reconcileOrphanMedia() }
     var selected by remember { mutableStateOf<Memory?>(null) }
     val photos = vm.gallery.filter { it.type == MemoryType.PHOTO }
@@ -61,7 +61,7 @@ fun GalleryScreen(vm: HomeViewModel) {
     // Detail overlay — device back returns to the grid.
     selected?.let { mem ->
         BackHandler { selected = null }
-        PhotoDetailScreen(vm, mem, onBack = { selected = null })
+        PhotoDetailScreen(vm, mem, onBack = { selected = null }, onAskAboutPhoto = { onAskAboutPhoto(mem) })
         return
     }
 

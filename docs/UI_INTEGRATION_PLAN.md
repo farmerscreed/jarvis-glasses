@@ -28,6 +28,14 @@ That's the gap: the design has richer, purpose-built surfaces for exactly these 
 > (research/calendar/email/coding) via `HomeViewModel.askJarvis()`, renders a reviewable **thread of
 > result cards** (by kind), pins the **latest photo as context**, and **confirms-before-act** for
 > calendar-add + commit (on-screen dialog mirroring the spoken gate). Off-agent text falls back to chat.
+> ✅ **UI-2 v2 (2026-06-14):** richer per-kind result cards (type icon + label; **research shows a
+> collapsible Sources list**) and **gallery-photo chat** — from any photo's detail, "Ask about this
+> photo" opens the Ask screen pinned to that image; questions run **vision drill-down** ("how many rods?",
+> "read the text", "how many are there?") via the cloud `vision` function on the local file; an ✕ clears
+> the photo back to the general lane. (Single-photo drill-down; cross-photo "how many today" aggregates
+> are a future step.) Builds dev+prod, prod launches clean, photo-detail button renders; the final
+> tap-through + a real vision-question pass need a human tap (Compose isn't adb-tappable).
+>
 > ✅ **Device-verified (2026-06-14):** on prod (untethered), the screen renders per the design — back
 > header, PINNED CONTEXT photo card, user bubble, kind-labeled result card; a typed "say hi in three
 > words" dispatched → chat replied "Hey there, Lawrence!" (used the profile name). Agent-lane cards

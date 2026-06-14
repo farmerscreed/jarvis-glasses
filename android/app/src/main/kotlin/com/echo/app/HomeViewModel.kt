@@ -28,8 +28,10 @@ import com.echo.memory.MemoryStore
 import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -395,6 +397,20 @@ class HomeViewModel @Inject constructor(
     /** The deliberate-lane (Ask JARVIS) thread — reviewable agent results, separate from the fast loop. */
     val askThread = mutableStateListOf<AskTurn>()
 
+    /** The photo currently being discussed on the Ask screen (drill-down vision Q&A). Null = general. */
+    var askPhoto by mutableStateOf<Memory?>(null); private set
+
+    /** Open the Ask screen focused on a gallery photo: fresh thread seeded with its description. */
+    fun openAskPhoto(memory: Memory?) {
+        askPhoto = memory
+        askThread.clear()
+        val desc = memory?.text
+        if (memory != null && !desc.isNullOrBlank()) askThread.add(AskTurn(false, desc, "vision"))
+    }
+
+    /** Stop discussing the pinned photo (back to the general deliberate lane). */
+    fun clearAskPhoto() { askPhoto = null }
+
     /** A pending confirm-before-act prompt for the Ask screen (calendar-add / commit); null = none. */
     var askConfirmPrompt by mutableStateOf<String?>(null); private set
     private var askConfirmAction: (suspend () -> Unit)? = null
@@ -412,6 +428,12 @@ class HomeViewModel @Inject constructor(
         val q = text.trim()
         if (q.isBlank()) return
         askThread.add(AskTurn(fromUser = true, text = q, kind = "user"))
+        // Photo mode: when a photo is pinned, the whole conversation is vision Q&A about THAT image
+        // (drill-down: "how many rods?", "read the text", "what colour…"). Clear the photo for general.
+        if (askPhoto != null) {
+            run("Looking…") { askAboutPhoto(q); status = "Done" }
+            return
+        }
         // Confirm-gated (outward / hard to undo) — prompt first, no work yet.
         if (agent.isConfigured && isCommitCommand(q)) {
             askConfirmPrompt = "Commit the current code changes locally (no push)?"
@@ -457,6 +479,26 @@ class HomeViewModel @Inject constructor(
         askConfirmPrompt = null
         askConfirmAction = null
         askThread.add(AskTurn(false, "Okay — I won't do that.", "chat"))
+    }
+
+    /** Vision drill-down: re-analyze the pinned photo to answer a specific question about it. */
+    private suspend fun askAboutPhoto(question: String) {
+        val photo = askPhoto ?: return
+        val file = photo.metadata["localMediaPath"]?.let { java.io.File(it) }
+        if (file == null || !file.exists()) {
+            askThread.add(AskTurn(false, "I need that photo on the device to look closer — sync it from the glasses first.", "error"))
+            return
+        }
+        val bytes = withContext(Dispatchers.IO) { file.readBytes() }
+        val ans = runCatching {
+            backend.describeImage(
+                bytes,
+                "You are JARVIS. Answer the user's question about THIS photo truthfully and only from what is " +
+                    "visible — count things, read any text, identify objects. Be concise and natural. If you " +
+                    "cannot tell from the image, say so plainly. Question: $question",
+            )
+        }.getOrNull()
+        askThread.add(AskTurn(false, ans ?: "I couldn't analyze that photo just now — try again.", if (ans != null) "vision" else "error"))
     }
 
     /** Single message (e.g. the glasses button): one turn, no follow-up listening. */
