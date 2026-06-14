@@ -129,6 +129,9 @@ supabase functions serve --env-file supabase\functions\.env --workdir $w   # run
 adb reverse tcp:54421 tcp:54421             # RE-ASSERT after ANY Wi-Fi toggle (see gotchas)
 
 # 3. App — flavors since Phase E: dev = local stack, prod = cloud jarvis-prod
+# Since 2026-06-14 dev has applicationIdSuffix ".dev" so BOTH install side by side:
+#   dev  = com.echo.companion.dev  (tethered: local backend + agent lanes over adb reverse)
+#   prod = com.echo.companion      (untethered: cloud; agent lanes off unless a tunnel is set)
 android\gradlew.bat -p android :app:installDevDebug    # local-backend build (the usual dev loop)
 android\gradlew.bat -p android :app:installProdDebug   # cloud build (no adb reverse needed)
 ```
@@ -302,15 +305,33 @@ All in the same `converse()` deliberate-lane branches (dev only; prod falls thro
 - **NOT built — M4** (async tickets, FCM push, hosted bridge, Agent SDK streaming): needs director infra
   (Firebase/FCM, a host, a prod `agent_tasks` migration). All lanes are synchronous + local today.
 
-**Also queued (director asks):** (a) **glasses battery gauge in the app** — battery is NOT yet exposed
-in our BLE impl; the protocol's "oudmon" device-info/battery command (recon) is unimplemented → decode
-+ issue it. *(Note: a `BC 73 03 00 …` notify with a trailing byte that decrements over time appears in
-the logs and may be the battery level — worth checking when implementing this.)* ~~(b) Glasses
-recovery~~ **DONE (2026-06-14):** glasses recovered after charge; front-button capture, AI-gesture, and
-**voice-vision mid-conversation all verified working**; the camera-vs-conversation-audio question is
-**resolved** (clean audio teardown frees the camera — see above + recon §4). (c) Fix the BLE bug:
-auto-reconnect doesn't re-subscribe notifications (a dropped GATT link goes silently deaf to events
-until app restart) — still open.
+**Also queued (director asks):** ~~(a) glasses battery gauge~~ **DONE (2026-06-14):** decoded the
+unsolicited `BC 73 … 05 <percent> 00` status frame (no command needed) → `GlassesEvent.Battery` →
+`ble.battery` → `vm.glassesBattery` → Live console shows "glasses NN%". *Needs a device check it
+matches the real battery.* See recon §4 item 5. ~~(b) Glasses recovery~~ **DONE (2026-06-14):** glasses
+recovered after charge; front-button capture, AI-gesture, and **voice-vision mid-conversation all
+verified working**; camera-vs-conversation-audio **resolved** (clean audio teardown frees the camera).
+~~(c) BLE re-subscribe~~ **Verified not a bug (2026-06-14):** `onServicesDiscovered` runs on every
+(re)connect, so notifications ARE re-subscribed after a reconnect — the earlier concern isn't present in
+the code. (Confirm on device by dropping the GATT and checking button events resume.)
+
+### Untethered operation (director ask, 2026-06-14) — works via the cloud (prod)
+The app must run **off the USB/PC tether**. The **core app — conversation, voice-vision, memory —
+works untethered on the PROD build**: it talks to cloud `jarvis-prod` over real internet (no `adb
+reverse`). All 9 prod Edge Functions verified live (401). The **agent lanes (research/coding/email/
+calendar) are the exception** — they need the local Agent Bridge, so they only work on the **dev**
+(tethered) build today, or in prod once a **tunnel** is set up (see below).
+- **Dev and prod now install side by side:** dev has `applicationIdSuffix ".dev"` →
+  **`com.echo.companion.dev`** (tethered: local backend + agent lanes over `adb reverse`); prod is
+  **`com.echo.companion`** (untethered: cloud). Build/install:
+  `gradlew :app:assembleProdDebug` → `adb install -r android/app/build/outputs/apk/prod/debug/app-prod-debug.apk`.
+- **Agent lanes untethered (future):** set `agentBridge.prodUrl` (+ `agentBridge.prodToken`) in
+  `android/local.properties` to a tunnel URL (Tailscale/Cloudflare to the PC bridge, or a hosted
+  bridge), rebuild prod → `AgentBridge.isConfigured` becomes true in prod and the lanes work over the
+  internet. Empty ⇒ they fall through to normal chat in prod.
+- **NOT yet device-verified untethered:** build prodDebug, sign in (OTP email), and exercise
+  conversation + voice-vision over Wi-Fi/cellular with the USB unplugged. (Pending — phone was
+  unplugged at end of session.)
 
 **✅ DONE THIS SESSION — Assistant Memory v1 (Hermes/OpenClaw pattern), DEPLOYED to prod + verified:**
 - **Profile layer** — `profile` table (SOUL + curated user facts) injected into `chat`/`chat-stream`

@@ -101,6 +101,14 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
    - **Voice-vision skill (v2.1) — DONE + device-verified 2026-06-14:** "what am I looking at" captures
      + describes a photo aloud mid-conversation (`captureAndDescribe`). The 06-13 "camera gated, can't
      fix" reading was wrong — corrected in `docs/recon/Glasses_Controls.md §4`.
+   - **Glasses battery gauge — DONE 2026-06-14 (decode):** the glasses push battery % over BLE
+     (`BC 73 … 05 <percent> 00`); shown on the Live console ("glasses NN%"). Recon §4.5. Needs a device
+     check vs the real battery.
+   - **Untethered operation — core app runs on cloud (prod) 2026-06-14:** conversation, voice-vision,
+     and memory work off the USB/PC tether via cloud `jarvis-prod` (all 9 prod functions live). Dev now
+     has `applicationIdSuffix ".dev"` so the tethered dev build and untethered prod build install side by
+     side. Agent lanes stay tethered (local bridge) until a tunnel is configured (`agentBridge.prodUrl`).
+     Pending: device-verify prod untethered (phone unplugged at session end).
 
 **Settled decisions (2026-06-12, see `docs/PRODUCTION_ROADMAP.md`):**
 - **Two-Speed Brain** (§1): fast reflexive lane (voice, Phases C/D) + deliberate lane (capture-anchored, tool-using, patient — V2).

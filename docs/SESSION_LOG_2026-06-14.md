@@ -144,3 +144,57 @@ gotchas doc `6e1308f` · sync-mutex bound `31a0c00` · per-file bound `b949b2e` 
 - The local DB drifts behind the migration files (missing `profile` ⇒ SOUL "missing" on dev).
 - `adb reverse` drops on any Wi-Fi toggle (and Wi-Fi-Direct sync toggles Wi-Fi) — re-assert both
   `tcp:54421` and `tcp:8765`.
+
+---
+
+## 8. Later in the session — agent-lane intents, battery, untethered
+
+### Voice intents made robust to natural speech (the real reason lanes "failed")
+On testing, almost every agent command fell through to plain **chat** because the intent regexes were
+too strict and one overlapped vision. Fixed:
+- Research was anchored to the start ("I needed to research…" never matched) → now matches "research/
+  look into/find out/look up/search for…" anywhere; topic = the whole cleaned utterance.
+- "can you see my calendar" hit the **vision** regex (`can you see`) → tightened to "can you see
+  this/that".
+- Calendar/email patterns broadened ("calendar/agenda/my schedule/scheduled"; "email/gmail/inbox/my
+  mail" or a mail verb). Reordered so calendar/email beat research ("look up my calendar" → calendar).
+- **Email split into read vs draft** (was draft-only): "check my email / look at my mail" →
+  `emailRead()` summarizes the inbox (read-only); "draft an email to X" → `emailDraft()` (draft-only,
+  the Gmail MCP has no send tool). Mirrors calendar's read/add.
+- **Tested by voice:** research ✅, calendar read ✅; email read fixed (retest); calendar-add and
+  coding/commit still need a clean voice test.
+
+### Research viewing (director ask)
+Research saves to the memory index (NOTE, tag `research`, titled "Research — <topic>") and appears in
+the **Timeline**; Timeline cards are now **tap-to-expand** (`MemoryCard maxLines`) so the full text +
+`Sources:` are readable. (A dedicated "Research" tab is an optional future add.)
+
+### Glasses battery gauge — DONE (decode)
+Unsolicited `BC 73 03 00 <crc> 05 <percent> 00` status frame → opcode `0x05`, `payload[1]` = percent
+(observed 65→61% over a session). `GlassesEvent.Battery` → `ble.battery` → `vm.glassesBattery` → Live
+console "glasses NN%". No command needed. Needs a device check it matches the real battery. Recon §4.5.
+
+### BLE re-subscribe-on-reconnect — verified NOT a bug
+`onServicesDiscovered` (hence the CCCD re-subscribe) runs on every (re)connect, so notifications resume
+after a reconnect. The earlier "doesn't re-subscribe" concern isn't present in the code; docs corrected.
+
+### Untethered operation (director ask) — works via cloud (prod)
+- Core app (conversation, voice-vision, memory) runs untethered on the **PROD build** (cloud
+  `jarvis-prod`, no `adb reverse`). All 9 prod Edge Functions verified live (401).
+- **Dev/prod install side by side:** dev → `com.echo.companion.dev` (tethered, agent lanes); prod →
+  `com.echo.companion` (untethered, cloud).
+- **Agent lanes untethered = future:** they need the local bridge; set `agentBridge.prodUrl` (a tunnel
+  to the PC bridge, or a hosted bridge) in `local.properties` to enable them in prod. Empty ⇒ agent
+  intents fall through to chat in prod.
+- **Pending:** device-verify prod untethered (phone was unplugged at session end). prodDebug APK is
+  built at `android/app/build/outputs/apk/prod/debug/app-prod-debug.apk`.
+
+## 9. What's left (after this session)
+- **Device-verify:** prod untethered (chat + voice-vision over Wi-Fi/cellular, USB out); battery % vs
+  real; calendar-add + coding/commit voice lanes; email read.
+- **Infra-gated (need director setup, can't be finished in code):** FCM push (Firebase project +
+  google-services.json); a **hosted bridge or tunnel** for untethered agent lanes; prod `agent_tasks`
+  migration deploy (director-authorized); **Google One-Tap** (OAuth consent + Web/Android client IDs);
+  Agent SDK streaming (Phase 2 richer async UX).
+- **Release engineering (Phase G, separate effort):** R8/minify, 16 KB Vosk alignment, signing config,
+  Play data-safety + permissions declarations.

@@ -101,6 +101,15 @@ auto-sync + route by file type) live in `HomeViewModel` (`onCaptureSaved`/`onAiG
    the **newest** photo (the one just taken) — never a stale backlog photo. Whole ceremony is time-boxed
    so it can never wedge a later capture. See `docs/SESSION_LOG_2026-06-14.md`.
 
+5. **Battery level is pushed over BLE — decoded 2026-06-14.** The glasses emit an unsolicited status
+   notification on the same `de5bf729` channel: frame `BC 73 03 00 <crc:2> 05 <percent> 00`, i.e. event
+   opcode **`0x05`** with **`payload[1]` = battery percent**. Observed it track **65→61% (0x41→0x3D)**
+   as the glasses discharged over a session. **No command is required** (the "oudmon" battery read in the
+   protocol is unimplemented and unnecessary — the glasses push this periodically). Decoded as
+   `GlassesEvent.Battery`; `GlassesBleManager.battery` (StateFlow) → `HomeViewModel.glassesBattery` →
+   shown on the Live console status line ("glasses NN%"). *Needs a device check that it matches the
+   glasses' true battery and the units are percent.*
+
 - Trackpad/music keys, *if* ever repurposed, go through the already-built `GlassesButtonController` (`MediaSession`). For now that session can stay inactive so we don't disturb music/volume.
 
 ## 5. Status
