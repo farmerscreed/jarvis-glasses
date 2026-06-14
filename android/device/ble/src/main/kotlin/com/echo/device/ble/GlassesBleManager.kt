@@ -87,6 +87,10 @@ class GlassesBleManager(private val context: Context) {
     private val _glassesWifiIp = MutableStateFlow<String?>(null)
     val glassesWifiIp: StateFlow<String?> = _glassesWifiIp
 
+    /** Glasses battery percent (0–100), pushed unsolicited via a `BC 73 … 05` status frame; null = unknown. */
+    private val _battery = MutableStateFlow<Int?>(null)
+    val battery: StateFlow<Int?> = _battery
+
     /** Every notification from any subscribed characteristic (button presses, IP, …). */
     private val _notifications = MutableSharedFlow<GlassesNotification>(extraBufferCapacity = 32)
     val notifications: SharedFlow<GlassesNotification> = _notifications
@@ -247,6 +251,10 @@ class GlassesBleManager(private val context: Context) {
             Log.i(TAG, "glasses Wi-Fi IP = $ip")
             _glassesWifiIp.value = ip
             _status.value = "BLE: glasses IP $ip"
+        }
+        // Battery status (BC 73 … 05 <percent> 00), pushed unsolicited by the glasses.
+        (GlassesEvent.parse(value) as? GlassesEvent.Battery)?.let { b ->
+            if (b.percent in 0..100) { _battery.value = b.percent; Log.i(TAG, "glasses battery = ${b.percent}%") }
         }
     }
 

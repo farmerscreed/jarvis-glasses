@@ -15,6 +15,10 @@ val localProps = Properties().apply {
 }
 val agentBridgeUrl: String = localProps.getProperty("agentBridge.url", "")
 val agentBridgeToken: String = localProps.getProperty("agentBridge.token", "")
+// Prod (untethered) reaches the bridge over a tunnel (Tailscale/Cloudflare) instead of adb reverse.
+// Empty until the director sets up a tunnel + puts its URL here ⇒ agent lanes simply stay off in prod.
+val agentBridgeProdUrl: String = localProps.getProperty("agentBridge.prodUrl", "")
+val agentBridgeProdToken: String = localProps.getProperty("agentBridge.prodToken", agentBridgeToken)
 
 android {
     namespace = "com.echo.app"
@@ -48,6 +52,10 @@ android {
     productFlavors {
         create("dev") {
             dimension = "backend"
+            // Separate app id so the tethered dev build (local backend + agent lanes over adb reverse)
+            // and the untethered prod build (cloud) can be installed side by side on one phone.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
             buildConfigField("String", "SUPABASE_URL", "\"http://127.0.0.1:54421\"")
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH\"")
             buildConfigField("boolean", "DEV_LOGIN", "true")
@@ -65,10 +73,11 @@ android {
                 "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFndHVpbW5wcHFicmpvY3V6cXNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNTU2ODQsImV4cCI6MjA5NjgzMTY4NH0.KSExgwXG79KcCJ4FbBpWTkddewO_SKjYYVMSRHRXEyE\"",
             )
             buildConfigField("boolean", "DEV_LOGIN", "false")
-            // Agent Bridge is local-only in Phase 1 (M1) → off in prod until Phase 2 (hosted+async).
-            // Empty URL ⇒ AgentBridge.isConfigured is false ⇒ "research…" falls through to normal chat.
-            buildConfigField("String", "AGENT_BRIDGE_URL", "\"\"")
-            buildConfigField("String", "AGENT_BRIDGE_TOKEN", "\"\"")
+            // Untethered: prod reaches the bridge over a tunnel if `agentBridge.prodUrl` is set in
+            // local.properties (else empty ⇒ AgentBridge.isConfigured=false ⇒ agent intents fall
+            // through to normal chat). Core app (chat/vision/memory) works untethered via cloud already.
+            buildConfigField("String", "AGENT_BRIDGE_URL", "\"$agentBridgeProdUrl\"")
+            buildConfigField("String", "AGENT_BRIDGE_TOKEN", "\"$agentBridgeProdToken\"")
             // Cleartext must stay ON even in prod: the glasses media sync is plain HTTP over
             // Wi-Fi Direct (http://192.168.49.x/files/..., firmware constraint — no TLS on the
             // device). All cloud traffic is https:// regardless; this flag never downgrades it.

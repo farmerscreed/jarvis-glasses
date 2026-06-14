@@ -200,7 +200,9 @@ fun LiveConsoleScreen(vm: HomeViewModel) {
         // The engine's status line, ALWAYS visible — failures like "Didn't catch that" or
         // "Error: …" must never vanish the instant busy flips off.
         Text(
-            vm.status + if (glassesConnected) "  ·  audio in glasses" else "",
+            vm.status +
+                (if (glassesConnected) "  ·  audio in glasses" else "") +
+                (vm.glassesBattery?.let { "  ·  glasses $it%" } ?: ""),
             style = JarvisTheme.dataMono,
             color = if (vm.status.startsWith("Error")) {
                 MaterialTheme.colorScheme.error

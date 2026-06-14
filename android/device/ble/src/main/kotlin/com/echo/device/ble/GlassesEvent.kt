@@ -22,6 +22,13 @@ sealed class GlassesEvent {
     /** The glasses' Wi-Fi IP for media transfer. Payload: `08 <ip:4>`. */
     data class WifiIp(val ip: String) : GlassesEvent()
 
+    /**
+     * Device status pushed unsolicited (~periodically): battery level. Payload: `05 <percent> 00`.
+     * Decoded 2026-06-14 — the `percent` byte tracked 65→61 (0x41→0x3D) as the glasses discharged
+     * over a session. See docs/recon/Glasses_Controls.md §4. (No command needed; the glasses push it.)
+     */
+    data class Battery(val percent: Int) : GlassesEvent()
+
     companion object {
         /**
          * Parse a raw notification; null if it isn't a recognized event frame.
@@ -40,6 +47,7 @@ sealed class GlassesEvent {
                 0x02 -> AiGesture
                 0x0B -> RecordingTick(if (len >= 2) p[1].toInt() and 0xFF else 0)
                 0x08 -> if (len >= 5) WifiIp((1..4).joinToString(".") { (p[it].toInt() and 0xFF).toString() }) else null
+                0x05 -> if (len >= 2) Battery(p[1].toInt() and 0xFF) else null
                 else -> null
             }
         }

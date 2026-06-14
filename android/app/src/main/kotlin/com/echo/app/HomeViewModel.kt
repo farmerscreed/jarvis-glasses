@@ -110,6 +110,9 @@ class HomeViewModel @Inject constructor(
     var audioStatus by mutableStateOf("Tap to test the glasses mic + speaker"); private set
     var bleStatus by mutableStateOf("BLE idle"); private set
 
+    /** Glasses battery percent (pushed over BLE), or null until the glasses report it. */
+    var glassesBattery by mutableStateOf<Int?>(null); private set
+
     /** Phase D: time-to-first-spoken-word of the last voice turn (ms), for the latency war. */
     var lastLatencyMs by mutableStateOf(0L); private set
     var handsFree by mutableStateOf(false); private set
@@ -137,6 +140,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { store.pendingCount().collect { pendingSync = it } }
         // Mirror the BLE manager's status into Compose state (declared after the state it sets).
         viewModelScope.launch { ble.status.collect { bleStatus = it } }
+        viewModelScope.launch { ble.battery.collect { glassesBattery = it } }
         // Glasses physical button -> start a voice turn (hands-free, no phone).
         buttons.onTrigger = { onGlassesButton() }
         buttons.activate()
