@@ -66,6 +66,12 @@ foundation toward JARVIS as a **chief of staff**.
   JSON (tested: returned `BRIDGE_OK`). Ready to build the bridge.
 
 ### 6. Voice-controlled glasses skill (BUILT, BLOCKED on hardware)
+> **⚠️ SUPERSEDED 2026-06-14 — this section's conclusion was WRONG.** Voice-vision now works
+> mid-conversation. The camera is **not** un-gateable: a clean audio teardown (end SCO → MODE_NORMAL →
+> ~3.5 s for A2DP to suspend) frees it — no A2DP force-drop needed. The real blockers were software
+> (insufficient audio settle, a stale-token `vision=FAILED`, and a racy/locked sync pipeline), all
+> fixed. See `docs/SESSION_LOG_2026-06-14.md §3` and the corrected `docs/recon/Glasses_Controls.md §4`.
+> The "glasses wedged" part was real (low battery); they recovered after charging.
 - "what am I looking at" / "take a photo of this" → `reactor.captureAndDescribe()` (mirrors the
   AI-gesture). **Two hardware findings, both documented in `docs/recon/Glasses_Controls.md`:**
   1. **Camera is gated during a BT-audio conversation** — a capture sent while SCO/A2DP is up is ACK'd

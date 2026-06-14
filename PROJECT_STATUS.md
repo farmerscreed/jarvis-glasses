@@ -87,10 +87,24 @@ Android modules: `:app` (UI, Hilt DI, ViewModel), `:core` (models), `:ai` (provi
 5. **Phase E — real users (STARTED 2026-06-12):** cloud Supabase project **`jarvis-prod`** (ref `agtuimnppqbrjocuzqsk`, West EU) created + linked; **dev/prod build flavors** (prod = TLS-only cloud, dev login compiled out); **email-OTP sign-in** + **refresh-token rotation** (401 → rotate → retry on all authed paths — closes the long-lived background-auth gap from Phase C). **Cloud deployed (2026-06-12, director-authorized):** migrations + secrets + all 6 functions live; every function 401s without a JWT; prod build installed on the Pixel. **PITR skipped by decision (no paid features)** — use included daily backups (Pro) + local `supabase db dump`. **Auth email via Resend (director's account, domain `leiko.app`):** SMTP + `{{ .Token }}` template + rate limits pushed via `supabase config push`. **VERIFIED on device 2026-06-12:** director signed in with the emailed 6-digit code and the Ask answer was spoken streamed sentence-by-sentence from cloud `chat-stream` (D2 live). Sign out added. Fixed en route: kotlinx `encodeDefaults=false` silently dropped the OTP verify `type` field. **Remaining in E:** Google One-Tap, function rate limits; capture/upload paths vs cloud next glasses session. **UI/UX integration parked until after this version** (35-screen Stitch design system committed to `docs/design/` for later).
 6. **UI/UX design integration (STARTED + core done 2026-06-12):** the Stitch "Aetheric Intelligence" design system is now the app's face — `JarvisTheme` (exact tokens: M3 dark scheme, Space Grotesk/Inter/JetBrains Mono variable fonts, 4–32dp radii, amber `presence` color via CompositionLocal), shared components, the **animated PresenceOrb** (idle/listening/thinking/speaking/deliberating/off-grid ember — motion built from the design sheet's captions + CSS keyframes), and the designed screens: **Live console** (online/off-grid/disconnected/type-focus, all from real state, orb mapped to assistant state), Timeline (recall results; browse river pending an engine query), Gallery (designed empty state), Settings (real account/wake-word/device state). Old dev console intact behind Settings → Developer console. **Zero engine/ViewModel changes.** Live + Settings verified on the Pixel against the design PNGs.
 7. Polish: 16 KB-aligned native libs (Vosk).
+8. **Assistant Memory v1 (2026-06-13) + Agent Delegation lane (2026-06-13/14).**
+   - **Memory v1 (prod):** `profile` table (SOUL + curated user_facts) injected into chat with a truth
+     charter; post-conversation distillation; explicit "remember…"; editable in Settings → "JARVIS's
+     memory". (On **dev**, the local DB drifted behind the migrations — `profile` was applied + the SOUL
+     seeded 2026-06-14; see `SESSION_HANDOFF.md §5`.) Roadmap: `docs/ASSISTANT_ROADMAP.md`.
+   - **Agent Delegation = the deliberate lane, realized via Claude Code (M0–M4 built, 2026-06-14).**
+     A local **Agent Bridge** (`agent-bridge/`) wraps headless `claude -p` on the director's Max sub;
+     the app delegates voice intents to it: **research** (M1), **coding** + confirm-before-commit (M2),
+     **email draft-only + calendar read/add with confirm** (M3), async tickets + `agent_tasks` store
+     (M4 local slice). Bridge-verified by curl; on-device voice leg of each not yet director-tested.
+     Design: `docs/AGENT_DELEGATION.md`; record: `docs/SESSION_LOG_2026-06-14.md`.
+   - **Voice-vision skill (v2.1) — DONE + device-verified 2026-06-14:** "what am I looking at" captures
+     + describes a photo aloud mid-conversation (`captureAndDescribe`). The 06-13 "camera gated, can't
+     fix" reading was wrong — corrected in `docs/recon/Glasses_Controls.md §4`.
 
 **Settled decisions (2026-06-12, see `docs/PRODUCTION_ROADMAP.md`):**
 - **Two-Speed Brain** (§1): fast reflexive lane (voice, Phases C/D) + deliberate lane (capture-anchored, tool-using, patient — V2).
-- **Cost & auth** (§4.7): API-only (the Claude subscription cannot back the app — rejected); cost controlled by tiered models + prompt caching + Batch API + offline-first. Est. **$3–10/mo** core, **~$15–35/mo** power use.
+- **Cost & auth** (§4.7): the **fast voice/chat lane is API-only** (using subscription *credentials* for raw API calls is rejected — ToS/account risk); cost controlled by tiered models + prompt caching + Batch API + offline-first. Est. **$3–10/mo** core, **~$15–35/mo** power use. **Refinement (2026-06-13):** the **heavy "deliberate" lane runs Claude Code the product on the Max subscription** (legit, distinct from raw-API-via-sub) — that's the Agent Delegation lane (item 8).
 - **"Ask Jarvis" deliberate lane** (§10a): price-check / research / count-materials from a photo. **GATE: brainstorm the screenless multi-turn-with-a-photo UX puzzle BEFORE building it.**
 
 ## 9. Environment (this machine)

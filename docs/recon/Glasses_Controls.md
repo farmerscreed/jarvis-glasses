@@ -81,16 +81,25 @@ arrives on `de5bf729`** (the same char as the Wi-Fi IP notify), framed as
 Parser: `GlassesEvent.kt` in `:device:ble` (enforces the `BC 73` rule). Reactions (inventory-gated
 auto-sync + route by file type) live in `HomeViewModel` (`onCaptureSaved`/`onAiGesture`/`routeNewFile`).
 
-4. **The camera is GATED while the glasses are in a Bluetooth-audio conversation (verified 2026-06-13).**
-   A capture command sent during/just after a voice conversation (SCO held + A2DP) is *received and
-   ACK'd* (`BC 41` frames) but **no photo is taken and no `CaptureSaved` event follows** — so the
-   sync→vision chain never starts (30 s timeout). Single-host Jieli firmware can't run the camera and
-   a BT-audio session at once. Releasing the app's SCO + a short settle is NOT enough (the system also
-   holds A2DP, which the app can't force-drop). Confirmed across two device tests via `EchoVision` stage
-   logging. **Implication for the voice "what am I looking at" skill:** either fully drop the BT-audio
-   link before capturing (disruptive — conversation pauses while audio reconnects) or decouple capture
-   from the live conversation (physical button / AI-gesture capture, then discuss the photo by voice).
-   The AI-gesture path works precisely because the button is pressed when there's no active call audio.
+4. **The camera shares the BT radio with audio, but a clean teardown frees it — voice-vision works
+   mid-conversation (CORRECTED 2026-06-14; the 2026-06-13 "can't fix" conclusion was wrong).**
+   A capture sent while BT audio is *actively streaming* (SCO held + A2DP playing) is ACK'd (`BC 41`)
+   but takes no photo. The earlier conclusion — "releasing SCO isn't enough because the system holds
+   A2DP and the app can't force-drop it" — was **incorrect**. The app does **not** need to force-drop
+   A2DP: fully releasing SCO (end the SCO session → `AudioManager.MODE_NORMAL` → clear the comm device)
+   and waiting **~3.5 s for the idle A2DP stream to SUSPEND** is enough — the camera then captures and
+   `CaptureSaved` fires. **Verified 2026-06-14:** "what am I looking at" captured + described reliably
+   across repeated back-to-back attempts inside a live conversation.
+   The real blockers behind the 06-13 failures were three *software* bugs, not a hardware limit:
+   (a) the audio wasn't being fully torn down / not enough settle time before the capture;
+   (b) a **stale auth token** made every `vision` call 401 (`vision=FAILED`), so even captured photos
+   weren't described; (c) the on-demand path passively waited on the **autonomous collector**, which
+   pulled the whole backlog, raced, and a hung Wi-Fi-Direct sync held the sync mutex forever — wedging
+   every later capture. Fixes: `BtAudioEngine.releaseForCamera()` (clean teardown + settle) and a
+   **deterministic** `GlassesCaptureReactor.captureAndDescribe()` that owns the flow under the mutex,
+   suppresses the collector for its own event, waits for the new-photo event, pulls, and describes only
+   the **newest** photo (the one just taken) — never a stale backlog photo. Whole ceremony is time-boxed
+   so it can never wedge a later capture. See `docs/SESSION_LOG_2026-06-14.md`.
 
 - Trackpad/music keys, *if* ever repurposed, go through the already-built `GlassesButtonController` (`MediaSession`). For now that session can stay inactive so we don't disturb music/volume.
 

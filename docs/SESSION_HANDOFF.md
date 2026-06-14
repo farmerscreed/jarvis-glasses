@@ -2,7 +2,7 @@
 
 *The single-source handover between sessions. A new session should be able to read only this and
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
-*Last updated: 2026-06-13. Keep this current at the end of every working session.*
+*Last updated: 2026-06-14. Keep this current at the end of every working session.*
 
 **Repo is PUBLIC since 2026-06-12:** https://github.com/farmerscreed/jarvis-glasses (director's
 call). History was secret-swept before the flip — real keys live only in gitignored `.env` files;
@@ -239,13 +239,17 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 
 ## 6. What's NEXT — the critical path
 
-### 🎯 IMMEDIATE NEXT (director, 2026-06-13): Agent Delegation (heavy tasks via Claude Code)
-**Full session record: `docs/SESSION_LOG_2026-06-13.md` (read it — covers everything done + next).**
-The big new direction: JARVIS as a **chief of staff that acts** — delegating heavy multi-step tasks
+### 🎯 CURRENT FOCUS: Agent Delegation (heavy tasks via Claude Code) — M0–M4 BUILT
+**Full session records: `docs/SESSION_LOG_2026-06-14.md` (latest — Agent Delegation M0–M4, conversation
++ voice-vision permanent fixes) then `docs/SESSION_LOG_2026-06-13.md` (prior).**
+The big direction: JARVIS as a **chief of staff that acts** — delegating heavy multi-step tasks
 (research → coding → email/calendar, in that order) to **Claude Code on the director's Max
-subscription**. Fully designed in **`docs/AGENT_DELEGATION.md`** (Phase 1 local bridge → Phase 2 hosted
-+ async; subscription/ToS clarified: running Claude Code the product on the sub is legit, distinct from
-raw-API-via-sub). Vision/roadmap: `docs/ASSISTANT_ROADMAP.md`, `docs/ASSISTANT_MEMORY.md`.
+subscription**. Designed in **`docs/AGENT_DELEGATION.md`** (Phase 1 local bridge → Phase 2 hosted +
+async; running Claude Code the product on the sub is legit, distinct from raw-API-via-sub). Vision/
+roadmap: `docs/ASSISTANT_ROADMAP.md`, `docs/ASSISTANT_MEMORY.md`.
+**Status (2026-06-14): M0–M4 built** (M4 = local slice; FCM/hosted/app-wiring still owed). M1–M3 are
+**bridge-verified by curl; the on-device voice leg of each is not yet director-tested** (the next test
+pass). Detail in the M0–M4 block below + the 06-14 log.
 
 **✅ M0 DONE + verified (2026-06-13):** zero-dep Node **Agent Bridge** at `agent-bridge/` wrapping
 `claude -p --output-format json`. `POST /task {prompt, cwd?, allowedTools?, timeoutMs?}` + `GET /health`;
@@ -298,13 +302,15 @@ All in the same `converse()` deliberate-lane branches (dev only; prod falls thro
 - **NOT built — M4** (async tickets, FCM push, hosted bridge, Agent SDK streaming): needs director infra
   (Firebase/FCM, a host, a prod `agent_tasks` migration). All lanes are synchronous + local today.
 
-**Also queued (director asks, 2026-06-13):** (a) **glasses battery gauge in the app** — battery is NOT
-yet exposed in our BLE impl; the protocol's "oudmon" device-info/battery command (recon) is
-unimplemented → decode + issue it. (b) **Glasses recovery:** by session end the glasses wedged (no
-buttons / no `BC 73` events / front-button capture dead — a firmware/battery state, app-independent);
-director is **charging + will hard-reset** them. After recovery, test front-button photo → AI-gesture →
-voice-vision, and decide the camera-vs-conversation-audio handling. (c) Fix the BLE bug: auto-reconnect
-doesn't re-subscribe notifications.
+**Also queued (director asks):** (a) **glasses battery gauge in the app** — battery is NOT yet exposed
+in our BLE impl; the protocol's "oudmon" device-info/battery command (recon) is unimplemented → decode
++ issue it. *(Note: a `BC 73 03 00 …` notify with a trailing byte that decrements over time appears in
+the logs and may be the battery level — worth checking when implementing this.)* ~~(b) Glasses
+recovery~~ **DONE (2026-06-14):** glasses recovered after charge; front-button capture, AI-gesture, and
+**voice-vision mid-conversation all verified working**; the camera-vs-conversation-audio question is
+**resolved** (clean audio teardown frees the camera — see above + recon §4). (c) Fix the BLE bug:
+auto-reconnect doesn't re-subscribe notifications (a dropped GATT link goes silently deaf to events
+until app restart) — still open.
 
 **✅ DONE THIS SESSION — Assistant Memory v1 (Hermes/OpenClaw pattern), DEPLOYED to prod + verified:**
 - **Profile layer** — `profile` table (SOUL + curated user facts) injected into `chat`/`chat-stream`
@@ -319,11 +325,19 @@ doesn't re-subscribe notifications.
   (Name/children); restoring blocked (can't write unverified personal facts). Director re-adds via
   Settings or by talking.
 
-**🟡 WIP — voice-controlled glasses skill (first v2.1 skill):** "what am I looking at" / "take a photo
-of this" → capture + describe aloud (`reactor.captureAndDescribe`, `isVisionCommand`). **Not working on
-device yet** — capture times out inside a conversation (camera/Wi-Fi/SCO/BLE contention). Fixes so far:
-release held SCO for the capture; ensure GATT link + retry capturePhoto until sent; `EchoVision`
-logging. **Needs a focused on-device debugging pass** (pull `EchoVision` right after a fresh attempt).
+**✅ DONE + DEVICE-VERIFIED (2026-06-14) — voice-controlled glasses skill (first v2.1 skill):**
+"what am I looking at" / "take a photo of this" → captures a photo and describes it aloud,
+**mid-conversation**, hands-free (`reactor.captureAndDescribe`, `isVisionCommand`). Verified working
+across repeated back-to-back attempts (each captured a fresh photo, described the correct newest one,
+no race, no timeout). The earlier "camera gated, can't fix" reading was wrong — see the corrected
+`docs/recon/Glasses_Controls.md §4`. Two-part fix:
+- **Audio teardown** (`BtAudioEngine.releaseForCamera()`): end SCO → `MODE_NORMAL` → clear comm device →
+  ~3.5 s settle so the idle A2DP stream SUSPENDS, freeing the camera. (No A2DP force-drop needed.)
+- **Deterministic capture pipeline** (`captureAndDescribe`): owns the flow under `syncMutex`, suppresses
+  the autonomous collector for its own `CaptureSaved`, waits for a real new-photo event, pulls, and
+  describes ONLY the **newest** photo (the one just taken) — never a stale backlog photo. Backlog is
+  drained into memories silently in the background; the whole ceremony is time-boxed (45 s) so a flaky
+  Wi-Fi-Direct sync can never wedge a later capture. Full record: `docs/SESSION_LOG_2026-06-14.md`.
 
 **Context/memory original ask: ADDRESSED by v1** — within-conversation recall via history threading
 (last 3–6 turns), cross-session via distilled profile + RAG, no more verbatim hoarding. Barge-in lives
