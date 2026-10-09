@@ -336,6 +336,69 @@ class EchoBackend(
         }
     }
 
+    // ── Deliberate lane in the cloud (2026-10-09) ─────────────────────────────────────────────
+    // Research + translation run as Edge Functions on the API key, so they work anywhere (no PC
+    // bridge). Bodies are built with org.json to sidestep the kotlinx encodeDefaults=false trap.
+
+    /** Long-running calls (web research can take 10–60 s) get their own generous read timeout. */
+    private val slowHttp: OkHttpClient by lazy {
+        http.newBuilder().readTimeout(150, java.util.concurrent.TimeUnit.SECONDS).build()
+    }
+
+    /**
+     * Web research (Claude + web search). Returns the spoken answer followed by "Sources:" and one
+     * URL per line — the same shape the agent-bridge research lane produced, so cards parse it.
+     */
+    suspend fun research(query: String, history: List<ChatMsg> = emptyList()): ResearchResult = withContext(Dispatchers.IO) {
+        val hist = org.json.JSONArray()
+        history.forEach { hist.put(org.json.JSONObject().put("role", it.role).put("content", it.content)) }
+        val body = org.json.JSONObject().put("query", query).put("history", hist).toString()
+        val t0 = System.currentTimeMillis()
+        val o = org.json.JSONObject(post("/functions/v1/research", body, slowHttp))
+        ResearchResult(
+            text = o.optString("text"),
+            spoken = o.optString("spoken"),
+            searches = o.optInt("searches"),
+            durationMs = System.currentTimeMillis() - t0,
+        )
+    }
+
+    /** A single-use Gemini Live Translate token locked to [target] (BCP-47, e.g. "en", "zh-Hans"). */
+    suspend fun translateToken(target: String): TranslateToken = withContext(Dispatchers.IO) {
+        val o = org.json.JSONObject(post("/functions/v1/translate", org.json.JSONObject().put("op", "token").put("target", target).toString()))
+        val urls = o.optJSONArray("urls")
+        TranslateToken(
+            token = o.getString("token"),
+            model = o.optString("model", "models/gemini-3.5-live-translate-preview"),
+            urls = (0 until (urls?.length() ?: 0)).map { urls!!.getString(it) },
+        )
+    }
+
+    /** "How do I say X in Y" → translation + romanization (+ the language code for the TTS voice). */
+    suspend fun translatePhrase(text: String, target: String? = null): PhraseResult = withContext(Dispatchers.IO) {
+        val b = org.json.JSONObject().put("op", "phrase").put("text", text)
+        if (target != null) b.put("target", target)
+        val o = org.json.JSONObject(post("/functions/v1/translate", b.toString()))
+        PhraseResult(
+            langCode = o.optString("langCode"),
+            langName = o.optString("langName"),
+            phrase = o.optString("phrase"),
+            translation = o.optString("translation"),
+            romanization = o.optString("romanization"),
+            spoken = o.optString("spoken"),
+        )
+    }
+
+    /** Summarize a finished translated conversation and save it as a memory. Returns the summary. */
+    suspend fun translateSave(lines: List<TranslatedLine>, mode: String, seconds: Long): String = withContext(Dispatchers.IO) {
+        val arr = org.json.JSONArray()
+        lines.forEach {
+            arr.put(org.json.JSONObject().put("who", it.who).put("lang", it.lang).put("text", it.text).put("translation", it.translation))
+        }
+        val b = org.json.JSONObject().put("op", "save").put("lines", arr).put("mode", mode).put("seconds", seconds)
+        org.json.JSONObject(post("/functions/v1/translate", b.toString(), slowHttp)).optString("summary")
+    }
+
     private fun get(path: String): String {
         var (code, txt) = getOnce(path)
         if (code == 401 && refreshSession()) { val r = getOnce(path); code = r.first; txt = r.second }
@@ -353,24 +416,24 @@ class EchoBackend(
         }
     }
 
-    private fun post(path: String, body: String): String {
-        var (code, txt) = postOnce(path, body)
+    private fun post(path: String, body: String, client: OkHttpClient = http): String {
+        var (code, txt) = postOnce(path, body, client)
         // Expired access token: rotate via the refresh token and retry once.
         if (code == 401 && refreshSession()) {
-            val retry = postOnce(path, body)
+            val retry = postOnce(path, body, client)
             code = retry.first; txt = retry.second
         }
         if (code !in 200..299) error("HTTP $code: $txt")
         return txt
     }
 
-    private fun postOnce(path: String, body: String): Pair<Int, String> {
+    private fun postOnce(path: String, body: String, client: OkHttpClient = http): Pair<Int, String> {
         val builder = Request.Builder()
             .url(session.baseUrl + path)
             .addHeader("apikey", session.anonKey)
         session.accessToken?.let { builder.addHeader("Authorization", "Bearer $it") }
         builder.post(body.toRequestBody(jsonMedia))
-        http.newCall(builder.build()).execute().use { resp ->
+        client.newCall(builder.build()).execute().use { resp ->
             return resp.code to resp.body?.string().orEmpty()
         }
     }
@@ -390,3 +453,17 @@ class EchoBackend(
         }
     }
 }
+
+data class ResearchResult(val text: String, val spoken: String, val searches: Int, val durationMs: Long)
+data class TranslateToken(val token: String, val model: String, val urls: List<String>)
+data class PhraseResult(
+    val langCode: String,
+    val langName: String,
+    val phrase: String,
+    val translation: String,
+    val romanization: String,
+    val spoken: String,
+)
+/** One line of a translated conversation: [who] = "me" | "them"; [text] original, [translation] rendered. */
+data class TranslatedLine(val who: String, val lang: String, val text: String, val translation: String)
+

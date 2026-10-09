@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Sync
@@ -72,7 +73,7 @@ private fun orbStateOf(vm: HomeViewModel): OrbState = when {
  */
 @OptIn(ExperimentalLayoutApi::class) // FlowRow
 @Composable
-fun LiveConsoleScreen(vm: HomeViewModel, onOpenAsk: () -> Unit = {}) {
+fun LiveConsoleScreen(vm: HomeViewModel, onOpenAsk: () -> Unit = {}, onOpenTranslate: () -> Unit = {}) {
     if (!vm.loggedIn) {
         SignInPane(vm)
         return
@@ -304,6 +305,12 @@ fun LiveConsoleScreen(vm: HomeViewModel, onOpenAsk: () -> Unit = {}) {
                     icon = Icons.Outlined.AutoAwesome,
                     contentDescription = "Ask JARVIS (deliberate lane)",
                     onClick = onOpenAsk,
+                )
+                // Translation: live conversation / listen / say-it (also voice-started from the glasses).
+                RoundIconButton(
+                    icon = Icons.Outlined.Translate,
+                    contentDescription = "Translate",
+                    onClick = onOpenTranslate,
                 )
             }
             if (vm.inConversation) {

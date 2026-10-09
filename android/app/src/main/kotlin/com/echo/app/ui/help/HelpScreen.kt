@@ -261,7 +261,9 @@ private fun TutorialsPage() {
         Triple("Look & Ask", listOf("Say “what am I looking at?”, or double-click BACK", "JARVIS captures the frame", "It describes what you're seeing, out loud"), "Great for “what is this?” moments — works mid-conversation."),
         Triple("Capture a memory", listOf("Single-click the FRONT button", "The photo syncs automatically", "It's captioned into your timeline"), "Find it later in Timeline and Gallery."),
         Triple("Voice notes", listOf("Hold the BACK button to record", "Click BACK to stop", "It's transcribed into a note"), "Meeting capture, hands-free."),
-        Triple("Ask JARVIS (get things done)", listOf("Tap ✨ on the Live screen (or type / speak)", "Ask it to research, check your calendar, or draft an email", "Read the answer card — research shows its sources"), "The deliberate lane: patient, tool-using, reviewable. (Needs the agent set up.)"),
+        Triple("Translate a conversation", listOf("Say “Jarvis, translate” (or tap the translate button)", "Hold the phone between you — let them speak first", "Hear them in English in your glasses; they hear you from the phone"), "Mandarin, French, Arabic and 70+ more. Say “stop translating” — it's then summarized into your memory."),
+        Triple("Translate a sign or menu", listOf("Look at it", "Say “Jarvis, translate this”", "Hear it in English"), "Also reads English text aloud: “read this to me”."),
+        Triple("Ask JARVIS (get things done)", listOf("Tap ✨ on the Live screen (or type / speak)", "Ask it to research, check your calendar, or draft an email", "Read the answer card — research shows its sources"), "The deliberate lane: patient, tool-using, reviewable. Research works anywhere; email & calendar still need the PC agent."),
         Triple("Drill down on a photo", listOf("Open a photo in Gallery", "Tap “Ask about this photo”", "Ask “how many…?” or “read the text”, by text or mic"), "JARVIS re-examines that exact photo to answer follow-ups."),
         Triple("Check your glasses", listOf("Open Settings → Glasses & device", "See battery %, connection, and the buttons map", "Tap “Fix connection” if the link drops"), "Battery also shows on the Live screen."),
     )
@@ -306,8 +308,15 @@ private fun CommandsPage() {
         "The basics" to listOf("“Jarvis, what's on my schedule?”", "“Where did I park?”", "“What did I note earlier?”"),
         "Memory" to listOf("“What did Sam say about the budget?”", "“When did I last see my keys?”", "“Find that restaurant we talked about.”", "“Remember that I parked on level 3.”"),
         "Vision (Look & Ask)" to listOf("“What am I looking at?”", "“Describe this for me.”", "“Read this for me.”"),
+        "Translate" to listOf(
+            "“Jarvis, translate.”   “Translate to Mandarin.”",
+            "“Listen and translate.”  (meetings, talks — English in your ear)",
+            "“How do I say ‘what is your best price’ in Mandarin?”   “Say it again.”",
+            "“Translate this.”   “What does this sign say?”",
+            "“Stop translating.”",
+        ),
         "Get things done (Ask JARVIS)" to listOf(
-            "“Jarvis, research the best budget headphones.”",
+            "“Jarvis, research the price of 30 kVA inverters in Port Harcourt.”",
             "“What's on my calendar this week?”",
             "“Add lunch to my calendar tomorrow at noon.”  (it confirms first)",
             "“Draft an email to Sam about Friday.”",

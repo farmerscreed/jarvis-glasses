@@ -143,7 +143,7 @@ class GlassesCaptureReactor @Inject constructor(
      * description, or null if no fresh photo could be captured (e.g. camera still gated). Bounded by
      * [timeoutMs]. The whole ceremony is time-boxed, so it can never wedge later captures.
      */
-    suspend fun captureAndDescribe(timeoutMs: Long = 45_000): String? {
+    suspend fun captureAndDescribe(timeoutMs: Long = 45_000, prompt: String? = null): String? {
         if (!backend.isLoggedIn) { android.util.Log.w("EchoVision", "not logged in"); return null }
         return syncMutex.withLock {
             voiceVisionInFlight = true
@@ -182,7 +182,7 @@ class GlassesCaptureReactor @Inject constructor(
                         drainBacklog(files) // keep anything we did pull
                         return@withTimeoutOrNull null
                     }
-                    val desc = describePhoto(newest)
+                    val desc = describePhoto(newest, prompt)
                     drainBacklog(files.filter { it != newest }) // backlog -> memories, off the hot path
                     desc
                 }
@@ -195,12 +195,12 @@ class GlassesCaptureReactor @Inject constructor(
     }
 
     /** Vision-describe one photo and save it as a memory. Returns the spoken text, or null on failure. */
-    private suspend fun describePhoto(f: File): String? {
+    private suspend fun describePhoto(f: File, prompt: String? = null): String? {
         _status.value = "Claude is looking…"
         val visioned = runCatching {
             backend.describeImage(
                 f.readBytes(),
-                "You are JARVIS. The wearer asked what they are looking at. Say what you see in one or two natural spoken sentences.",
+                prompt ?: "You are JARVIS. The wearer asked what they are looking at. Say what you see in one or two natural spoken sentences.",
             )
         }.getOrNull()
         android.util.Log.i("EchoVision", "describePhoto ${f.name} vision=${if (visioned != null) "ok(${visioned.length})" else "FAILED"}")

@@ -38,6 +38,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
+/** Vision prompt for "translate this / what does this say / read this to me". */
+private const val READ_PROMPT =
+    "You are JARVIS, reading for the wearer through their glasses. Find the text in this photo " +
+        "(sign, menu, label, notice, screen, document). If it is NOT in English: say which language it " +
+        "is, then give a natural English translation. If it IS English: read it out. For a menu or price " +
+        "list, summarize the items with their prices instead of reading every line. Speak naturally " +
+        "(no markdown, no lists), keep it under about 80 words, and say plainly if the text is too small " +
+        "or blurry to read. If there is no text, say so in one sentence."
+
 /** One line in the on-screen conversation transcript. [fromUser] = you, else JARVIS. */
 data class TurnLine(val fromUser: Boolean, val text: String)
 
@@ -57,6 +66,8 @@ class HomeViewModel @Inject constructor(
     private val reactor: GlassesCaptureReactor,
     private val agent: AgentBridge,
     private val onDeviceLlm: com.echo.app.ml.OnDeviceLlm,
+    private val translator: com.echo.app.translate.TranslationController,
+    private val phrases: com.echo.app.translate.PhraseSpeaker,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -131,6 +142,15 @@ class HomeViewModel @Inject constructor(
     /** True while the shared capture reactor is running a sync (mirrors reactor.working). */
     var syncing by mutableStateOf(false); private set
 
+    // ── Translation (2026-10-09) ─────────────────────────────────────────────────────────────
+    /** Live translation state (mirrors TranslationController.ui). */
+    var translateUi by mutableStateOf(com.echo.app.translate.TranslateUi()); private set
+    /** Ask the UI to show the Translate screen (set when a voice command starts translating). */
+    var translateOpen by mutableStateOf(false)
+    /** Last "say it" phrase (shown big on screen so you can also just show the phone). */
+    var lastPhrase by mutableStateOf<com.echo.memory.PhraseResult?>(null); private set
+    private var pendingTranslate: Pair<com.echo.app.translate.TranslateMode, String?>? = null
+
     init {
         // Restore sign-in from the persisted session token (survives app restarts).
         if (backend.isLoggedIn) { loggedIn = true; status = "Signed in (restored)" }
@@ -152,6 +172,16 @@ class HomeViewModel @Inject constructor(
         // is the other. Mirror the reactor's progress into the UI while it's working and we're
         // not mid-foreground-action, and surface new memories as they land.
         reactor.start()
+        viewModelScope.launch {
+            var wasActive = false
+            translator.ui.collect { u ->
+                translateUi = u
+                // Translation just ended → give the mic back to the wake word if hands-free is on.
+                if (wasActive && !u.active && handsFree) { micActive = startWake() }
+                if (wasActive && !u.active && u.summary.isNotBlank()) tts.speak("Saved to your memory.")
+                wasActive = u.active
+            }
+        }
         viewModelScope.launch { reactor.working.collect { syncing = it; if (!it) refreshLibrary() } }
         viewModelScope.launch { reactor.status.collect { if (!busy) status = it } }
         // Glasses-triggered Look & Ask (double-click BACK) speaks; also show it on screen.
@@ -181,6 +211,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun onGlassesButton() {
+        if (translator.isActive) { stopTranslation(); return } // button = stop while translating
         if (busy) return
         if (!loggedIn) { status = "Glasses button pressed — sign in first"; return }
         withRecordingConsent { run("Glasses button — listening…") { doTalk() } }
@@ -450,9 +481,9 @@ class HomeViewModel @Inject constructor(
                 agent.isConfigured && isCalendarQuery(q) -> agent.calendarQuery(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "calendar"))) }
                 agent.isConfigured && isEmailDraft(q) -> agent.emailDraft(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "email"))) }
                 agent.isConfigured && isEmailRead(q) -> agent.emailRead(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "email"))) }
-                agent.isConfigured && isResearchCommand(q) -> {
+                online && isResearchCommand(q) -> {
                     val topic = researchTopic(q)
-                    val r = agent.research(topic)
+                    val r = research(topic)
                     askThread.add(AskTurn(false, r.text, kindOf(r, "research")))
                     if (r.ok) runCatching {
                         store.remember(Memory(type = MemoryType.NOTE, text = "Research — $topic:\n${r.text}", tags = listOf("research")))
@@ -618,6 +649,61 @@ class HomeViewModel @Inject constructor(
                 continue
             }
 
+            // ── Translation (checked BEFORE vision: "read this"/"what does this say" are translation-
+            // aware here, and "translate" must never fall through to chat) ──────────────────────
+            // (a) Live speech translation — conversation or listen mode. Leaves the voice loop (the
+            //     mic goes to the translator) and starts once the conversation audio is torn down.
+            val translateIntent = liveTranslateIntent(heard)
+            if (translateIntent != null) {
+                pendingTranslate = translateIntent
+                status = "Starting translation…"
+                break // finally{} tears down the conversation audio, then the translator starts
+            }
+            // (b) "How do I say … in Mandarin?" → English lead-in in your ear, phrase OUT LOUD.
+            if (isPhraseCommand(heard)) {
+                status = "Translating…"
+                val res = runCatching { backend.translatePhrase(heard, com.echo.app.translate.TranslationController.langFromWords(heard)) }.getOrNull()
+                if (res == null || res.translation.isBlank()) {
+                    tts.speak("Sorry, I couldn't translate that.")
+                } else {
+                    lastPhrase = res
+                    val shown = res.translation + if (res.romanization.isNotBlank()) "\n${res.romanization}" else ""
+                    answer = shown; transcript.add(TurnLine(false, shown))
+                    tts.speak(res.spoken)
+                    val hadHeldSco = continuous && bargeInEnabled
+                    if (hadHeldSco) { tts.useCommunicationRoute(false); audio.endScoSession() }
+                    val spoke = phrases.speakAloud(res.translation, res.langCode)
+                    if (hadHeldSco) { audio.beginScoSession(); tts.useCommunicationRoute(true) }
+                    if (!spoke) tts.speak("Your phone has no ${res.langName} voice installed, so I've put it on the screen to show them.")
+                    status = "Say it: ${res.langName}"
+                }
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+            if (isRepeatPhrase(heard) && lastPhrase != null) {
+                val hadHeldSco = continuous && bargeInEnabled
+                if (hadHeldSco) { tts.useCommunicationRoute(false); audio.endScoSession() }
+                phrases.repeat()
+                if (hadHeldSco) { audio.beginScoSession(); tts.useCommunicationRoute(true) }
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+            // (c) "Translate this" / "what does this say" / "read this to me" → photo → read/translate.
+            if (isReadCommand(heard)) {
+                status = "Reading…"
+                val hadHeldSco = continuous && bargeInEnabled
+                tts.speak("Let me read it.")
+                tts.stop()
+                if (hadHeldSco) tts.useCommunicationRoute(false)
+                audio.releaseForCamera(settleMs = 3500L)
+                val desc = reactor.captureAndDescribe(prompt = READ_PROMPT)
+                if (hadHeldSco) { tts.useCommunicationRoute(true); audio.beginScoSession() }
+                val ans = desc ?: "I couldn't get a photo just now. Try again, or snap one with the glasses button and ask me about it."
+                answer = ans; transcript.add(TurnLine(false, ans)); tts.speak(ans)
+                if (!continuous) { status = "Done"; break }
+                status = "Listening…"; continue
+            }
+
             // Voice-controlled glasses: "what am I looking at" / "take a photo of this" → capture a
             // photo through the glasses and describe it aloud (the reactor speaks the description).
             if (isVisionCommand(heard)) {
@@ -702,11 +788,11 @@ class HomeViewModel @Inject constructor(
 
             // M1 — research (checked after calendar/email so "look up my calendar" routes to calendar):
             // delegate to Claude Code, speak a sourced summary, and save the full text to the memory index.
-            if (agent.isConfigured && isResearchCommand(heard)) {
+            if (isResearchCommand(heard)) {
                 val topic = researchTopic(heard)
                 status = "Researching…"
-                tts.speak("On it — researching that now. This might take a moment.")
-                val res = agent.research(topic)
+                tts.speak("On it — researching that now.")
+                val res = research(topic, history.toList())
                 // The preset answers in a spoken style then lists "Sources:" — speak the spoken part,
                 // but keep the full text (with sources) on screen and in memory.
                 answer = res.text
@@ -803,6 +889,66 @@ class HomeViewModel @Inject constructor(
                 viewModelScope.launch { backend.distill(convo) }
             }
         }
+        pendingTranslate?.let { (mode, target) ->
+            pendingTranslate = null
+            beginTranslation(mode, target)
+        }
+    }
+
+    // ── Translation entry points ────────────────────────────────────────────────────────────────
+    /** Start live translation from the UI (Translate screen buttons). */
+    fun startTranslation(mode: com.echo.app.translate.TranslateMode, target: String? = null) {
+        if (translator.isActive) return
+        if (inConversation) { // leave the voice loop first; it hands over when it exits
+            pendingTranslate = mode to target
+            endConversation()
+            return
+        }
+        withRecordingConsent { viewModelScope.launch { beginTranslation(mode, target) } }
+    }
+
+    private suspend fun beginTranslation(mode: com.echo.app.translate.TranslateMode, target: String?) {
+        if (!online) { tts.speak("I need an internet connection to translate."); status = "Off-grid — translation needs internet"; return }
+        wake.stop() // the translator needs the phone mic
+        translateOpen = true
+        val lead = when {
+            mode == com.echo.app.translate.TranslateMode.LISTEN -> "Listening. I'll translate into English."
+            target != null -> "Translating with ${com.echo.app.translate.TranslationController.langName(target)}. Hold the phone between you."
+            else -> "Translating. Let them speak first, and hold the phone between you."
+        }
+        tts.speak(lead)
+        micActive = true
+        translator.start(mode, target)
+        status = "Translating"
+    }
+
+    fun stopTranslation() {
+        translator.stop(save = true)
+        micActive = handsFree
+        status = "Translation stopped"
+    }
+
+    fun clearTranslation() = translator.clearSummary()
+
+    /** "Say it" from the screen: type an English phrase, hear it in [target] out loud. */
+    fun sayPhrase(text: String, target: String) = run("Translating…") {
+        val res = backend.translatePhrase(text, target)
+        lastPhrase = res
+        if (!phrases.speakAloud(res.translation, res.langCode)) status = "No ${res.langName} voice on this phone — showing it instead"
+        else status = "Said it in ${res.langName}"
+    }
+
+    fun repeatPhrase() = viewModelScope.launch { phrases.repeat() }
+
+    /** Cloud research (works anywhere); falls back to the PC bridge only if the cloud call fails. */
+    private suspend fun research(topic: String, history: List<ChatMsg> = emptyList()): com.echo.memory.AgentResult {
+        val cloud = runCatching { backend.research(topic, history) }
+        cloud.getOrNull()?.let { r ->
+            if (r.text.isNotBlank()) return com.echo.memory.AgentResult(true, r.text, r.durationMs)
+        }
+        if (agent.isConfigured) return agent.research(topic)
+        val why = cloud.exceptionOrNull()?.message?.take(120) ?: "no answer"
+        return com.echo.memory.AgentResult(false, "I couldn't finish that research ($why).", 0)
     }
 
     /**
@@ -825,6 +971,46 @@ class HomeViewModel @Inject constructor(
         RegexOption.IGNORE_CASE,
     )
     private fun isVisionCommand(s: String) = visionRe.containsMatchIn(s)
+
+    // ── Translation intents ──────────────────────────────────────────────────────────────────────
+    private val phraseRe = Regex(
+        "\\bhow (do|would|can|should) (i|you|we) say\\b|\\bwhat('s| is) the (word|phrase) for\\b|" +
+            "\\bhow to say\\b|\\b(say|tell (him|her|them)) .{2,80} in (mandarin|chinese|french|arabic|spanish|portuguese|german|italian|japanese|korean|hindi|turkish|russian|hausa|swahili)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isPhraseCommand(s: String) = phraseRe.containsMatchIn(s)
+    private val repeatPhraseRe = Regex("\\b(say (it|that) again|repeat (it|that)( please)?)\\b", RegexOption.IGNORE_CASE)
+    private fun isRepeatPhrase(s: String) = repeatPhraseRe.containsMatchIn(s)
+
+    private val readRe = Regex(
+        "\\btranslate (this|that|it|the (sign|menu|label|text|board|notice|page|card|document))\\b|" +
+            "\\bwhat does (this|that|it|the sign|the menu) say\\b|\\bread (this|that|it)( out)?( to me| for me)?\\b|" +
+            "\\bread (the|this|that) (sign|menu|label|text|board|notice|page)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isReadCommand(s: String) = readRe.containsMatchIn(s)
+
+    private val listenRe = Regex(
+        "\\b(listen and translate|translate what (they|he|she|you|people)('re| are| is)? saying|" +
+            "translate (the|this) (talk|speech|meeting|sermon|announcement|presentation|call)|listen(ing)? mode|interpret (the|this) (talk|meeting|speech))\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private val convoRe = Regex(
+        "\\b(start translating|translation mode|translate mode|interpreter mode|be (my|our) (interpreter|translator)|" +
+            "interpret for (me|us)|translate for (me|us)|translate (my|this|our|the) conversation|help me (talk|speak) (to|with)|" +
+            "translate (to|into) (mandarin|chinese|french|arabic|spanish|portuguese|german|italian|japanese|korean|hindi|turkish|russian|hausa|swahili))\\b|" +
+            "^\\W*(jarvis\\W+)?(translate|interpret)\\W*$",
+        RegexOption.IGNORE_CASE,
+    )
+    /** Live translation intent → (mode, preset target language or null to auto-detect). */
+    private fun liveTranslateIntent(s: String): Pair<com.echo.app.translate.TranslateMode, String?>? {
+        val target = com.echo.app.translate.TranslationController.langFromWords(s)
+        return when {
+            listenRe.containsMatchIn(s) -> com.echo.app.translate.TranslateMode.LISTEN to null
+            convoRe.containsMatchIn(s) -> com.echo.app.translate.TranslateMode.CONVERSATION to target
+            else -> null
+        }
+    }
 
     // M1 research — any "research / look into / find out / look up / search for …" anywhere (natural
     // speech: "I needed to research on X", "can you find out the price of Y"). Checked AFTER calendar/
@@ -1027,7 +1213,7 @@ class HomeViewModel @Inject constructor(
         wake.stop()
         run("Heard “Jarvis” — listening…") {
             converse(continuous = true)
-            if (handsFree) startWake()
+            if (handsFree && !translator.isActive) startWake()
         }
     }
 

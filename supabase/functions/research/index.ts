@@ -1,0 +1,105 @@
+// POST /functions/v1/research { query, history? }
+// The deliberate lane's research skill, hosted in the cloud (replaces the PC Agent Bridge for
+// research — works anywhere, no tether). Claude + Anthropic's server-side web_search tool: it
+// searches, reads, and answers in a SPOKEN style; we build the "Sources:" list from the citations
+// Claude actually used (more reliable than asking the model to list URLs).
+// Returns { text, spoken, sources: [{title,url}], searches, ms }.
+//   text   = spoken + "\nSources:\n<url per line>"  (same shape the app's research cards parse)
+import { corsHeaders, json } from "../_shared/http.ts";
+import { userClient } from "../_shared/supabaseClient.ts";
+import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
+
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+const MODEL = Deno.env.get("RESEARCH_MODEL") ?? Deno.env.get("CLAUDE_MODEL") ?? "claude-sonnet-4-6";
+
+const SYSTEM = (today: string) => `You are JARVIS's research agent, acting for the user (Law). Today is ${today}.
+Be truthful above all. ALWAYS use the web_search tool to verify anything time-sensitive or factual
+(prices, availability, news, versions, schedules, rules, who holds a role) — never rely on memory for
+things that could have changed. If sources conflict or you can't verify something, say so plainly.
+When the question is about prices or availability and no location is given, assume Nigeria
+(Port Harcourt / Lagos) and quote naira where sources allow, with USD if useful.
+Answer in a natural SPOKEN style for an earpiece: 3 to 6 short sentences, lead with the answer,
+no markdown, no bullet points, no URLs, no "Sources" line (the app adds sources itself).`;
+
+type Block = {
+  type: string;
+  text?: string;
+  citations?: { type: string; url?: string; title?: string }[];
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const t0 = Date.now();
+  try {
+    const supabase = userClient(req);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return json({ error: "unauthorized" }, 401);
+    if (!await checkRateLimit(supabase, "research", 40, HOURLY)) {
+      return json({ error: "Hourly research limit reached — try again shortly." }, 429);
+    }
+    if (!ANTHROPIC_API_KEY) return json({ error: "ANTHROPIC_API_KEY not set" }, 500);
+
+    const { query, history } = await req.json();
+    const q = String(query ?? "").trim();
+    if (!q) return json({ error: "query is required" }, 400);
+
+    const messages: unknown[] = [];
+    if (Array.isArray(history)) {
+      for (const m of history.slice(-6)) {
+        if ((m?.role === "user" || m?.role === "assistant") && typeof m?.content === "string") {
+          messages.push({ role: m.role, content: m.content });
+        }
+      }
+    }
+    messages.push({ role: "user", content: q });
+
+    const today = new Date().toISOString().slice(0, 10);
+    let content: Block[] = [];
+    let searches = 0;
+    // pause_turn: a long server-tool turn can pause; send it back unchanged to continue (max 3).
+    for (let i = 0; i < 3; i++) {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: 1500,
+          system: SYSTEM(today),
+          messages,
+          tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
+        }),
+      });
+      if (!res.ok) return json({ error: `anthropic ${res.status}: ${await res.text()}` }, 502);
+      const data = await res.json();
+      searches += data.usage?.server_tool_use?.web_search_requests ?? 0;
+      content = content.concat(data.content ?? []);
+      if (data.stop_reason !== "pause_turn") break;
+      messages.push({ role: "assistant", content: data.content });
+    }
+
+    // The final answer is the text after the last tool result; earlier text blocks are usually
+    // "I'll search for…" narration. Take text blocks that follow the last web_search_tool_result.
+    let lastTool = -1;
+    content.forEach((b, i) => { if (b.type === "web_search_tool_result") lastTool = i; });
+    const answerBlocks = content.slice(lastTool + 1).filter((b) => b.type === "text");
+    const spoken = (answerBlocks.length ? answerBlocks : content.filter((b) => b.type === "text"))
+      .map((b) => b.text ?? "").join("").replace(/\*\*|__|`/g, "").replace(/\s+\n/g, "\n").trim();
+
+    const seen = new Set<string>();
+    const sources: { title: string; url: string }[] = [];
+    for (const b of content) {
+      for (const c of b.citations ?? []) {
+        if (c.url && !seen.has(c.url)) { seen.add(c.url); sources.push({ title: c.title ?? c.url, url: c.url }); }
+      }
+    }
+    const top = sources.slice(0, 6);
+    const text = top.length ? `${spoken}\nSources:\n${top.map((s) => s.url).join("\n")}` : spoken;
+    return json({ text, spoken, sources: top, searches, ms: Date.now() - t0 });
+  } catch (e) {
+    return json({ error: String(e) }, 500);
+  }
+});

@@ -28,6 +28,7 @@ import com.echo.app.ui.help.HelpScreen
 import com.echo.app.ui.onboarding.OnboardingPrefs
 import com.echo.app.ui.onboarding.OnboardingScreen
 import com.echo.app.ui.screens.AskJarvisScreen
+import com.echo.app.ui.screens.TranslateScreen
 import com.echo.app.ui.screens.DeviceScreen
 import com.echo.app.ui.screens.GalleryScreen
 import com.echo.app.ui.screens.LiveConsoleScreen
@@ -90,11 +91,12 @@ fun AppRoot() {
                 devConsole -> JarvisTopBar(title = "Dev console", wordmark = false, onNavigate = { devConsole = false }, navigateBack = true)
                 device -> JarvisTopBar(title = "Device", wordmark = false, onNavigate = { device = false }, navigateBack = true)
                 ask -> JarvisTopBar(title = "Ask JARVIS", wordmark = false, onNavigate = { ask = false }, navigateBack = true)
+                vm.translateOpen -> JarvisTopBar(title = "Translate", wordmark = false, onNavigate = { vm.translateOpen = false }, navigateBack = true, micActive = vm.micActive)
                 else -> JarvisTopBar(onHelp = { showHelp = true }, micActive = vm.micActive)
             }
         },
         bottomBar = {
-            if (!devConsole && !device && !ask) {
+            if (!devConsole && !device && !ask && !vm.translateOpen) {
                 JarvisBottomBar(current = tab, onSelect = { tab = it })
             }
         },
@@ -108,7 +110,8 @@ fun AppRoot() {
                 devConsole -> DevConsoleScreen(vm)
                 device -> DeviceScreen(vm)
                 ask -> AskJarvisScreen(vm)
-                tab == JarvisTab.Live -> LiveConsoleScreen(vm, onOpenAsk = { vm.clearAskPhoto(); ask = true })
+                vm.translateOpen -> TranslateScreen(vm)
+                tab == JarvisTab.Live -> LiveConsoleScreen(vm, onOpenAsk = { vm.clearAskPhoto(); ask = true }, onOpenTranslate = { vm.translateOpen = true })
                 tab == JarvisTab.Timeline -> TimelineScreen(vm)
                 tab == JarvisTab.Gallery -> GalleryScreen(vm, onAskAboutPhoto = { mem -> vm.openAskPhoto(mem); ask = true })
                 tab == JarvisTab.Settings -> SettingsScreen(
