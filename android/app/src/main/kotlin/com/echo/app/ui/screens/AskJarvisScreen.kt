@@ -203,7 +203,6 @@ private fun AskBubble(turn: HomeViewModel.AskTurn) {
     val accent = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
     // Split the spoken body from a structured block (research Sources / calendar EVENTS / email DRAFT).
     val (body, blockLabel, blockLines) = remember(turn.text) { splitStructured(turn.text) }
-    var showSources by remember(turn.text) { mutableStateOf(false) }
 
     Card(
         Modifier.fillMaxWidth(),
@@ -221,18 +220,11 @@ private fun AskBubble(turn: HomeViewModel.AskTurn) {
                 color = MaterialTheme.colorScheme.onSurface,
             )
             when (blockLabel) {
-                // Research: a collapsible list of source URLs.
-                "sources" -> if (blockLines.isNotEmpty()) {
-                    Text(
-                        if (showSources) "▾ Sources (${blockLines.size})" else "▸ Sources (${blockLines.size})",
-                        style = JarvisTheme.dataMono,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable { showSources = !showSources }.padding(top = JarvisSpacing.xs),
-                    )
-                    if (showSources) blockLines.filter { it.startsWith("http") }.forEach {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+                // Research: the sites it actually used, as tappable chips (opens the page).
+                "sources" -> com.echo.app.ui.components.SourcesRow(
+                    blockLines.filter { it.startsWith("http") },
+                    modifier = Modifier.padding(top = JarvisSpacing.xs),
+                )
                 // Calendar: an events list.
                 "events" -> blockLines.forEach { ev ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {

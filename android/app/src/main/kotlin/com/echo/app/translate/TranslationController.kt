@@ -37,6 +37,8 @@ data class LiveLine(
     val text: String,
     val translation: String,
     val lagMs: Long? = null,
+    /** Last time this line changed — the UI uses it to show who is speaking right now. */
+    val updatedAt: Long = System.currentTimeMillis(),
 )
 
 data class TranslateUi(
@@ -265,7 +267,7 @@ class TranslationController @Inject constructor(
     private fun updateLine(id: Long, f: (LiveLine) -> LiveLine) {
         synchronized(lines) {
             val i = lines.indexOfFirst { it.id == id }
-            if (i >= 0) lines[i] = f(lines[i])
+            if (i >= 0) lines[i] = f(lines[i]).copy(updatedAt = System.currentTimeMillis())
         }
         publishLines()
     }

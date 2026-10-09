@@ -1,5 +1,7 @@
 package com.echo.app.ui.screens
 
+import androidx.compose.runtime.remember
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -182,8 +184,11 @@ private fun TimelineCard(m: Memory) {
     // Tap to expand: long memories (esp. research, with their Sources) are truncated to 4 lines until
     // tapped, then show in full so the director can read the whole thing.
     var expanded by rememberSaveable(m.id ?: m.text) { mutableStateOf(false) }
+    // Research notes: show the answer cleanly and the sources as tappable chips (when opened).
+    val (body, sources) = remember(m.text) { com.echo.app.ui.components.splitSources(m.text.orEmpty()) }
+    androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(JarvisSpacing.xs)) {
     MemoryCard(
-        text = m.text.orEmpty(),
+        text = body,
         timestamp = m.createdAt?.let { TIME_FMT.format(it) } ?: "—",
         thumbnail = image?.let { BitmapPainter(it) },
         isVoiceNote = m.type == MemoryType.VOICE_NOTE,
@@ -193,4 +198,8 @@ private fun TimelineCard(m: Memory) {
         maxLines = if (expanded) Int.MAX_VALUE else 4,
         modifier = Modifier.clickable { expanded = !expanded },
     )
+    if (expanded && sources.isNotEmpty()) {
+        com.echo.app.ui.components.SourcesRow(sources, modifier = Modifier.padding(horizontal = JarvisSpacing.md))
+    }
+    }
 }

@@ -59,7 +59,9 @@ import com.echo.app.ui.theme.JarvisTheme
 /** The agreed mapping from real assistant state to the orb's cognitive state. */
 private fun orbStateOf(vm: HomeViewModel): OrbState = when {
     !vm.online -> OrbState.OffGrid
-    vm.status.contains("istening") -> OrbState.Listening
+    // Web research is the slow, tool-using lane — show the "deliberating" orb while it works.
+    vm.status.startsWith("Researching") -> OrbState.Deliberating
+    vm.status.contains("istening") || vm.status.startsWith("Translating") -> OrbState.Listening
     vm.status.startsWith("Transcribing") || vm.status.startsWith("Thinking") ||
         vm.status.startsWith("Signing") || vm.status.startsWith("Verifying") -> OrbState.Thinking
     vm.status.startsWith("Speaking") -> OrbState.Speaking
@@ -157,12 +159,15 @@ fun LiveConsoleScreen(vm: HomeViewModel, onOpenAsk: () -> Unit = {}, onOpenTrans
                                     color = MaterialTheme.colorScheme.primaryContainer,
                                 )
                             }
+                            // Research answers: speak-style body in the bubble, sources as tappable chips.
+                            val (body, sources) = if (line.fromUser) line.text to emptyList() else com.echo.app.ui.components.splitSources(line.text)
                             Row(
                                 Modifier.fillMaxWidth(),
                                 horizontalArrangement = if (line.fromUser) Arrangement.End else Arrangement.Start,
                             ) {
-                                TranscriptBubble(line.text, fromUser = line.fromUser)
+                                TranscriptBubble(body, fromUser = line.fromUser)
                             }
+                            if (sources.isNotEmpty()) com.echo.app.ui.components.SourcesRow(sources)
                         }
                     }
                 } else if (vm.answer.isEmpty() && !vm.busy) {
@@ -191,7 +196,9 @@ fun LiveConsoleScreen(vm: HomeViewModel, onOpenAsk: () -> Unit = {}, onOpenTrans
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primaryContainer,
                         )
-                        TranscriptBubble(vm.answer, fromUser = false)
+                        val (body, sources) = com.echo.app.ui.components.splitSources(vm.answer)
+                        TranscriptBubble(body, fromUser = false)
+                        if (sources.isNotEmpty()) com.echo.app.ui.components.SourcesRow(sources)
                     }
                 }
             }
@@ -316,6 +323,10 @@ fun LiveConsoleScreen(vm: HomeViewModel, onOpenAsk: () -> Unit = {}, onOpenTrans
             if (vm.inConversation) {
                 Spacer(Modifier.height(JarvisSpacing.sm))
                 JarvisSecondaryButton("End conversation", onClick = vm::endConversation)
+            }
+            if (vm.translateUi.active) {
+                Spacer(Modifier.height(JarvisSpacing.sm))
+                JarvisPrimaryButton("Translation live — open", onClick = onOpenTranslate)
             }
             if (!vm.online) {
                 Spacer(Modifier.height(JarvisSpacing.sm))
