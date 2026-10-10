@@ -140,10 +140,14 @@ The cloud sandbox cannot reach Google Maven, so **builds run on Law's PC**. The 
 | "Research the baby cot in front of me" → "I'm not able to see images" | Research only got the words, never a photo; "cot" heard as "coat" | Look & research (photo + web search); accent-primed cloud STT |
 | "Is the new speech recogniser in use? Still many errors" | It was on-device Whisper base.en (downloaded 13:25), weak on Nigerian accent/names ("Travis") | Cloud-first STT racing Whisper; Settings line |
 | Translation save summaries only had "me" lines | Same mic-gate bug | — |
+| "Listening worked perfectly, then it went off when the screen went blank" (15:21 test) | Android 14+ only lets an app use the mic while visible or while it runs a **foreground service of type `microphone`**. Server logs proved the Gemini sessions stayed open (2 token calls, no reconnects) — the mic just went silent; nothing was saved | New `translate/TranslateService` (FGS type microphone + partial wake lock + low-latency Wi-Fi lock, "JARVIS is translating" notification with Stop), started/stopped with every translation. If Android refuses (double-tap with the phone locked and the app not visible) JARVIS says "Please unlock your phone, then double-tap again" |
+| "It kept writing French when Mandarin was being spoken" | The header/chip showed the remembered language (French) and in listen mode never updated; Gemini's per-fragment language code is also unreliable | `effectiveLang()`: the writing system wins (Han → Mandarin, kana → Japanese, Arabic, Cyrillic…); listen mode always shows the language being spoken now; a new caption line starts when the language changes; each caption shows its language |
+| "It should write English when English is spoken" | Listen mode dropped English input (only translations were shown) | English speech now appears as captions in listen mode (nothing played) |
 | `"Saved to your memory"` never spoken | Checked only on the stop transition, before the summary arrived | Speak when the summary lands |
 
 ## 5. Still open / next
-1. **Law to re-test** (build of 2026-10-10 15:11): double-tap listening on a French video; "Jarvis,
+1. **Law to re-test** (build of 2026-10-10 ~15:40: screen-off service, language labels, English
+   captions; the 15:11 build added listen-first, typing and the echo fix): double-tap listening on a French video; "Jarvis,
    let me talk"; a real two-way chat; typing a reply; look-and-research on a few objects.
 2. If echo still leaks on the loudspeaker: try `VOICE_COMMUNICATION` mic source + Android
    `AcousticEchoCanceler` (needs care: communication mode can reroute audio), or push-to-talk.

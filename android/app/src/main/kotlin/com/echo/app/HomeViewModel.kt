@@ -993,6 +993,11 @@ class HomeViewModel @Inject constructor(
         // The mic is held during the cue, so the cue itself is never translated.
         translator.holdMic(true)
         translator.start(mode, target)
+        if (!translator.isActive) { // Android refused (phone locked) — the translator already said why
+            translator.holdMic(false); micActive = handsFree; status = "Unlock the phone to translate"
+            if (handsFree) micActive = startWake()
+            return
+        }
         status = "Translating"
         val lang = (target ?: translator.lastLang).takeIf { it.isNotBlank() && mode == com.echo.app.translate.TranslateMode.CONVERSATION }
         speakOverTranslator(

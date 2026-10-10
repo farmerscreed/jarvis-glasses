@@ -340,9 +340,10 @@ private fun Captions(vm: HomeViewModel) {
             items(u.lines, key = { it.id }) { line ->
                 val latest = line.id == u.lines.last().id
                 val live = latest && now - line.updatedAt < LIVE_WINDOW_MS
+                val english = TranslationController.isEnglish(line.lang)
                 Column {
                     Text(
-                        line.translation.ifBlank { "…" }.trim(),
+                        (if (english) line.text else line.translation).ifBlank { "…" }.trim(),
                         fontSize = if (latest) 28.sp else 18.sp,
                         lineHeight = if (latest) 36.sp else 26.sp,
                         color = when {
@@ -352,7 +353,10 @@ private fun Captions(vm: HomeViewModel) {
                         },
                     )
                     if (latest && line.text.isNotBlank()) {
-                        Text(line.text.trim(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            if (english) "ENGLISH" else "${TheirStrings.nativeName(line.lang).uppercase()} · ${line.text.trim()}",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

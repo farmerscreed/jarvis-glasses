@@ -24,7 +24,9 @@ build loop) + **`docs/USER_GUIDE.md`** (how each feature works, mirrors the in-a
 - **Builds run on Law's PC** (`D:\APP\jarvis`, double-click `BUILD-JARVIS.bat`; installs over
   wireless adb). The cloud sandbox can't reach Google Maven. See session log §3.
 
-**Needs Law's test next:** the 2026-10-10 15:11 build fixes the translation **echo loop** (accurate
+**Translation runs in a foreground service** (`translate/TranslateService`, type microphone) so it
+keeps working with the screen off — without it Android silences the mic in the background.
+**Needs Law's test next:** the 2026-10-10 builds fix the translation **echo loop** (accurate
 playback detection + per-direction mic gates + text echo filter) and adds listen-first double-tap
 + typing. If the loop persists → session log §5.2.
 **Next on Law's list:** calendar + email drafts in the cloud (Google OAuth) → push notifications (FCM).

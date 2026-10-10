@@ -61,7 +61,10 @@ You hear **"Translator on. Listening."** From then on, whatever is said around y
 the TV, a meeting, in any language — comes into your ear **in English**, and the phone shows big
 English captions. Nothing plays out loud. Double-click BACK again (or say *"stop translating"*) →
 **"Translator off."** The session is summarised into your memory (**"Saved to your memory"**).
-The double-tap does **not** take a photo.
+The double-tap does **not** take a photo. English speech is shown as captions too, and each caption
+says which language it was. It **keeps working with the screen off** — a "JARVIS is translating"
+notification stays up (with a Stop button). If the phone is locked when you double-tap, Android may
+not allow the mic; JARVIS says "Please unlock your phone, then double-tap again".
 
 **2. Talk back — a two-way conversation.**
 While listening, say **"Jarvis, let me talk"** (or tap **Talk to them**). Hold the phone between you.

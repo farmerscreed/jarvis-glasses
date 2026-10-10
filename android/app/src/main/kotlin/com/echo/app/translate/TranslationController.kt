@@ -138,6 +138,14 @@ class TranslationController @Inject constructor(
 
     val isActive: Boolean get() = active
 
+    /** Android refused the background microphone service (phone locked, app not open). */
+    fun onBackgroundRefused() {
+        if (!active) return
+        Log.w(TAG, "background mic refused — stopping")
+        _cues.tryEmit("Please unlock your phone, then double-tap again.")
+        stop(save = false)
+    }
+
     /** Short sentences for JARVIS to say (mode switched, etc.) — the ViewModel speaks them. */
     private val _cues = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val cues: SharedFlow<String> = _cues
@@ -193,12 +201,18 @@ class TranslationController @Inject constructor(
         val guess = if (mode == TranslateMode.CONVERSATION && preset.isEmpty()) lastLang else ""
         val target = preset.ifEmpty { guess }
         val glasses = glassesAudioConnected()
+        // Keep the mic alive with the screen off (Android cuts background mic access otherwise).
+        val bg = TranslateService.start(context)
+        if (!bg) { active = false; _cues.tryEmit("Please unlock your phone, then double-tap again."); return }
         _ui.value = TranslateUi(
             active = true, mode = mode, theirLang = target, langGuessed = guess.isNotEmpty(),
             status = "Connecting…",
             earRoute = if (glasses) "glasses" else "phone speaker",
             speakerRoute = if (mode == TranslateMode.CONVERSATION) "phone speaker" else "",
-            warning = if (glasses) "" else "Your glasses aren't connected for sound, so you'll hear the translation from the phone. Turn the glasses on to hear it privately.",
+            warning = listOfNotNull(
+                if (glasses) null else "Your glasses aren't connected for sound, so you'll hear the translation from the phone. Turn the glasses on to hear it privately.",
+                if (bg) null else "Keep the phone unlocked — Android didn't allow translating in the background this time.",
+            ).joinToString("\n"),
         )
         scope.launch {
             earPlayer = PcmPlayer(context, toSpeaker = false)
@@ -256,9 +270,17 @@ class TranslationController @Inject constructor(
 
         override fun onInputText(session: LiveTranslateSession, text: String, lang: String) {
             val isA = session === sessionA
-            val l = normalizeLang(lang)
+            // Trust the writing system over the reported code (Chinese characters are Chinese even if
+            // the code says "fr"); for Latin-script text the reported code decides.
+            val l = effectiveLang(lang, text, if (isA) currentLineLang(true) else "")
             if (isEnglish(l) && handleVoiceCommand(text)) return
             if (isA) {
+                if (isEnglish(l) && _ui.value.mode == TranslateMode.LISTEN) {
+                    // Listening: English speech (an English video, a person) is shown as captions
+                    // too — nothing to translate, nothing played.
+                    appendInput(curThem, "them", "en", text, isA = true)
+                    return
+                }
                 if (isEnglish(l)) {
                     // That's you (session B handles your speech). End their current line and drop any
                     // audio A streams for your English, so it can never leak into your ear.
@@ -287,7 +309,10 @@ class TranslationController @Inject constructor(
                             rememberLang(l); _ui.value = _ui.value.copy(langGuessed = false)
                         }
                     }
-                } else if (_ui.value.theirLang.isEmpty() && l.isNotBlank()) { rememberLang(l); setStatus(theirLang = l) }
+                } else if (l.isNotBlank() && l != _ui.value.theirLang) {
+                    // Listening: always show the language actually being spoken right now.
+                    rememberLang(l); _ui.value = _ui.value.copy(theirLang = l, langGuessed = false)
+                }
             } else {
                 if (!isEnglish(l)) {
                     // Non-English reaching B is either the loudspeaker playing your own translation
@@ -350,7 +375,9 @@ class TranslationController @Inject constructor(
             if (now - cur.lastAt <= LINE_GAP_MS) { cur.lastAt = now; return }
             cur.echo = false; cur.id = 0
         }
-        if (cur.id == 0L || now - cur.lastAt > LINE_GAP_MS) {
+        val langChanged = cur.id != 0L && synchronized(lines) { lines.lastOrNull { it.id == cur.id }?.lang }.let { it != null && it != lang }
+        if (cur.id == 0L || now - cur.lastAt > LINE_GAP_MS || langChanged) {
+            if (langChanged) { cur.hasOut = false; val q = pending(isA); synchronized(q) { q.clear() } }
             cur.id = nextId++
             cur.firstInAt = now
             cur.hasOut = false
@@ -470,6 +497,11 @@ class TranslationController @Inject constructor(
         return r.translation
     }
 
+    private fun currentLineLang(isA: Boolean): String {
+        val id = (if (isA) curThem else curMe).id
+        return synchronized(lines) { lines.lastOrNull { it.id == id }?.lang.orEmpty() }
+    }
+
     private fun currentText(isA: Boolean): String {
         val id = (if (isA) curThem else curMe).id
         return synchronized(lines) { lines.lastOrNull { it.id == id }?.text.orEmpty() }
@@ -566,6 +598,7 @@ class TranslationController @Inject constructor(
         micJob?.cancel(); micJob = null
         runCatching { record?.stop() }; runCatching { record?.release() }; record = null
         sessionA?.close(); sessionB?.close(); sessionA = null; sessionB = null
+        TranslateService.stop(context)
         val seconds = (System.currentTimeMillis() - startedAt) / 1000
         val snapshot = synchronized(lines) { lines.filter { it.text.isNotBlank() || it.translation.isNotBlank() } }
         scope.launch {
@@ -617,7 +650,7 @@ class TranslationController @Inject constructor(
         private val REPEAT_RE = Regex("(.{12,120}?)(?:\\s*\\1){2,}")
         private const val PENDING_MAX_BYTES = 24_000 * 2 * 2 // ≤2 s of 24 kHz audio held before text arrives
         private val TALK_RE = Regex(
-            "\\b(let me (talk|reply|respond|answer|speak)|let'?s talk|i want to (talk|reply|respond)|conversation mode|talk mode|reply mode|" +
+            "\\b(let me (talk|reply|respond|answer|speak)|jarvis,? let'?s talk|i want to (talk|reply|respond)|conversation mode|talk mode|reply mode|" +
                 "talk to (him|her|them)|start (the )?conversation|jarvis,? (talk|reply|conversation))\\b",
             RegexOption.IGNORE_CASE,
         )
@@ -628,6 +661,53 @@ class TranslationController @Inject constructor(
         private val STOP_RE = Regex("\\b(stop|end|finish)\\s+(the\\s+)?(translating|translation|translator|interpreting)\\b|\\bjarvis,?\\s+stop\\b", RegexOption.IGNORE_CASE)
 
         fun isEnglish(code: String) = code.lowercase().startsWith("en")
+
+        /**
+         * The language of a transcript fragment. Gemini's per-fragment language code is sometimes
+         * wrong or blank (on 2026-10-10 Mandarin was labelled French), so the script of the text
+         * wins when it's unambiguous; Latin text keeps the reported code, falling back to [prev]
+         * (the line's language so far) when the fragment has no code.
+         */
+        fun effectiveLang(reported: String, text: String, prev: String = ""): String {
+            val code = normalizeLang(reported)
+            val byScript = scriptLang(text)
+            return when {
+                byScript == null -> code.ifBlank { prev }
+                byScript == "zh-Hans" && code.startsWith("zh") -> code // keep zh-Hant if reported
+                else -> byScript
+            }
+        }
+
+        /** Language implied by the writing system, or null for Latin/neutral text. */
+        fun scriptLang(text: String): String? {
+            var han = 0; var kana = 0; var hangul = 0; var arabic = 0; var cyr = 0; var deva = 0; var thai = 0; var letters = 0
+            for (ch in text) {
+                if (!Character.isLetter(ch)) continue
+                letters++
+                when (Character.UnicodeScript.of(ch.code)) {
+                    Character.UnicodeScript.HAN -> han++
+                    Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA -> kana++
+                    Character.UnicodeScript.HANGUL -> hangul++
+                    Character.UnicodeScript.ARABIC -> arabic++
+                    Character.UnicodeScript.CYRILLIC -> cyr++
+                    Character.UnicodeScript.DEVANAGARI -> deva++
+                    Character.UnicodeScript.THAI -> thai++
+                    else -> {}
+                }
+            }
+            if (letters == 0) return null
+            val half = letters / 2.0
+            return when {
+                kana > 0 && kana + han > half -> "ja"
+                hangul > half -> "ko"
+                han > half -> "zh-Hans"
+                arabic > half -> "ar"
+                cyr > half -> "ru"
+                deva > half -> "hi"
+                thai > half -> "th"
+                else -> null
+            }
+        }
 
         /** Map whatever Gemini reports (zh, zh-CN, cmn, zh-Hant…) to a target code it accepts. */
         fun normalizeLang(code: String): String {
