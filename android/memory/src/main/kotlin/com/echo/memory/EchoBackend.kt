@@ -237,9 +237,12 @@ class EchoBackend(
     }
 
     /** Send a synced photo to Claude vision; returns its description/answer. */
-    suspend fun describeImage(jpeg: ByteArray, prompt: String? = null): String = withContext(Dispatchers.IO) {
-        val b64 = android.util.Base64.encodeToString(jpeg, android.util.Base64.NO_WRAP)
-        val body = json.encodeToString(VisionRequest.serializer(), VisionRequest(b64, prompt = prompt))
+    suspend fun describeImage(jpeg: ByteArray, prompt: String? = null, fast: Boolean = false): String = withContext(Dispatchers.IO) {
+        // Shrink before upload: the glasses shoot ~1.5 MB JPEGs; ~1600 px is plenty for reading text and
+        // cuts the upload (often over mobile data) to a few hundred KB.
+        val small = shrinkJpeg(jpeg, maxSide = 1600, quality = 85)
+        val b64 = android.util.Base64.encodeToString(small, android.util.Base64.NO_WRAP)
+        val body = json.encodeToString(VisionRequest.serializer(), VisionRequest(b64, prompt = prompt, fast = fast))
         val txt = post("/functions/v1/vision", body)
         json.decodeFromString(VisionResponse.serializer(), txt).text
     }
@@ -439,6 +442,32 @@ class EchoBackend(
     }
 
     companion object {
+        /** Downscale a JPEG so its longest side ≤ [maxSide] (keeps EXIF rotation baked in). Returns the
+         *  original bytes if it's already small or anything fails. */
+        fun shrinkJpeg(jpeg: ByteArray, maxSide: Int, quality: Int): ByteArray = runCatching {
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, bounds)
+            val longest = maxOf(bounds.outWidth, bounds.outHeight)
+            if (longest <= 0 || (longest <= maxSide && jpeg.size < 600_000)) return jpeg
+            var sample = 1
+            while (longest / (sample * 2) >= maxSide) sample *= 2
+            val bmp = android.graphics.BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size,
+                android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) ?: return jpeg
+            val scale = minOf(1f, maxSide.toFloat() / maxOf(bmp.width, bmp.height))
+            var out = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true) else bmp
+            // Respect the camera's EXIF orientation (phone photos are often stored sideways).
+            val rot = runCatching {
+                when (androidx.exifinterface.media.ExifInterface(java.io.ByteArrayInputStream(jpeg))
+                    .getAttributeInt(androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION, 1)) {
+                    6 -> 90f; 3 -> 180f; 8 -> 270f; else -> 0f
+                }
+            }.getOrDefault(0f)
+            if (rot != 0f) out = android.graphics.Bitmap.createBitmap(out, 0, 0, out.width, out.height, android.graphics.Matrix().apply { postRotate(rot) }, true)
+            val bos = java.io.ByteArrayOutputStream()
+            out.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, bos)
+            bos.toByteArray().takeIf { it.isNotEmpty() && it.size < jpeg.size } ?: jpeg
+        }.getOrDefault(jpeg)
+
         fun mimeFor(fileName: String): String = when (fileName.substringAfterLast('.').lowercase()) {
             "jpg", "jpeg" -> "image/jpeg"
             "png" -> "image/png"

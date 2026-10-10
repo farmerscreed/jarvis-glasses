@@ -2,4 +2,6 @@
 <paths>
     <!-- The GDPR data export is written to cacheDir/export and shared via FileProvider. -->
     <cache-path name="export" path="export/" />
+    <!-- "Read with phone camera": the camera app writes the photo here. -->
+    <cache-path name="camera" path="camera/" />
 </paths>

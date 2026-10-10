@@ -24,32 +24,42 @@ import java.net.URL
  */
 class SherpaStt(private val context: Context) {
 
-    // Whisper-tiny.en int8 — small + fast; bump to base.en here if accuracy on the noisy glasses mic
-    // proves insufficient (same file layout, larger download).
-    private val modelBase =
-        "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny.en/resolve/main"
+    // Two models: Whisper base.en (preferred — far fewer mishearings on the glasses mic: "say" vs "see",
+    // place names) and tiny.en (the original; kept as a fallback so voice works while base downloads).
+    // Both int8; same file layout. base.en ≈ 160 MB, downloaded once.
     private val dir = File(context.filesDir, "stt")
-    private val encoder = File(dir, "tiny.en-encoder.int8.onnx")
-    private val decoder = File(dir, "tiny.en-decoder.int8.onnx")
-    private val tokens = File(dir, "tiny.en-tokens.txt")
-    private val parts = listOf(
-        Triple(encoder, "$modelBase/tiny.en-encoder.int8.onnx", 12_937_772L),
-        Triple(decoder, "$modelBase/tiny.en-decoder.int8.onnx", 89_853_865L),
-        Triple(tokens, "$modelBase/tiny.en-tokens.txt", 835_554L),
-    )
+    private class Model(val name: String, val encoder: File, val decoder: File, val tokens: File, val parts: List<Triple<File, String, Long>>) {
+        val present: Boolean get() = encoder.exists() && decoder.exists() && tokens.exists()
+    }
+    private fun model(name: String, encSize: Long, decSize: Long): Model {
+        val base = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-$name/resolve/main"
+        val enc = File(dir, "$name-encoder.int8.onnx"); val dec = File(dir, "$name-decoder.int8.onnx"); val tok = File(dir, "$name-tokens.txt")
+        return Model(name, enc, dec, tok, listOf(
+            Triple(enc, "$base/$name-encoder.int8.onnx", encSize),
+            Triple(dec, "$base/$name-decoder.int8.onnx", decSize),
+            Triple(tok, "$base/$name-tokens.txt", 835_554L),
+        ))
+    }
+    private val best = model("base.en", 29_120_534L, 130_669_978L)
+    private val fallback = model("tiny.en", 12_937_772L, 89_853_865L)
 
     @Volatile private var recognizer: OfflineRecognizer? = null
+    @Volatile private var loadedName: String = ""
 
-    /** Model files present on disk. */
-    val isDownloaded: Boolean get() = encoder.exists() && decoder.exists() && tokens.exists()
+    /** The preferred (base.en) model is on disk. */
+    val isDownloaded: Boolean get() = best.present
 
-    /** Recognizer loaded and ready to transcribe. */
+    /** Recognizer loaded and ready to transcribe (either model). */
     val isReady: Boolean get() = recognizer != null
+
+    /** The preferred model is the one loaded. */
+    val isBestLoaded: Boolean get() = loadedName == best.name
 
     /** Download the model on first run. [onProgress] reports 0f..1f. Resumable per-file (skips done). */
     suspend fun download(onProgress: (Float) -> Unit = {}): Boolean = withContext(Dispatchers.IO) {
         if (isDownloaded) return@withContext true
         dir.mkdirs()
+        val parts = best.parts
         val grand = parts.sumOf { it.third }.toFloat()
         var done = 0L
         try {
@@ -79,23 +89,29 @@ class SherpaStt(private val context: Context) {
         }
     }
 
-    /** Load the recognizer from the downloaded files (idempotent, off the main thread). */
+    /** Load the best model on disk (base.en, else tiny.en). Re-loads to upgrade once base.en arrives. */
     suspend fun ensureLoaded(): Boolean = withContext(Dispatchers.Default) {
-        if (recognizer != null) return@withContext true
-        if (!isDownloaded) return@withContext false
-        recognizer = runCatching {
+        val m = when { best.present -> best; fallback.present -> fallback; else -> return@withContext recognizer != null }
+        if (recognizer != null && loadedName == m.name) return@withContext true
+        val r = runCatching {
             OfflineRecognizer(
                 config = OfflineRecognizerConfig(
                     featConfig = FeatureConfig(sampleRate = 16000, featureDim = 80),
                     modelConfig = OfflineModelConfig(
-                        whisper = OfflineWhisperModelConfig(encoder = encoder.path, decoder = decoder.path),
-                        tokens = tokens.path,
-                        numThreads = 2,
+                        whisper = OfflineWhisperModelConfig(encoder = m.encoder.path, decoder = m.decoder.path),
+                        tokens = m.tokens.path,
+                        numThreads = 4,
                         modelType = "whisper",
                     ),
                 ),
             )
-        }.onFailure { Log.e("SherpaStt", "recognizer load failed", it) }.getOrNull()
+        }.onFailure { Log.e("SherpaStt", "recognizer load failed (${m.name})", it) }.getOrNull()
+        if (r != null) {
+            // The previous (small) model is left to the garbage collector rather than released here,
+            // so a transcription already running on it can never hit freed native memory.
+            recognizer = r; loadedName = m.name
+            Log.i("SherpaStt", "loaded ${m.name}")
+        }
         recognizer != null
     }
 

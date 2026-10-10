@@ -104,7 +104,7 @@ fun DeviceScreen(vm: HomeViewModel) {
         SectionTitle("Buttons")
         ButtonRow(Icons.Outlined.CameraAlt, "Front button", "Single press — take a photo")
         ButtonRow(Icons.Outlined.Mic, "BACK button — hold", "Start/stop a voice recording")
-        ButtonRow(Icons.Outlined.Visibility, "BACK button — double-click", "AI gesture: Look & Ask (describe what you see)")
+        ButtonRow(Icons.Outlined.Visibility, "BACK button — double-click", "Start / stop translating")
 
         Spacer(Modifier.height(JarvisSpacing.sm))
 

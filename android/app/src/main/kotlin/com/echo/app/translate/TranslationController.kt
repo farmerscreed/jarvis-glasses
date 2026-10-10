@@ -57,6 +57,10 @@ data class TranslateUi(
     val summary: String = "",
     val saving: Boolean = false,
     val error: String = "",
+    /** [theirLang] is the language you used last time — a guess that switches automatically. */
+    val langGuessed: Boolean = false,
+    /** Plain-language problem the user can fix (e.g. glasses not connected for sound). */
+    val warning: String = "",
 )
 
 /**
@@ -96,6 +100,15 @@ class TranslationController @Inject constructor(
 
     @Volatile private var active = false
     private var startedAt = 0L
+    private val prefs = context.getSharedPreferences("translate", Context.MODE_PRIVATE)
+
+    /** The language of the last person you translated with — tried first next time (instant start). */
+    val lastLang: String get() = prefs.getString("last_lang", "").orEmpty()
+    private fun rememberLang(l: String) { if (l.isNotBlank() && !isEnglish(l)) prefs.edit().putString("last_lang", l).apply() }
+
+    // Pre-fetched single-use tokens (valid ~2 min to open a session) so starting is instant.
+    private val tokenCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, com.echo.memory.TranslateToken>>()
+    private var lastRestartAt = 0L
     private var sessionA: LiveTranslateSession? = null // anything → English (your ear)
     private var sessionB: LiveTranslateSession? = null // English → their language (loudspeaker)
     @Volatile private var openingB = false
@@ -114,7 +127,32 @@ class TranslationController @Inject constructor(
 
     val isActive: Boolean get() = active
 
-    /** Start translating. [presetTarget] = their language if known ("zh-Hans", "fr", "ar"…). */
+    /**
+     * Warm up: fetch the tokens for both directions in the background (call when the Translate screen
+     * opens or a "translate" command is heard), so the sessions open the moment you start.
+     */
+    fun prewarm(target: String? = null) {
+        val langs = listOf("en", normalizeLang(target ?: lastLang)).filter { it.isNotBlank() }.distinct()
+        scope.launch {
+            for (l in langs) {
+                val cached = tokenCache[l]
+                if (cached != null && System.currentTimeMillis() - cached.first < TOKEN_FRESH_MS) continue
+                runCatching { backend.translateToken(l) }.getOrNull()?.let { tokenCache[l] = System.currentTimeMillis() to it }
+            }
+        }
+    }
+
+    /** True if the glasses (or any Bluetooth headset) can play sound right now. */
+    private fun glassesAudioConnected(): Boolean = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+            it.type == AudioDeviceInfo.TYPE_BLE_SPEAKER || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+    }
+
+    /**
+     * Start translating. [presetTarget] = their language if known ("zh-Hans", "fr", "ar"…). In a
+     * conversation with no preset, the language you used LAST time is tried straight away (both
+     * directions live from the first second); if they speak something else it switches by itself.
+     */
     fun start(mode: TranslateMode, presetTarget: String? = null) {
         if (active) return
         active = true
@@ -122,17 +160,24 @@ class TranslationController @Inject constructor(
         synchronized(lines) { lines.clear() }
         retries.clear()
         curThem.id = 0; curMe.id = 0
-        val target = presetTarget?.let { normalizeLang(it) }.orEmpty()
+        val preset = presetTarget?.let { normalizeLang(it) }.orEmpty()
+        val guess = if (mode == TranslateMode.CONVERSATION && preset.isEmpty()) lastLang else ""
+        val target = preset.ifEmpty { guess }
+        val glasses = glassesAudioConnected()
         _ui.value = TranslateUi(
-            active = true, mode = mode, theirLang = target,
-            status = if (mode == TranslateMode.LISTEN) "Connecting…" else "Connecting…",
+            active = true, mode = mode, theirLang = target, langGuessed = guess.isNotEmpty(),
+            status = "Connecting…",
+            earRoute = if (glasses) "glasses" else "phone speaker",
+            speakerRoute = if (mode == TranslateMode.CONVERSATION) "phone speaker" else "",
+            warning = if (glasses) "" else "Your glasses aren't connected for sound, so you'll hear the translation from the phone. Turn the glasses on to hear it privately.",
         )
         scope.launch {
             earPlayer = PcmPlayer(context, toSpeaker = false)
             if (mode == TranslateMode.CONVERSATION) speakerPlayer = PcmPlayer(context, toSpeaker = true)
-            _ui.value = _ui.value.copy(earRoute = earPlayer?.routeName().orEmpty(), speakerRoute = speakerPlayer?.routeName().orEmpty())
-            openSession("en")
-            if (mode == TranslateMode.CONVERSATION && target.isNotEmpty() && !target.startsWith("en")) openSession(target)
+            // Open both directions together (in parallel) — no waiting for them to speak first.
+            val a = launch { openSession("en") }
+            if (mode == TranslateMode.CONVERSATION && target.isNotEmpty() && !isEnglish(target)) launch { openSession(target) }
+            a.join()
             startMic()
         }
     }
@@ -141,7 +186,9 @@ class TranslationController @Inject constructor(
         if (!active) return
         if (target != "en") openingB = true
         try {
-            val tok = backend.translateToken(target)
+            val cached = tokenCache.remove(target)
+            val tok = if (cached != null && System.currentTimeMillis() - cached.first < TOKEN_FRESH_MS) cached.second
+            else backend.translateToken(target)
             val s = LiveTranslateSession(wsHttp, target, tok.token, tok.model, tok.urls, listener)
             if (target == "en") sessionA = s else sessionB = s
             s.connect()
@@ -160,9 +207,9 @@ class TranslationController @Inject constructor(
             retries[session.target] = 0
             val u = _ui.value
             val st = when {
-                u.mode == TranslateMode.LISTEN -> "Listening — translating to English"
-                u.theirLang.isEmpty() -> "Ready — let them speak first"
-                else -> "Ready — ${langName(u.theirLang)} ⇄ English"
+                u.mode == TranslateMode.LISTEN -> "Listening — translating into English"
+                u.theirLang.isEmpty() -> "Ready — either of you can start talking"
+                else -> "Ready — ${langName(u.theirLang)} and English. Either of you can start."
             }
             setStatus(status = st)
         }
@@ -189,11 +236,28 @@ class TranslationController @Inject constructor(
                     return
                 }
                 appendInput(curThem, "them", l, text, isA = true)
-                // First time we hear their language in a conversation → open the reverse direction.
-                if (l.isNotBlank() && _ui.value.mode == TranslateMode.CONVERSATION && sessionB == null && !openingB && text.trim().length >= 2) {
-                    setStatus(theirLang = l, status = "Heard ${langName(l)} — connecting your side…")
-                    scope.launch { openSession(l) }
-                } else if (_ui.value.theirLang.isEmpty() && l.isNotBlank()) setStatus(theirLang = l)
+                if (l.isNotBlank() && _ui.value.mode == TranslateMode.CONVERSATION && !openingB) {
+                    val b = sessionB
+                    when {
+                        // First time we hear their language → open your direction.
+                        b == null && text.trim().length >= 2 -> {
+                            rememberLang(l)
+                            _ui.value = _ui.value.copy(theirLang = l, langGuessed = false, status = "Heard ${langName(l)} — you can reply now")
+                            scope.launch { openSession(l) }
+                        }
+                        // We guessed (last time's language) but they speak something else → switch.
+                        b != null && b.target != l && currentText(true).length >= 8 -> {
+                            rememberLang(l)
+                            _ui.value = _ui.value.copy(theirLang = l, langGuessed = false, status = "They're speaking ${langName(l)} — switched")
+                            sessionB = null
+                            b.close()
+                            scope.launch { openSession(l) }
+                        }
+                        b != null && b.target == l && _ui.value.langGuessed -> {
+                            rememberLang(l); _ui.value = _ui.value.copy(langGuessed = false)
+                        }
+                    }
+                } else if (_ui.value.theirLang.isEmpty() && l.isNotBlank()) { rememberLang(l); setStatus(theirLang = l) }
             } else {
                 if (!isEnglish(l)) { endLine(curMe, isA = false); return } // their speech reaching B — A handles it
                 appendInput(curMe, "me", "en", text, isA = false)
@@ -267,7 +331,12 @@ class TranslationController @Inject constructor(
     private fun updateLine(id: Long, f: (LiveLine) -> LiveLine) {
         synchronized(lines) {
             val i = lines.indexOfFirst { it.id == id }
-            if (i >= 0) lines[i] = f(lines[i]).copy(updatedAt = System.currentTimeMillis())
+            if (i >= 0) {
+                val n = f(lines[i])
+                lines[i] = n.copy(text = collapseRepeats(n.text), translation = collapseRepeats(n.translation), updatedAt = System.currentTimeMillis())
+                // The model occasionally gets stuck repeating a phrase — if so, restart that session.
+                if (n.text.length != lines[i].text.length && n.who == "them") restartStuck()
+            }
         }
         publishLines()
     }
@@ -288,6 +357,19 @@ class TranslationController @Inject constructor(
         val q = pending(isA)
         val player = if (isA) earPlayer else speakerPlayer
         synchronized(q) { while (q.isNotEmpty()) player?.write(q.removeFirst()) }
+    }
+
+    /** Reopen the "them → English" session if it starts looping (at most once every 20 s). */
+    private fun restartStuck() {
+        val now = System.currentTimeMillis()
+        if (!active || now - lastRestartAt < 20_000) return
+        lastRestartAt = now
+        Log.w(TAG, "repetition detected — restarting session A")
+        val a = sessionA ?: return
+        sessionA = null
+        a.close()
+        endLine(curThem, isA = true)
+        scope.launch { openSession("en") }
     }
 
     // ── microphone ─────────────────────────────────────────────────────────────────────────────
@@ -371,6 +453,12 @@ class TranslationController @Inject constructor(
         private const val CHUNK_BYTES = 3200          // 100 ms @ 16 kHz mono PCM16
         private const val LINE_GAP_MS = 1600L
         private const val GATE_MS = 350L
+        private const val TOKEN_FRESH_MS = 90_000L
+
+        /** "after the match we go to a small after the match we go to a small …" → one copy. */
+        fun collapseRepeats(t: String): String =
+            if (t.length < 36) t else REPEAT_RE.replace(t) { it.groupValues[1] }
+        private val REPEAT_RE = Regex("(.{12,120}?)(?:\\s*\\1){2,}")
         private const val PENDING_MAX_BYTES = 24_000 * 2 * 2 // ≤2 s of 24 kHz audio held before text arrives
         private val STOP_RE = Regex("\\b(stop|end|finish)\\s+(the\\s+)?(translating|translation|translator|interpreting)\\b|\\bjarvis,?\\s+stop\\b", RegexOption.IGNORE_CASE)
 

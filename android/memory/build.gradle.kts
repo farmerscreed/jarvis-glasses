@@ -21,6 +21,7 @@ dependencies {
     api(project(":core"))
     implementation(project(":ai"))
     implementation(libs.okhttp)
+    implementation("androidx.exifinterface:exifinterface:1.3.7") // photo orientation when shrinking uploads
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.room.runtime)

@@ -172,6 +172,15 @@ class HomeViewModel @Inject constructor(
         // is the other. Mirror the reactor's progress into the UI while it's working and we're
         // not mid-foreground-action, and surface new memories as they land.
         reactor.start()
+        // Glasses double-tap (double-click BACK) = start / stop translating. ("What am I looking at"
+        // stays available by voice.)
+        reactor.aiGestureHandler = {
+            viewModelScope.launch {
+                if (translator.isActive) stopTranslation()
+                else if (loggedIn) startTranslation(com.echo.app.translate.TranslateMode.CONVERSATION)
+            }
+            true
+        }
         viewModelScope.launch {
             var wasActive = false
             translator.ui.collect { u ->
@@ -393,21 +402,28 @@ class HomeViewModel @Inject constructor(
      * to cloud STT until ready.
      */
     fun ensureSttModel() {
-        if (sherpa.isReady || sttModelTriggered) {
-            if (sherpa.isDownloaded && !sherpa.isReady) viewModelScope.launch { sherpa.ensureLoaded() }
+        if ((sherpa.isReady && sherpa.isBestLoaded) || sttModelTriggered) {
+            if (sherpa.isDownloaded && !sherpa.isBestLoaded) viewModelScope.launch { sherpa.ensureLoaded() }
             return
         }
         sttModelTriggered = true
         viewModelScope.launch {
+            // Use whatever is on disk right away (the small model from earlier installs), then upgrade.
+            if (!sherpa.isReady) sherpa.ensureLoaded()
             if (sherpa.isDownloaded) {
                 sttModelStatus = "Loading offline voice…"
                 sttModelStatus = if (sherpa.ensureLoaded()) "" else "Offline voice failed to load"
                 return@launch
             }
             if (!online) { sttModelTriggered = false; return@launch } // retry when back online
-            sttModelStatus = "Downloading offline voice model…"
-            val ok = sherpa.download { p -> sttModelStatus = "Downloading offline voice model… ${(p * 100).toInt()}%" }
-            sttModelStatus = if (ok && sherpa.ensureLoaded()) "" else { sttModelTriggered = false; "Offline voice download failed" }
+            // The better model is ~160 MB: if a working model is already loaded, only fetch it on Wi-Fi
+            // (never burn mobile data on an upgrade); if there is no model at all, fetch it now.
+            val cm = appContext.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            if (sherpa.isReady && cm.isActiveNetworkMetered) { sttModelTriggered = false; return@launch }
+            val what = if (sherpa.isReady) "Improving voice recognition (one-time download)…" else "Downloading offline voice model…"
+            sttModelStatus = what
+            val ok = sherpa.download { p -> sttModelStatus = "$what ${(p * 100).toInt()}%" }
+            sttModelStatus = if (ok && sherpa.ensureLoaded()) "" else { sttModelTriggered = false; if (sherpa.isReady) "" else "Offline voice download failed" }
         }
     }
 
@@ -655,6 +671,7 @@ class HomeViewModel @Inject constructor(
             //     mic goes to the translator) and starts once the conversation audio is torn down.
             val translateIntent = liveTranslateIntent(heard)
             if (translateIntent != null) {
+                translator.prewarm(translateIntent.second) // fetch tokens while the voice loop shuts down
                 pendingTranslate = translateIntent
                 status = "Starting translation…"
                 break // finally{} tears down the conversation audio, then the translator starts
@@ -688,15 +705,25 @@ class HomeViewModel @Inject constructor(
                 if (!continuous) break
                 status = "Listening…"; continue
             }
+            // (c0) "Read with my phone" → open the phone camera (faster than the glasses for menus/docs).
+            if (phoneReadRe.containsMatchIn(heard)) {
+                translateOpen = true
+                phoneCameraRequest = true
+                tts.speak("Opening the camera. Take a photo of the text.")
+                status = "Take a photo of the text"
+                break
+            }
             // (c) "Translate this" / "what does this say" / "read this to me" → photo → read/translate.
             if (isReadCommand(heard)) {
                 status = "Reading…"
                 val hadHeldSco = continuous && bargeInEnabled
-                tts.speak("Let me read it.")
+                // A short beep instead of a spoken "let me read it" (saves ~1 s), then free the camera.
                 tts.stop()
                 if (hadHeldSco) tts.useCommunicationRoute(false)
-                audio.releaseForCamera(settleMs = 3500L)
-                val desc = reactor.captureAndDescribe(prompt = READ_PROMPT)
+                audio.earcon(com.echo.device.audio.EarconKind.THINKING)
+                audio.releaseForCamera(settleMs = 3000L)
+                val desc = reactor.captureAndDescribe(prompt = READ_PROMPT, fast = true)
+                if (desc != null) readResult = desc
                 if (hadHeldSco) { tts.useCommunicationRoute(true); audio.beginScoSession() }
                 val ans = desc ?: "I couldn't get a photo just now. Try again, or snap one with the glasses button and ask me about it."
                 answer = ans; transcript.add(TurnLine(false, ans)); tts.speak(ans)
@@ -911,15 +938,18 @@ class HomeViewModel @Inject constructor(
         if (!online) { tts.speak("I need an internet connection to translate."); status = "Off-grid — translation needs internet"; return }
         wake.stop() // the translator needs the phone mic
         translateOpen = true
-        val lead = when {
-            mode == com.echo.app.translate.TranslateMode.LISTEN -> "Listening. I'll translate into English."
-            target != null -> "Translating with ${com.echo.app.translate.TranslationController.langName(target)}. Hold the phone between you."
-            else -> "Translating. Let them speak first, and hold the phone between you."
-        }
-        tts.speak(lead)
         micActive = true
+        // Start connecting FIRST, then a short spoken cue while it connects (no waiting on speech).
         translator.start(mode, target)
         status = "Translating"
+        val lang = (target ?: translator.lastLang).takeIf { it.isNotBlank() && mode == com.echo.app.translate.TranslateMode.CONVERSATION }
+        tts.speak(
+            when {
+                mode == com.echo.app.translate.TranslateMode.LISTEN -> "Listening."
+                lang != null -> "Translator on. ${com.echo.app.translate.TranslationController.langName(lang)}."
+                else -> "Translator on."
+            },
+        )
     }
 
     fun stopTranslation() {
@@ -929,6 +959,46 @@ class HomeViewModel @Inject constructor(
     }
 
     fun clearTranslation() = translator.clearSummary()
+
+    // ── Read & translate (photo) ─────────────────────────────────────────────────────────────────
+    /** Set to ask the UI to open the phone camera (voice: "read this with my phone"). */
+    var phoneCameraRequest by mutableStateOf(false)
+    /** Last read/translated text (shown big on the Translate screen). */
+    var readResult by mutableStateOf(""); private set
+    var reading by mutableStateOf(false); private set
+
+    /** Phone camera path: the photo is already on the phone, so this is just upload + read (~2–3 s). */
+    fun readPhonePhoto(file: java.io.File) = run("Reading…") {
+        reading = true
+        try {
+            val text = backend.describeImage(file.readBytes(), READ_PROMPT, fast = true)
+            readResult = text
+            runCatching { store.rememberLocal(Memory(type = MemoryType.PHOTO, text = text, tags = listOf("read")), file, "media") }
+            status = "Read"
+            tts.speak(text)
+        } finally { reading = false }
+    }
+
+    /** Glasses path from the screen button: take a photo with the glasses and read it. */
+    fun readWithGlasses() = run("Reading…") {
+        reading = true
+        try {
+            audio.earcon(com.echo.device.audio.EarconKind.THINKING)
+            audio.releaseForCamera(settleMs = 3000L)
+            val desc = reactor.captureAndDescribe(prompt = READ_PROMPT, fast = true)
+            readResult = desc ?: "I couldn't get a photo from the glasses. Try again, or use the phone camera."
+            status = if (desc != null) "Read" else "Couldn't get a photo"
+            tts.speak(readResult)
+        } finally { reading = false }
+    }
+
+    fun repeatRead() { if (readResult.isNotBlank()) viewModelScope.launch { tts.speak(readResult) } }
+
+    /** Fetch translation tokens ahead of time (called when the Translate screen opens). */
+    fun prewarmTranslation() { if (loggedIn && online) translator.prewarm() }
+
+    /** Last language translated with ("" if none) — shown on the Translate screen. */
+    val lastTranslateLang: String get() = translator.lastLang
 
     /** "Say it" from the screen: type an English phrase, hear it in [target] out loud. */
     fun sayPhrase(text: String, target: String) = run("Translating…") {
@@ -978,7 +1048,18 @@ class HomeViewModel @Inject constructor(
             "\\bhow to say\\b|\\b(say|tell (him|her|them)) .{2,80} in (mandarin|chinese|french|arabic|spanish|portuguese|german|italian|japanese|korean|hindi|turkish|russian|hausa|swahili)\\b",
         RegexOption.IGNORE_CASE,
     )
-    private fun isPhraseCommand(s: String) = phraseRe.containsMatchIn(s)
+    // Forgiving: speech recognition sometimes hears "say" as "see"/"sea" etc. So ANY sentence that names
+    // a language AND sounds like a request to say/ask/tell something counts (unless it's a live-
+    // translation or read command, which are checked first).
+    private val phraseLooseRe = Regex("\\b(how (do|would|can|should|to|does)|what('s| is| are)|say|see|sea|said|tell|ask|speak|call)\\b", RegexOption.IGNORE_CASE)
+    // …and the language must be the TARGET ("in Mandarin", "into French", or the last word), so
+    // "ask about Chinese suppliers" doesn't trigger it.
+    private val langTargetRe = run {
+        val langs = com.echo.app.translate.TranslationController.LANG_WORDS.keys.joinToString("|")
+        Regex("\\b(in|into|to) ($langs)\\b|\\b($langs)\\W*$", RegexOption.IGNORE_CASE)
+    }
+    private fun isPhraseCommand(s: String) = phraseRe.containsMatchIn(s) ||
+        (langTargetRe.containsMatchIn(s) && phraseLooseRe.containsMatchIn(s))
     private val repeatPhraseRe = Regex("\\b(say (it|that) again|repeat (it|that)( please)?)\\b", RegexOption.IGNORE_CASE)
     private fun isRepeatPhrase(s: String) = repeatPhraseRe.containsMatchIn(s)
 
@@ -989,6 +1070,7 @@ class HomeViewModel @Inject constructor(
         RegexOption.IGNORE_CASE,
     )
     private fun isReadCommand(s: String) = readRe.containsMatchIn(s)
+    private val phoneReadRe = Regex("\\b(read|translate|scan)\\b.*\\b(with|using|on) (my |the )?phone\\b|\\bphone camera\\b", RegexOption.IGNORE_CASE)
 
     private val listenRe = Regex(
         "\\b(listen and translate|translate what (they|he|she|you|people)('re| are| is)? saying|" +
@@ -1002,12 +1084,19 @@ class HomeViewModel @Inject constructor(
             "^\\W*(jarvis\\W+)?(translate|interpret)\\W*$",
         RegexOption.IGNORE_CASE,
     )
+    private val translateWordRe = Regex("\\b(translat\\w*|interpret\\w*)\\b", RegexOption.IGNORE_CASE)
     /** Live translation intent → (mode, preset target language or null to auto-detect). */
     private fun liveTranslateIntent(s: String): Pair<com.echo.app.translate.TranslateMode, String?>? {
         val target = com.echo.app.translate.TranslationController.langFromWords(s)
+        val words = s.trim().split(Regex("\\s+")).size
+        val mentionsTranslate = translateWordRe.containsMatchIn(s)
         return when {
             listenRe.containsMatchIn(s) -> com.echo.app.translate.TranslateMode.LISTEN to null
+            readRe.containsMatchIn(s) -> null // "translate this sign" is a photo read, handled later
             convoRe.containsMatchIn(s) -> com.echo.app.translate.TranslateMode.CONVERSATION to target
+            // Forgiving: "translation", "translator please", "translate French" — short or language-named.
+            mentionsTranslate && (words <= 5 || target != null) && !isPhraseCommand(s) ->
+                com.echo.app.translate.TranslateMode.CONVERSATION to target
             else -> null
         }
     }
@@ -1218,6 +1307,7 @@ class HomeViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        reactor.aiGestureHandler = null
         wake.stop()
         reactor.stop() // detach this host; the reactor keeps running if the service is also a host
         super.onCleared()

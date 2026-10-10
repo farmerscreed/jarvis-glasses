@@ -85,7 +85,8 @@ data class TranscribeRequest(val audioBase64: String, val mimeType: String = "au
 data class TranscribeResponse(val text: String = "")
 
 @Serializable
-data class VisionRequest(val imageBase64: String, val mediaType: String = "image/jpeg", val prompt: String? = null)
+// fast = true → the backend uses its fastest reading model (Gemini Flash) — for "read / translate this".
+data class VisionRequest(val imageBase64: String, val mediaType: String = "image/jpeg", val prompt: String? = null, val fast: Boolean = false)
 
 @Serializable
 data class VisionResponse(val text: String = "")
