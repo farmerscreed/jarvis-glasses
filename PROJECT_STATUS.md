@@ -1,5 +1,9 @@
 # JARVIS / ECHO — Project Status
 
+> **2026-10-10:** revived after 4 months — cloud research, look-and-research, live translation
+> (listen-first, double-tap), typing, cloud-first speech. Details: `docs/SESSION_LOG_2026-10-10.md`.
+> The tables below are the June state and are NOT fully updated; the handoff + session log are current.
+>
 > **🟢 NEW SESSION? READ `docs/SESSION_HANDOFF.md` FIRST** — it's the holistic session-to-session
 > handover (current state, how to run/verify, gotchas, settled decisions, and exactly what's next).
 > This file is the detailed feature-status companion to it.

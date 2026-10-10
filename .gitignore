@@ -40,3 +40,12 @@ Thumbs.db
 voicedbg*/
 voice_session.log
 voice_system.log
+
+# ---- PC build/install helper outputs (scripts are committed; their logs + local phone address are not) ----
+/wifi.txt
+/build.log
+/install.log
+/phone.log
+/phone-*.log
+/phone-logs-run.txt
+/voice_*.log

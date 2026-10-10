@@ -1,7 +1,7 @@
 # JARVIS — how to use it
 
 *A user-facing guide to every feature. The in-app **Help center** (the "?" top-right → Hub / Gestures /
-Guides / Say) mirrors this. Last updated 2026-06-14.*
+Guides / Say) mirrors this. Last updated 2026-10-10.*
 
 ## The idea
 Your **glasses** are the eyes, ears, and speaker; your **phone** is the brain; the **cloud** (and your
@@ -16,8 +16,9 @@ truthfully (it says "I don't know" rather than guess). It runs offline-first and
    development). Use **JARVIS** for everyday use.
 
 ## The four tabs
-- **Live** — talk to JARVIS (the orb). Mic button, keyboard, and ✨ (Ask JARVIS). Shows status, the
-  audio route, and the glasses battery.
+- **Live** — talk to JARVIS (the orb). Mic button, keyboard, ✨ (Ask JARVIS) and the **Translate**
+  button. Shows status, the audio route, and the glasses battery. While translation is running, a
+  "Translation live — open" button takes you back to it.
 - **Timeline** — your memories as a day-by-day river. Search, tap a card to expand, and a **Research**
   filter to find delegated research.
 - **Gallery** — photos captured on the glasses. Tap one for detail + **"Ask about this photo"**.
@@ -32,17 +33,66 @@ truthfully (it says "I don't know" rather than guess). It runs offline-first and
 - **Ask your memory:** *"What did Sam say about the budget?"*, *"Where did I park?"*
 - **Offline:** it still hears you (on-device speech) and answers from on-device memory; cloud answers
   resume when you're back online.
+- **How it hears you:** online, your voice is transcribed in the cloud by a model told to expect a
+  Nigerian English accent (most accurate); offline, a speech model on the phone takes over.
+  **Settings → Voice recognition** shows which is in use. If a word keeps coming out wrong, type it.
 
 ## Seeing things (vision)
 - Say **"What am I looking at?"** / **"Read this for me"** mid-conversation → JARVIS takes a photo and
   describes it (or reads the text) out loud.
 - Or use the **glasses buttons** (below). Every capture lands in your Timeline + Gallery.
 
+## Look & research — "how much is this?"
+Look at something and ask about it — no phone, no typing:
+- *"Jarvis, how much is this?"* · *"Where can I buy this?"* · *"What brand is that?"* ·
+  *"Is this any good?"* · *"Research this cot."* · *"Tell me more about this."* · *"…the fan in front of me."*
+- JARVIS says **"Let me take a look"**, takes a photo with the glasses, tells you within a couple of
+  seconds what it sees (*"I see a black standing fan… researching it now"*), then searches the web and
+  answers (~15–25 s): what it is, prices (in naira, Nigerian shops, unless you name a place), where to
+  buy, a pro/con — with **sources** on screen. It's saved to your memory **with the photo** (Timeline →
+  Research). If it can't read a brand, it says so and researches the closest match.
+
+## Translate
+Open **Translate** (Live screen button, or just use the glasses / your voice). Mandarin, French and
+Arabic are the main ones; 70+ languages work.
+
+**1. Listen & translate (the default) — double-click the BACK of the glasses.**
+You hear **"Translator on. Listening."** From then on, whatever is said around you — a person, a video,
+the TV, a meeting, in any language — comes into your ear **in English**, and the phone shows big
+English captions. Nothing plays out loud. Double-click BACK again (or say *"stop translating"*) →
+**"Translator off."** The session is summarised into your memory (**"Saved to your memory"**).
+The double-tap does **not** take a photo.
+
+**2. Talk back — a two-way conversation.**
+While listening, say **"Jarvis, let me talk"** (or tap **Talk to them**). Hold the phone between you.
+You speak English; they hear you **in their language from the phone's loudspeaker**, and their side of
+the screen shows your words in their language (it starts upside-down so they can read it across a table
+— tap the rotate icon to flip). You keep hearing them in English in your glasses. Say **"Jarvis, just
+listen"** (or tap **Just listen**) to go back to listening only.
+You can also start a conversation directly: Translate → **Start a conversation** (pick their language,
+or Auto), or say *"Jarvis, translate to French."*
+
+**3. Type instead of speaking.** During translation there's a box at the bottom: type what you want
+to say in English and tap send — it's translated, shown on their side and **said out loud** in their
+language. Use it when a word was misheard (tap **"YOU SAID"** to pull your last sentence into the box
+and correct it) or when it's too noisy to talk.
+
+**4. Read a sign or menu.** Say *"Jarvis, translate this"* / *"what does this say?"* while looking at it
+(glasses photo), or Translate → **Phone camera** (fastest). JARVIS reads it to you in English.
+
+**5. Say a phrase.** *"How do I say 'what is your best price' in Mandarin?"* → you hear the English, the
+phone says the phrase out loud for them, and **Show them** puts it on screen in huge type.
+*"Say it again"* repeats it.
+
+**Good to know:** let them speak a sentence or two first if the language is new — JARVIS works it out
+and remembers it for next time. Translation needs internet. For privacy, your glasses should be
+connected for sound; if not, the app warns you and your English plays from the phone.
+
 ## Glasses buttons (decoded)
 | Button | Action |
 |---|---|
 | **Front — single click** | Take a photo (auto-synced + captioned) |
-| **Back — double-click** | AI "Look & Ask" — describe what you see |
+| **Back — double-click** | **Listen & translate on/off** (any language → English in your ear). If the app is fully closed it falls back to "Look & Ask" (photo + description) |
 | **Back — hold** | Start/stop a voice recording (transcribed to a note) |
 | **Front — double-click** | Start/stop video |
 | Right double-click / slide | Media play-pause / volume (native) |
@@ -51,16 +101,19 @@ truthfully (it says "I don't know" rather than guess). It runs offline-first and
 Tap **✨ on the Live screen** (or, in photo mode, from a photo) to open **Ask JARVIS** — a patient,
 reviewable surface for heavier, tool-using tasks. Type or tap the **mic** to dictate. Answers come back
 as cards by type:
-- **Research** — *"research the best budget headphones"* → a sourced summary with a collapsible
-  **Sources** list. Saved to your Timeline (Research filter).
+- **Research** — *"research the best budget headphones"* → a sourced summary with tappable **source**
+  chips. Runs in the cloud (works anywhere, no PC needed). Saved to your Timeline (Research filter).
+  Say it by voice too: *"Jarvis, research the price of a 5 kVA inverter in Port Harcourt."*
+  Ask about *"this"* (*"how much is this?"*) and it uses the glasses camera (see Look & research).
 - **Calendar** — *"what's on my calendar this week?"* → an events list. *"add lunch tomorrow at noon"* →
   it **asks you to confirm**, then adds it.
 - **Email** — *"draft an email to Sam about Friday"* → a Gmail **draft** (it never sends — you review +
   send). *"check my email"* → an inbox summary.
 - **Coding** — *"fix the typo in the README"* → it edits the code for you to review (never commits
   unless you say *"commit"* and confirm).
-> The agent lanes run on your PC/subscription. On the cloud build they work once a **tunnel** is set up
-> (Tailscale); otherwise those phrases fall back to a normal chat answer. See `SETUP_TUNNEL_AND_FCM.md`.
+> Research runs in the cloud. **Calendar, email and coding** still run on your PC (Agent Bridge); on the
+> cloud build they work once a **tunnel** is set up (Tailscale), otherwise those phrases fall back to a
+> normal chat answer. Moving calendar + email drafts to the cloud is next on the plan.
 
 ## Discuss a photo (drill down)
 From **Gallery → tap a photo → "Ask about this photo"**, the photo pins as context and you can
@@ -88,5 +141,7 @@ connection"** (re-establishes the link). Battery also shows on the Live screen.
 
 ## Tips
 - Say **"Jarvis"** (hands-free on) to start without touching anything.
+- **Double-tap the back of the glasses** to translate whatever you're hearing; **"Jarvis, let me talk"** to reply.
+- Look at it and ask **"how much is this?"** — JARVIS photographs and researches it for you.
 - In a noisy place, the orb shows when it's listening; pause naturally — it waits for you to finish.
 - Find anything later in **Timeline** (search or the Research filter) and **Gallery**.

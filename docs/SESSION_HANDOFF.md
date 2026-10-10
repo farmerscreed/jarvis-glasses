@@ -2,10 +2,36 @@
 
 *The single-source handover between sessions. A new session should be able to read only this and
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
-*Last updated: 2026-06-14. Keep this current at the end of every working session.*
+*Last updated: 2026-10-10. Keep this current at the end of every working session.*
 
 ---
-### ▶ LATEST (end of 2026-06-14) — start here next session
+### ▶ LATEST (2026-10-10) — start here next session
+Full record: **`docs/SESSION_LOG_2026-10-10.md`** (decisions, verified API facts, every bug + fix,
+build loop) + **`docs/USER_GUIDE.md`** (how each feature works, mirrors the in-app Help).
+
+**Revived after 4 months idle.** Owner: Law (the "director"). Personal use first, product later.
+**On the Pixel now (prod `com.echo.companion`, build 2026-10-10 15:11, all pushed):**
+- **Cloud research** — Edge Function `research` (Claude + Anthropic web_search, API key — not the
+  Max subscription, no PC bridge). Sources as tappable chips.
+- **Look & research** — "how much is this / research this cot / where can I buy this" → glasses
+  photo → identify + web research → spoken answer + sources, saved with the photo. Verified on device.
+- **Live translation** (Gemini Live Translate, `translate` function issues tokens). **Double-click
+  BACK = listen & translate** (any language → English in your ear). "Jarvis, let me talk" → two-way
+  conversation (phone loudspeaker speaks your English in their language); "Jarvis, just listen" back;
+  "stop translating". **Type to them** during translation. Sessions summarised into memory.
+- **Read a sign/menu** (glasses or phone camera, Gemini Flash fast path), **say-it phrases**.
+- **Speech**: cloud Gemini STT (accent-primed) first when online; Whisper base.en offline backup.
+- **Builds run on Law's PC** (`D:\APP\jarvis`, double-click `BUILD-JARVIS.bat`; installs over
+  wireless adb). The cloud sandbox can't reach Google Maven. See session log §3.
+
+**Needs Law's test next:** the 2026-10-10 15:11 build fixes the translation **echo loop** (accurate
+playback detection + per-direction mic gates + text echo filter) and adds listen-first double-tap
++ typing. If the loop persists → session log §5.2.
+**Next on Law's list:** calendar + email drafts in the cloud (Google OAuth) → push notifications (FCM).
+**Pending Law action:** set Supabase secret `STT_VOCAB` (private words for speech, e.g. family names).
+---
+
+### ◀ PREVIOUS (end of 2026-06-14)
 Full record: **`docs/SESSION_LOG_2026-06-14.md`** + **`docs/USER_GUIDE.md`** (how every feature works).
 **Shipped + on the phone (dev `com.echo.companion.dev` + prod `com.echo.companion`, all pushed):**
 - **Agent Delegation M0–M4** — `agent-bridge/` (Node, wraps `claude -p` on the Max sub). Voice + the
@@ -151,7 +177,11 @@ functions are **deployed** (2026-06-12). App flavors: **dev** = local stack (cle
 
 ## 4. How to run & verify (the dev loop)
 
-Run from repo root `C:\Users\admin\Documents\APP\jarvis` (Windows, PowerShell). `$w` below = that path.
+Run from repo root **`D:\APP\jarvis`** (moved there by 2026-10; the old `C:\Users\admin\Documents\APP\jarvis`
+path is stale) (Windows, PowerShell). `$w` below = that path. **Since 2026-10 the usual loop is the
+double-click scripts in the repo root** (`BUILD-JARVIS.bat`, `WIFI-INSTALL.bat`, `PHONE-LOGS.bat` —
+see `docs/SESSION_LOG_2026-10-10.md` §3); the phone is reached over **wireless adb** (USB cable is
+charge-only) and the prod flavor talks to cloud `jarvis-prod`, so no local Supabase is needed.
 
 ```powershell
 # 1. Backend (Docker Desktop must be running)
@@ -189,7 +219,9 @@ Inspect the DB via `… | docker exec -i supabase_db_jarvis psql -U postgres -d 
 
 ## 5. Environment & operational gotchas (these bite every session)
 
-- **Test device:** Pixel 8, Android 16, serial `43230DLJH001YY`, **adb over USB**.
+- **Test device:** Pixel 8, Android 16, serial `43230DLJH001YY`. Since 2026-10: **wireless adb**
+  (`192.168.0.115:<port>`, port changes whenever Wireless debugging is toggled; stored in the PC's
+  untracked `wifi.txt`).
 - **Glasses:** BT name `AIMB-G2_A034`, MAC `63:93:E1:8A:A0:34`. They are **single-audio-host**.
 - **The PC steals the glasses' Bluetooth.** They were paired to this PC during recon; Windows
   auto-grabs them on power-on and the phone then can't connect. Their PC pairing entries are
@@ -579,6 +611,14 @@ before building (roadmap §10a).
   fallback kept; the local Kong proxy buffers SSE, so it's verified against cloud, not local.
 - **Glasses native captures stay native; the app listens + enriches** (never intercept firmware
   capture; preserve video for V2).
+- **(2026-10-09) Cloud brain on the Anthropic API key ("Option B")** — research now, then calendar/
+  email in Edge Functions. The PC Agent Bridge is a fallback only.
+- **(2026-10-09) Translation = Google Gemini Live Translate**; no OpenAI comparison for now.
+  Priority languages: Mandarin, French, Arabic.
+- **(2026-10-10) Double-click BACK = listen & translate**; two-way conversation is opt-in by voice
+  ("Jarvis, let me talk") or button. "What am I looking at" stays voice-only.
+- **(2026-10-10) Online speech = cloud first** (accuracy for Law's accent beats ~1 s); on-device
+  Whisper is the offline floor. Never put family names in code — use the `STT_VOCAB` secret.
 
 ---
 
@@ -590,7 +630,8 @@ before building (roadmap §10a).
 - **Verify on device before claiming done.** Build + install + exercise the real path; report the
   evidence. Don't claim a latency/voice win that needs the director's voice without saying so.
 - **Commit discipline:** small, scoped commits per increment; message ends with
-  `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`. Branch is `master`.
+  a `Co-Authored-By: Claude … <noreply@anthropic.com>` line. Branch is `master`. **Push only when
+  Law asks** (public repo — scan the diff for keys/personal data first).
 - **Keep this handoff + `PROJECT_STATUS.md` current at the end of each session** — that's what makes
   the next handover seamless.
 
