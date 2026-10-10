@@ -308,6 +308,12 @@ private fun CommandsPage() {
         "The basics" to listOf("“Jarvis, what's on my schedule?”", "“Where did I park?”", "“What did I note earlier?”"),
         "Memory" to listOf("“What did Sam say about the budget?”", "“When did I last see my keys?”", "“Find that restaurant we talked about.”", "“Remember that I parked on level 3.”"),
         "Vision (Look & Ask)" to listOf("“What am I looking at?”", "“Describe this for me.”", "“Read this for me.”"),
+        "Look & research (just look at it)" to listOf(
+            "“Jarvis, research this cot.”",
+            "“How much is this?”   “Where can I buy this?”",
+            "“What brand is this?”   “Is this any good?”",
+            "“Tell me more about this.”  (photo + web search, with sources)",
+        ),
         "Translate" to listOf(
             "“Jarvis, translate.”   “Translate to Mandarin.”",
             "“Listen and translate.”  (meetings, talks — English in your ear)",

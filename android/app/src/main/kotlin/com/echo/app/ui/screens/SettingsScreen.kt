@@ -161,6 +161,12 @@ fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onOpenDevice
             }
         }
         SettingsCard {
+            Column {
+                Text("Voice recognition", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(vm.voiceEngineSummary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        SettingsCard {
             val ctx = LocalContext.current
             var bgOn by remember { mutableStateOf(CompanionPrefs.isEnabled(ctx)) }
             val notifLauncher = rememberLauncherForActivityResult(

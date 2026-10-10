@@ -1,4 +1,6 @@
-// POST /functions/v1/research { query, history? }
+// POST /functions/v1/research { query, history?, image? }
+// image = base64 JPEG of what the wearer is looking at (camera glasses). Claude identifies the object
+// from the photo (brand, model, labels) and then researches THAT — one call, vision + web_search.
 // The deliberate lane's research skill, hosted in the cloud (replaces the PC Agent Bridge for
 // research — works anywhere, no tether). Claude + Anthropic's server-side web_search tool: it
 // searches, reads, and answers in a SPOKEN style; we build the "Sources:" list from the citations
@@ -21,6 +23,18 @@ When the question is about prices or availability and no location is given, assu
 Answer in a natural SPOKEN style for an earpiece: 3 to 6 short sentences, lead with the answer,
 no markdown, no bullet points, no URLs, no "Sources" line (the app adds sources itself).`;
 
+const VISUAL = `
+The user is wearing camera glasses. The attached photo is exactly what they are looking at right now,
+and words like "this", "that", "it" or "in front of me" refer to the main object in it.
+First identify that object as precisely as you can: read any brand, logo, model number, label or
+packaging text, and note the type, material, colour and size. Then research THAT item with web_search
+(price, where to buy, reviews, specs, safety — whatever they asked; if they only said "research this",
+cover what it is, typical price in Nigeria and where to buy it, and one notable pro or con).
+If you can't tell the exact brand or model, say so briefly and research the closest match by its type
+and features (e.g. "a white wooden baby cot with drop-side rails").
+Before the spoken answer, output ONE line exactly like: ITEM: <short name of the object, max 8 words>
+then a newline, then the spoken answer. Never say you cannot see images — you can see the photo.`;
+
 type Block = {
   type: string;
   text?: string;
@@ -39,9 +53,10 @@ Deno.serve(async (req) => {
     }
     if (!ANTHROPIC_API_KEY) return json({ error: "ANTHROPIC_API_KEY not set" }, 500);
 
-    const { query, history } = await req.json();
+    const { query, history, image } = await req.json();
     const q = String(query ?? "").trim();
     if (!q) return json({ error: "query is required" }, 400);
+    const img = typeof image === "string" && image.length > 100 ? image : "";
 
     const messages: unknown[] = [];
     if (Array.isArray(history)) {
@@ -51,7 +66,15 @@ Deno.serve(async (req) => {
         }
       }
     }
-    messages.push({ role: "user", content: q });
+    messages.push(img
+      ? {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: img } },
+          { type: "text", text: q },
+        ],
+      }
+      : { role: "user", content: q });
 
     const today = new Date().toISOString().slice(0, 10);
     let content: Block[] = [];
@@ -68,7 +91,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: MODEL,
           max_tokens: 1500,
-          system: SYSTEM(today),
+          system: SYSTEM(today) + (img ? VISUAL : ""),
           messages,
           tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
         }),
@@ -86,8 +109,15 @@ Deno.serve(async (req) => {
     let lastTool = -1;
     content.forEach((b, i) => { if (b.type === "web_search_tool_result") lastTool = i; });
     const answerBlocks = content.slice(lastTool + 1).filter((b) => b.type === "text");
+    // "ITEM: …" (visual research) may sit before the searches — find it anywhere, then strip it.
+    let item = "";
+    for (const b of content) {
+      const m = b.type === "text" ? (b.text ?? "").match(/ITEM:\s*([^\n]+)/) : null;
+      if (m) item = m[1].trim();
+    }
     const spoken = (answerBlocks.length ? answerBlocks : content.filter((b) => b.type === "text"))
-      .map((b) => b.text ?? "").join("").replace(/\*\*|__|`/g, "").replace(/\s+\n/g, "\n").trim();
+      .map((b) => b.text ?? "").join("").replace(/ITEM:[^\n]*\n?/g, "")
+      .replace(/\*\*|__|`/g, "").replace(/\s+\n/g, "\n").trim();
 
     const seen = new Set<string>();
     const sources: { title: string; url: string }[] = [];
@@ -98,7 +128,7 @@ Deno.serve(async (req) => {
     }
     const top = sources.slice(0, 6);
     const text = top.length ? `${spoken}\nSources:\n${top.map((s) => s.url).join("\n")}` : spoken;
-    return json({ text, spoken, sources: top, searches, ms: Date.now() - t0 });
+    return json({ text, spoken, item, sources: top, searches, visual: !!img, ms: Date.now() - t0 });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }

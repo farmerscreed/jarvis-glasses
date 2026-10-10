@@ -54,6 +54,8 @@ class SherpaStt(private val context: Context) {
 
     /** The preferred model is the one loaded. */
     val isBestLoaded: Boolean get() = loadedName == best.name
+    /** Which on-device model is in use ("base.en" = the better one, "tiny.en" = the small fallback). */
+    val loadedModelName: String get() = loadedName.ifBlank { "none" }
 
     /** Download the model on first run. [onProgress] reports 0f..1f. Resumable per-file (skips done). */
     suspend fun download(onProgress: (Float) -> Unit = {}): Boolean = withContext(Dispatchers.IO) {

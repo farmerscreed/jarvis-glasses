@@ -29,6 +29,7 @@ import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -84,12 +85,23 @@ class HomeViewModel @Inject constructor(
     // the Gemini cloud quota, not the SCO echo). awaitBargeIn() thresholds are echo-aware and tuned
     // to the user's ~1700 voice RMS; tune further from the EchoBarge logs after testing.
     private val bargeInEnabled = true
+    private val CLOUD_STT_WAIT_MS = 3_500L
 
     /** Running transcript of the current conversation for the scrollable on-screen chat. */
     val transcript = mutableStateListOf<TurnLine>()
 
     /** On-device STT model state for the UI: "" when ready/absent-but-idle, or a download/loading note. */
     var sttModelStatus by mutableStateOf(""); private set
+    /** Plain-English line for Settings: which recogniser hears you. */
+    val voiceEngineSummary: String get() {
+        val offline = when (sherpa.loadedModelName) {
+            "base.en" -> "improved offline model ready"
+            "tiny.en" -> "basic offline model (the improved one downloads on Wi-Fi)"
+            else -> "offline model not loaded yet"
+        }
+        return (if (online) "Online: cloud recognition, tuned for your accent. " else "Offline right now. ") +
+            "Backup: $offline." + (if (sttModelStatus.isNotBlank()) " $sttModelStatus" else "")
+    }
     @Volatile private var sttModelTriggered = false
 
     // v1.5 editable profile (Settings → "JARVIS's memory"): SOUL (character) + curated facts.
@@ -178,16 +190,24 @@ class HomeViewModel @Inject constructor(
             viewModelScope.launch {
                 if (translator.isActive) stopTranslation()
                 else if (loggedIn) startTranslation(com.echo.app.translate.TranslateMode.CONVERSATION)
+                else tts.speak("Please sign in to the app first.")
             }
             true
         }
         viewModelScope.launch {
             var wasActive = false
+            var lastSavedSpoken = ""
             translator.ui.collect { u ->
                 translateUi = u
                 // Translation just ended → give the mic back to the wake word if hands-free is on.
-                if (wasActive && !u.active && handsFree) { micActive = startWake() }
-                if (wasActive && !u.active && u.summary.isNotBlank()) tts.speak("Saved to your memory.")
+                if (wasActive && !u.active) {
+                    tts.speak("Translator off.") // however it stopped: double-tap, button or voice
+                    if (handsFree) micActive = startWake()
+                }
+                if (!u.active && !u.saving && u.summary.isNotBlank() && u.summary != lastSavedSpoken) {
+                    lastSavedSpoken = u.summary
+                    tts.speak("Saved to your memory.")
+                }
                 wasActive = u.active
             }
         }
@@ -497,6 +517,12 @@ class HomeViewModel @Inject constructor(
                 agent.isConfigured && isCalendarQuery(q) -> agent.calendarQuery(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "calendar"))) }
                 agent.isConfigured && isEmailDraft(q) -> agent.emailDraft(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "email"))) }
                 agent.isConfigured && isEmailRead(q) -> agent.emailRead(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "email"))) }
+                online && isLookResearch(q) -> {
+                    val r = lookAndResearch(researchTopic(q)) { first -> status = first }
+                        ?: com.echo.memory.AgentResult(false, "I couldn't get a photo from the glasses just now — are they on and connected?", 0)
+                    askThread.add(AskTurn(false, r.text, kindOf(r, "research")))
+                    refreshLibrary()
+                }
                 online && isResearchCommand(q) -> {
                     val topic = researchTopic(q)
                     val r = research(topic)
@@ -612,13 +638,7 @@ class HomeViewModel @Inject constructor(
             val wav = WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)
             // On-device STT first (offline, fast, no quota); cloud only as a fallback when the model
             // isn't downloaded/loaded yet or comes back empty on real speech.
-            val onDevice = if (!noSpeech && sherpa.isReady) sherpa.transcribe(rec.pcm, rec.sampleRate) else ""
-            val sttResult = when {
-                noSpeech -> Result.success("")
-                onDevice.isNotBlank() -> Result.success(onDevice)
-                else -> runCatching { backend.transcribe(wav) }
-            }
-            val sttSource = if (onDevice.isNotBlank()) "device" else if (noSpeech) "skip" else "cloud"
+            val (sttResult, sttSource) = if (noSpeech) Result.success("") to "skip" else bestTranscript(rec.pcm, rec.sampleRate, wav)
             val tStt = System.currentTimeMillis() - sttStart
             android.util.Log.i("EchoLatency", "stt-source=$sttSource stt=${tStt}ms")
             dumpVoiceDebug(wav, rec, sttResult.getOrElse { "(stt error: ${it.message})" }, tRecord, tStt)
@@ -713,6 +733,32 @@ class HomeViewModel @Inject constructor(
                 status = "Take a photo of the text"
                 break
             }
+            // Look-and-research: "research this cot", "how much is this", "where can I buy that" →
+            // glasses photo → identify + web research → spoken answer with sources, saved with the photo.
+            if (online && isLookResearch(heard) && !isReadCommand(heard)) {
+                status = "Looking…"
+                val hadHeldSco = continuous && bargeInEnabled
+                tts.speak("Let me take a look.")
+                tts.stop()
+                if (hadHeldSco) tts.useCommunicationRoute(false)
+                audio.releaseForCamera(settleMs = 3000L)
+                val res = lookAndResearch(researchTopic(heard)) { first ->
+                    status = "Researching…"
+                    answer = first
+                    tts.speak(first)
+                }
+                if (hadHeldSco) { tts.useCommunicationRoute(true); audio.beginScoSession() }
+                val ans = res?.text
+                    ?: "I couldn't get a photo from the glasses just now. Try again, or snap one with the glasses button and ask me about it."
+                answer = ans
+                transcript.add(TurnLine(fromUser = false, text = ans))
+                status = if (res?.ok == true) "Researched · ${res.durationMs / 1000}s" else "Research failed"
+                tts.speak(spokenPart(ans))
+                refreshLibrary()
+                if (!continuous) { status = "Done"; break }
+                status = "Listening…"; continue
+            }
+
             // (c) "Translate this" / "what does this say" / "read this to me" → photo → read/translate.
             if (isReadCommand(heard)) {
                 status = "Reading…"
@@ -946,13 +992,14 @@ class HomeViewModel @Inject constructor(
         tts.speak(
             when {
                 mode == com.echo.app.translate.TranslateMode.LISTEN -> "Listening."
-                lang != null -> "Translator on. ${com.echo.app.translate.TranslationController.langName(lang)}."
-                else -> "Translator on."
+                lang != null -> "Translator on, ${com.echo.app.translate.TranslationController.langName(lang)}. Go ahead and talk."
+                else -> "Translator on. Go ahead and talk."
             },
         )
     }
 
     fun stopTranslation() {
+        if (!translator.isActive) return
         translator.stop(save = true)
         micActive = handsFree
         status = "Translation stopped"
@@ -1109,6 +1156,60 @@ class HomeViewModel @Inject constructor(
         RegexOption.IGNORE_CASE,
     )
     private fun isResearchCommand(s: String) = researchRe.containsMatchIn(s)
+
+    // Look-and-research: a research / shopping question about the thing IN FRONT of you ("research
+    // this cot", "how much is this", "where can I buy this", "what brand is that", "the baby cot in
+    // front of me"). These take a photo with the glasses and research what's in it.
+    private val deicticRe = Regex(
+        "\\b(in front of me|i'?m (looking at|holding|seeing)|i am (looking at|holding)|right here|over here)\\b|" +
+            "\\b(this|that|these|those)(\\s+[a-z'-]+){0,3}\\W*$",
+        RegexOption.IGNORE_CASE,
+    )
+    private val shopRe = Regex(
+        "\\bhow much (is|are|does|do|would|will|for)\\b|\\bprice of\\b|\\bwhat('s| is) the price\\b|\\bwhere (can|do|could|should) (i|we) (buy|get|find|order)\\b|" +
+            "\\bwhat (brand|make|model) (is|are)\\b|\\bwho makes (this|that)\\b|\\bis (this|that|it) (any good|worth|safe|original|real|fake|good)\\b|" +
+            "\\b(reviews?|ratings?) (of|for|on) (this|that)\\b|\\bcompare (this|that)\\b|\\bfind (this|that|one) online\\b|\\bmore about (this|that)\\b|\\bwhat can you tell me about (this|that)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private val strongLookRe = Regex(
+        "\\b(how much (is|are|does) (this|that|these|those|it)|where (can|do|could) (i|we) (buy|get|find) (this|that|these|those|one)|" +
+            "what (brand|make|model) is (this|that|it)|tell me (more )?about (this|that|these|those|what i'?m))\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isLookResearch(s: String) = strongLookRe.containsMatchIn(s) ||
+        ((isResearchCommand(s) || shopRe.containsMatchIn(s)) && deicticRe.containsMatchIn(s))
+
+    /**
+     * Take a photo with the glasses, then research what's in it. While the (slower, ~10–25 s) web
+     * research runs, a fast look (~2 s) says what it sees, so you know it's the right thing.
+     * Returns the full answer text (spoken part + Sources), or null if no photo could be taken.
+     */
+    private suspend fun lookAndResearch(question: String, onFirstLook: suspend (String) -> Unit): com.echo.memory.AgentResult? {
+        val f = reactor.captureFresh() ?: return null
+        val bytes = runCatching { f.readBytes() }.getOrNull() ?: return null
+        return kotlinx.coroutines.coroutineScope {
+            val quick = async {
+                runCatching {
+                    backend.describeImage(bytes, "In ONE short spoken sentence (max 15 words), name the main object in front of the wearer, " +
+                        "including any brand you can read. Start with \"I see\".", fast = true)
+                }.getOrNull()
+            }
+            val deep = async { runCatching { backend.research(question, image = bytes) } }
+            quick.await()?.takeIf { it.isNotBlank() }?.let { s -> if (!deep.isCompleted) onFirstLook("$s Researching it now.") }
+            val r = deep.await()
+            val res = r.getOrNull()
+            val text = res?.text?.takeIf { it.isNotBlank() }
+            val title = res?.item?.takeIf { it.isNotBlank() } ?: question
+            runCatching {
+                store.rememberLocal(
+                    Memory(type = MemoryType.PHOTO, text = text?.let { "Research — $title:\n$it" } ?: "(photo for research: $question)", tags = listOf("research")),
+                    f, "media",
+                )
+            }
+            if (text != null) com.echo.memory.AgentResult(true, text, res?.durationMs ?: 0L)
+            else com.echo.memory.AgentResult(false, "I took the photo but couldn't finish the research (${r.exceptionOrNull()?.message?.take(100) ?: "no answer"}).", 0)
+        }
+    }
     /** Topic to research: the whole (lightly cleaned) utterance — the research agent extracts the gist. */
     private fun researchTopic(s: String): String =
         s.trim().replace(Regex("^\\s*(hey\\s+)?jarvis[,!.]?\\s+", RegexOption.IGNORE_CASE), "").trim().ifBlank { s.trim() }
@@ -1216,9 +1317,29 @@ class HomeViewModel @Inject constructor(
         } finally { micActive = handsFree }
         if (stopConversation) return ""
         if (!rec.speechStarted || rec.peak < 900 || rec.rms < 70) return ""
-        val onDevice = if (sherpa.isReady) sherpa.transcribe(rec.pcm, rec.sampleRate) else ""
-        return if (onDevice.isNotBlank()) onDevice
-        else runCatching { backend.transcribe(WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)) }.getOrDefault("")
+        return bestTranscript(rec.pcm, rec.sampleRate, WavUtil.pcm16ToWav(rec.pcm, rec.sampleRate)).first.getOrDefault("")
+    }
+
+    /**
+     * Speech → text. Online: the cloud transcriber (Gemini, primed for a Nigerian accent and the
+     * assistant's vocabulary) is far more accurate than the on-device Whisper model, so it wins
+     * whenever it answers within [CLOUD_STT_WAIT_MS]. Whisper runs at the same time as the
+     * safety net (offline, slow network, quota). Returns (result, source) — source logged.
+     */
+    private suspend fun bestTranscript(pcm: ByteArray, rate: Int, wav: ByteArray): Pair<Result<String>, String> = coroutineScope {
+        val device = async(Dispatchers.Default) { if (sherpa.isReady) runCatching { sherpa.transcribe(pcm, rate) }.getOrDefault("") else "" }
+        if (online) {
+            val cloud = async { runCatching { backend.transcribe(wav) } }
+            val c = withTimeoutOrNull(CLOUD_STT_WAIT_MS) { cloud.await() }
+            if (c != null && c.getOrNull()?.isNotBlank() == true) { device.cancel(); return@coroutineScope c to "cloud" }
+            val d = device.await()
+            if (d.isNotBlank()) { cloud.cancel(); return@coroutineScope Result.success(d) to "device(${sherpa.loadedModelName})" }
+            // Neither yet: give the cloud the rest of its time (it may just be slow).
+            val late = c ?: withTimeoutOrNull(6_000) { cloud.await() } ?: Result.success("")
+            return@coroutineScope late to "cloud-late"
+        }
+        val d = device.await()
+        Result.success(d) to "device(${sherpa.loadedModelName})"
     }
 
     /**

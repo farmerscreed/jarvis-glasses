@@ -352,16 +352,24 @@ class EchoBackend(
      * Web research (Claude + web search). Returns the spoken answer followed by "Sources:" and one
      * URL per line — the same shape the agent-bridge research lane produced, so cards parse it.
      */
-    suspend fun research(query: String, history: List<ChatMsg> = emptyList()): ResearchResult = withContext(Dispatchers.IO) {
+    /** Web research. With [image] (a photo of what the wearer is looking at) the agent identifies the
+     *  object first, then researches it (price, where to buy, reviews…) — "research this cot". */
+    suspend fun research(query: String, history: List<ChatMsg> = emptyList(), image: ByteArray? = null): ResearchResult = withContext(Dispatchers.IO) {
         val hist = org.json.JSONArray()
         history.forEach { hist.put(org.json.JSONObject().put("role", it.role).put("content", it.content)) }
-        val body = org.json.JSONObject().put("query", query).put("history", hist).toString()
+        val o0 = org.json.JSONObject().put("query", query).put("history", hist)
+        if (image != null) {
+            val small = shrinkJpeg(image, maxSide = 1280, quality = 82)
+            o0.put("image", android.util.Base64.encodeToString(small, android.util.Base64.NO_WRAP))
+        }
+        val body = o0.toString()
         val t0 = System.currentTimeMillis()
         val o = org.json.JSONObject(post("/functions/v1/research", body, slowHttp))
         ResearchResult(
             text = o.optString("text"),
             spoken = o.optString("spoken"),
             searches = o.optInt("searches"),
+            item = o.optString("item"),
             durationMs = System.currentTimeMillis() - t0,
         )
     }
@@ -483,7 +491,7 @@ class EchoBackend(
     }
 }
 
-data class ResearchResult(val text: String, val spoken: String, val searches: Int, val durationMs: Long)
+data class ResearchResult(val text: String, val spoken: String, val searches: Int, val durationMs: Long, val item: String = "")
 data class TranslateToken(val token: String, val model: String, val urls: List<String>)
 data class PhraseResult(
     val langCode: String,

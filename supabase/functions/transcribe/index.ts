@@ -10,6 +10,17 @@ const PRIMARY = Deno.env.get("GEMINI_STT_MODEL") ?? "gemini-2.5-flash";
 // Fallback chain (dedup); flash-lite is a lighter model that shares the free quota.
 const MODELS = [...new Set([PRIMARY, "gemini-2.5-flash-lite"])];
 
+// Context makes a big difference for names and accent (Whisper/plain prompts heard "Jarvis" as
+// "Travis", "cot" as "coat").
+// Private vocabulary (names etc.) lives in the STT_VOCAB secret, not in this public repo.
+const VOCAB = Deno.env.get("STT_VOCAB") ?? "";
+const PROMPT = `Transcribe this voice command verbatim. The speaker is Nigerian (Nigerian English accent),
+talking to his AI assistant "Jarvis" through smart glasses. Common words: Jarvis, naira, Port Harcourt,
+Lagos, research, translate, translation, Mandarin, Chinese, French, Arabic, cot, crib, calendar, email,
+remember, photo${VOCAB ? ", " + VOCAB : ""}.
+Write what he actually said in normal English spelling. If there is no clear speech, return nothing.
+Return ONLY the transcript — no quotes, labels or commentary.`;
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function transcribeWith(model: string, audioBase64: string, mimeType: string): Promise<Response> {
@@ -21,10 +32,12 @@ async function transcribeWith(model: string, audioBase64: string, mimeType: stri
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: "Transcribe this audio to text verbatim. Return ONLY the transcript with no preamble, quotes, or commentary." },
+            { text: PROMPT },
             { inline_data: { mime_type: mimeType, data: audioBase64 } },
           ],
         }],
+        // No "thinking" — transcription doesn't need it and it adds ~1 s.
+        generationConfig: { temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
       }),
     },
   );

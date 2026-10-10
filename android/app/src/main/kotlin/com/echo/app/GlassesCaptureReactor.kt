@@ -151,6 +151,15 @@ class GlassesCaptureReactor @Inject constructor(
      * [timeoutMs]. The whole ceremony is time-boxed, so it can never wedge later captures.
      */
     suspend fun captureAndDescribe(timeoutMs: Long = 45_000, prompt: String? = null, fast: Boolean = false): String? {
+        val f = captureFresh(timeoutMs) ?: return null
+        return describePhoto(f, prompt, fast)
+    }
+
+    /**
+     * Take a photo NOW with the glasses and return that fresh file (no description) — used by
+     * look-and-research, which sends the image to the research agent itself. Null if no fresh photo.
+     */
+    suspend fun captureFresh(timeoutMs: Long = 45_000): File? {
         if (!backend.isLoggedIn) { android.util.Log.w("EchoVision", "not logged in"); return null }
         return syncMutex.withLock {
             voiceVisionInFlight = true
@@ -189,9 +198,8 @@ class GlassesCaptureReactor @Inject constructor(
                         drainBacklog(files) // keep anything we did pull
                         return@withTimeoutOrNull null
                     }
-                    val desc = describePhoto(newest, prompt, fast)
                     drainBacklog(files.filter { it != newest }) // backlog -> memories, off the hot path
-                    desc
+                    newest
                 }
             } finally {
                 voiceVisionInFlight = false

@@ -259,7 +259,12 @@ class TranslationController @Inject constructor(
                     }
                 } else if (_ui.value.theirLang.isEmpty() && l.isNotBlank()) { rememberLang(l); setStatus(theirLang = l) }
             } else {
-                if (!isEnglish(l)) { endLine(curMe, isA = false); return } // their speech reaching B — A handles it
+                if (!isEnglish(l)) {
+                    // Non-English reaching B is either the loudspeaker playing your own translation
+                    // (ignore it — never cut your sentence off) or them talking (A handles that).
+                    if (speakerPlayer?.recentlyPlayed(ECHO_WINDOW_MS) != true) endLine(curMe, isA = false)
+                    return
+                }
                 appendInput(curMe, "me", "en", text, isA = false)
             }
         }
@@ -398,12 +403,17 @@ class TranslationController @Inject constructor(
             while (active) {
                 val n = rec.read(buf, 0, buf.size)
                 if (n <= 0) continue
-                // Don't let the loudspeaker's output (or a phone-speaker ear route) loop back in.
-                val gate = speakerPlayer?.recentlyPlayed(GATE_MS) == true ||
-                    (earPlayer?.isSpeakerRoute() == true && earPlayer?.recentlyPlayed(GATE_MS) == true)
-                val out = if (gate) silence else buf
-                sessionA?.sendPcm16k(out, n)
-                sessionB?.sendPcm16k(out, n)
+                // Echo control, per direction (the old version muted BOTH while the loudspeaker played,
+                // so everything you said after your first few words was thrown away):
+                //  • A (them → English) is muted while the loudspeaker plays YOUR translation, otherwise
+                //    it would hear that French/Chinese and translate it back into your ear.
+                //  • B (you → their language) keeps hearing you the whole time. It ignores its own
+                //    output (already in the target language). It's only muted when your English is
+                //    coming out of the phone speaker (glasses not connected), which it would re-translate.
+                val speakerBusy = speakerPlayer?.recentlyPlayed(GATE_MS) == true
+                val earOnSpeakerBusy = earPlayer?.isSpeakerRoute() == true && earPlayer?.recentlyPlayed(GATE_MS) == true
+                sessionA?.sendPcm16k(if (speakerBusy || earOnSpeakerBusy) silence else buf, n)
+                sessionB?.sendPcm16k(if (earOnSpeakerBusy) silence else buf, n)
             }
         }
     }
@@ -453,6 +463,7 @@ class TranslationController @Inject constructor(
         private const val CHUNK_BYTES = 3200          // 100 ms @ 16 kHz mono PCM16
         private const val LINE_GAP_MS = 1600L
         private const val GATE_MS = 350L
+        private const val ECHO_WINDOW_MS = 1200L
         private const val TOKEN_FRESH_MS = 90_000L
 
         /** "after the match we go to a small after the match we go to a small …" → one copy. */
