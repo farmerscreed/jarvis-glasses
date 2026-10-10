@@ -146,8 +146,9 @@ private fun HubPage(onPick: (HelpTab) -> Unit) {
                     Text(
                         "Your glasses are the eyes and ears; the phone is the brain. Capture a photo or " +
                             "speak, and JARVIS remembers it, then answers from your own memory — even offline. " +
-                            "Ask JARVIS (the ✨ on the Live screen) to research, manage your email & calendar, " +
-                            "and discuss your photos.",
+                            "Look at something and ask “how much is this?” — it takes a photo and researches it. " +
+                            "Double-tap the glasses to hear any language in English; say “let me talk” to reply. " +
+                            "Ask JARVIS (the ✨ on the Live screen) to research, check email & calendar, and discuss your photos.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -173,7 +174,7 @@ private fun HubPage(onPick: (HelpTab) -> Unit) {
                 Column(Modifier.padding(JarvisSpacing.lg), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
                     SectionLabel("Pro Tip", icon = Icons.Outlined.Lightbulb)
                     Text(
-                        "Say “Jarvis” (with hands-free on) to start a voice turn without touching anything.",
+                        "Say “Jarvis” (with hands-free on) to start a voice turn without touching anything. Double-tap the back of the glasses to translate whatever you're hearing.",
                         style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -215,7 +216,7 @@ private fun HelpCategory(title: String, subtitle: String, icon: ImageVector, onC
 private fun GesturesPage() {
     val gestures = listOf(
         Triple("Single-click FRONT", "Takes a photo", "JARVIS auto-syncs it and captions it into your memory."),
-        Triple("Double-click BACK", "Start / stop translating", "Hold the phone between you and talk — press again to stop. (To describe what you see, just say “what am I looking at?”)"),
+        Triple("Double-click BACK", "Listen & translate (on / off)", "Everything you hear — a person, TV, a meeting — comes into your ear in English. JARVIS says “Translator on” / “Translator off”. It does NOT take a photo. To reply, say “Jarvis, let me talk”."),
         Triple("Hold BACK", "Starts audio recording", "Synced and transcribed into a voice note when you stop."),
         Triple("Double-click FRONT", "Starts / ends video", "Preserved on the glasses; synced to your gallery."),
         Triple("Double-click RIGHT", "Play / pause media", "Handled natively by the glasses."),
@@ -259,13 +260,17 @@ private fun TutorialsPage() {
     val tutorials = listOf(
         Triple("Ask your memory", listOf("Tap the mic or say “Jarvis”", "Ask a question", "Hear the answer from your memories"), "Works offline too — JARVIS searches on-device when there's no signal."),
         Triple("Look & Ask", listOf("Say “what am I looking at?”", "JARVIS captures the frame", "It describes what you're seeing, out loud"), "Great for “what is this?” moments — works mid-conversation."),
+        Triple("Look & research", listOf("Look at the thing (a cot, a fan, a product)", "Say “Jarvis, how much is this?” or “research this”", "It says what it sees, then gives prices, where to buy and sources"), "Takes ~15–25 s. Prices are for Nigeria unless you name a place. Saved to your memory with the photo."),
         Triple("Capture a memory", listOf("Single-click the FRONT button", "The photo syncs automatically", "It's captioned into your timeline"), "Find it later in Timeline and Gallery."),
         Triple("Voice notes", listOf("Hold the BACK button to record", "Click BACK to stop", "It's transcribed into a note"), "Meeting capture, hands-free."),
-        Triple("Translate a conversation", listOf("Double-click BACK on the glasses, or say “Jarvis, translate”", "Hold the phone between you — let them speak first", "Hear them in English in your glasses; they hear you from the phone"), "Mandarin, French, Arabic and 70+ more. Say “stop translating” — it's then summarized into your memory."),
+        Triple("Listen & translate", listOf("Double-click BACK on the glasses (or tap “Start listening”)", "Hear “Translator on. Listening.”", "Whatever is said around you — any language — plays in English in your ear"), "For TV, videos, talks, or someone speaking to you. Nothing plays out loud. Double-click BACK again (or say “stop translating”) to stop — it's summarized into your memory."),
+        Triple("Reply in a conversation", listOf("While listening, say “Jarvis, let me talk” (or tap “Talk to them”)", "Hold the phone between you and speak English", "They hear you in their language from the phone speaker"), "Say “Jarvis, just listen” to go back to listening only. Or start straight away: Translate → “Start a conversation”, or say “Jarvis, translate to French”."),
+        Triple("Type instead of speaking", listOf("During translation, type in the box at the bottom", "Tap send", "It's translated, shown on their side and said out loud"), "Use it when a word was misheard — tap “YOU SAID” to correct your last sentence — or when it's too noisy."),
         Triple("Translate a sign or menu", listOf("Look at it", "Say “Jarvis, translate this”", "Hear it in English"), "Also reads English text aloud: “read this to me”."),
         Triple("Ask JARVIS (get things done)", listOf("Tap ✨ on the Live screen (or type / speak)", "Ask it to research, check your calendar, or draft an email", "Read the answer card — research shows its sources"), "The deliberate lane: patient, tool-using, reviewable. Research works anywhere; email & calendar still need the PC agent."),
         Triple("Drill down on a photo", listOf("Open a photo in Gallery", "Tap “Ask about this photo”", "Ask “how many…?” or “read the text”, by text or mic"), "JARVIS re-examines that exact photo to answer follow-ups."),
         Triple("Check your glasses", listOf("Open Settings → Glasses & device", "See battery %, connection, and the buttons map", "Tap “Fix connection” if the link drops"), "Battery also shows on the Live screen."),
+        Triple("Voice recognition", listOf("Online, your voice is understood in the cloud (tuned for your accent)", "Offline, a model on the phone takes over", "Settings → Voice recognition shows which is in use"), "If a word keeps coming out wrong, type it instead (Ask JARVIS, or the box during translation)."),
     )
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = JarvisSpacing.lg),
@@ -315,8 +320,10 @@ private fun CommandsPage() {
             "“Tell me more about this.”  (photo + web search, with sources)",
         ),
         "Translate" to listOf(
-            "“Jarvis, translate.”   “Translate to Mandarin.”",
-            "“Listen and translate.”  (meetings, talks — English in your ear)",
+            "Double-click BACK — listen: any language → English in your ear",
+            "“Listen and translate.”  (same as the double-tap)",
+            "While listening: “Jarvis, let me talk.”   Back: “Jarvis, just listen.”",
+            "“Jarvis, translate to French.”  (a two-way conversation straight away)",
             "“How do I say ‘what is your best price’ in Mandarin?”   “Say it again.”",
             "“Translate this.”   “What does this sign say?”",
             "“Stop translating.”",

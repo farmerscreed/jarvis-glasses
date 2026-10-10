@@ -117,7 +117,7 @@ class GlassesCaptureReactor @Inject constructor(
     }
 
     /**
-     * Double-click BACK. If the app has claimed it (it maps the gesture to "start / stop translating"),
+     * Double-click BACK. If the app has claimed it (it maps the gesture to "listen & translate on / off"),
      * hand it over; otherwise (app closed) fall back to Look & Ask. Returns true if handled.
      */
     @Volatile var aiGestureHandler: (() -> Boolean)? = null

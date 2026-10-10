@@ -184,16 +184,20 @@ class HomeViewModel @Inject constructor(
         // is the other. Mirror the reactor's progress into the UI while it's working and we're
         // not mid-foreground-action, and surface new memories as they land.
         reactor.start()
-        // Glasses double-tap (double-click BACK) = start / stop translating. ("What am I looking at"
-        // stays available by voice.)
+        // Glasses double-tap (double-click BACK) = start / stop LISTENING: everything you hear (a
+        // person, TV, a talk) is translated into English in your ear. Say "Jarvis, let me talk" to
+        // switch into a two-way conversation. ("What am I looking at" stays available by voice.)
         reactor.aiGestureHandler = {
             viewModelScope.launch {
                 if (translator.isActive) stopTranslation()
-                else if (loggedIn) startTranslation(com.echo.app.translate.TranslateMode.CONVERSATION)
+                else if (loggedIn) startTranslation(com.echo.app.translate.TranslateMode.LISTEN)
                 else tts.speak("Please sign in to the app first.")
             }
             true
         }
+        // Things the translator wants said (mode switched…). The mic is held while JARVIS talks so
+        // its own voice is never translated.
+        viewModelScope.launch { translator.cues.collect { speakOverTranslator(it) } }
         viewModelScope.launch {
             var wasActive = false
             var lastSavedSpoken = ""
@@ -986,16 +990,35 @@ class HomeViewModel @Inject constructor(
         translateOpen = true
         micActive = true
         // Start connecting FIRST, then a short spoken cue while it connects (no waiting on speech).
+        // The mic is held during the cue, so the cue itself is never translated.
+        translator.holdMic(true)
         translator.start(mode, target)
         status = "Translating"
         val lang = (target ?: translator.lastLang).takeIf { it.isNotBlank() && mode == com.echo.app.translate.TranslateMode.CONVERSATION }
-        tts.speak(
+        speakOverTranslator(
             when {
-                mode == com.echo.app.translate.TranslateMode.LISTEN -> "Listening."
+                mode == com.echo.app.translate.TranslateMode.LISTEN -> "Translator on. Listening."
                 lang != null -> "Translator on, ${com.echo.app.translate.TranslationController.langName(lang)}. Go ahead and talk."
                 else -> "Translator on. Go ahead and talk."
             },
         )
+    }
+
+    /** JARVIS speaks while translating — the translator's mic sends silence meanwhile. */
+    private suspend fun speakOverTranslator(text: String) {
+        translator.holdMic(true)
+        try { tts.speak(text) } finally { translator.holdMic(false) }
+    }
+
+    /** Listen ⇄ talk while translating (buttons on the Translate screen; voice works too). */
+    fun switchTranslateMode(mode: com.echo.app.translate.TranslateMode) = translator.switchMode(mode)
+
+    /** You typed what you want to say → translated, shown to them and spoken on the phone speaker. */
+    var typedSending by mutableStateOf(false); private set
+    fun sayTyped(text: String) {
+        if (text.isBlank() || typedSending) return
+        typedSending = true
+        viewModelScope.launch { try { translator.sayTyped(text) } finally { typedSending = false } }
     }
 
     fun stopTranslation() {

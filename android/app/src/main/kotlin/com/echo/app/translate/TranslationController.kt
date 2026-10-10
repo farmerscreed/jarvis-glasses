@@ -18,7 +18,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -39,6 +41,8 @@ data class LiveLine(
     val lagMs: Long? = null,
     /** Last time this line changed — the UI uses it to show who is speaking right now. */
     val updatedAt: Long = System.currentTimeMillis(),
+    /** You typed this one (rather than said it). */
+    val typed: Boolean = false,
 )
 
 data class TranslateUi(
@@ -74,11 +78,17 @@ data class TranslateUi(
  *    glasses** (in-ear, the other person never hears it).
  *  - Session **B** (target = their language, auto-detected from A or preset) also hears everything
  *    and translates YOUR English → their language, played on the **phone loudspeaker** for them.
- *  - While the loudspeaker is talking, the mic feeds silence so A doesn't re-translate it back.
+ *  - Echo control (one mic hears everything, so without it the two directions translate each other
+ *    forever — the "looping" bug): A is muted while the loudspeaker plays (+ room tail), B is muted
+ *    while your ear audio plays, both are muted while JARVIS speaks a cue or a typed reply, and any
+ *    line whose words match something just played is dropped as an echo.
  *  - Audio that arrives without translated words (echo=false still streams a little audio) is
  *    dropped — we only play audio that comes with an output transcript.
  *
- * LISTEN mode = session A only (meetings, talks, announcements): English in your ear, nothing out loud.
+ * LISTEN mode = session A only (TV, meetings, talks, someone speaking): English in your ear, nothing
+ * out loud. This is what the glasses double-tap starts. Say "Jarvis, let me talk" (or tap "Talk to
+ * them") to switch to CONVERSATION; "Jarvis, just listen" switches back. You can also TYPE what you
+ * want to say — it's translated and spoken out loud for them (fixes misheard words).
  * Say "stop translating" (in English) or press Stop to end; the conversation is then summarized
  * and saved to memory by the `translate` Edge Function.
  */
@@ -86,6 +96,7 @@ data class TranslateUi(
 class TranslationController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val backend: EchoBackend,
+    private val phrases: PhraseSpeaker,
     http: OkHttpClient,
 ) {
     private val wsHttp: OkHttpClient = http.newBuilder()
@@ -121,11 +132,28 @@ class TranslationController @Inject constructor(
     private val retries = mutableMapOf<String, Int>()
 
     // Per-direction line assembly (fragments arrive in pieces; a ≥1.6 s gap starts a new line).
-    private class Cur(var id: Long = 0, var lastAt: Long = 0, var firstInAt: Long = 0, var firstOutAt: Long = 0, var hasOut: Boolean = false)
+    private class Cur(var id: Long = 0, var lastAt: Long = 0, var firstInAt: Long = 0, var firstOutAt: Long = 0, var hasOut: Boolean = false, var echo: Boolean = false)
     private val curThem = Cur()
     private val curMe = Cur()
 
     val isActive: Boolean get() = active
+
+    /** Short sentences for JARVIS to say (mode switched, etc.) — the ViewModel speaks them. */
+    private val _cues = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val cues: SharedFlow<String> = _cues
+
+    /** True while JARVIS itself is talking (a cue, a typed reply) — the mic sends silence. */
+    @Volatile private var micHeld = false
+    fun holdMic(on: Boolean) { micHeld = on; if (!on) heldUntil = System.currentTimeMillis() + HOLD_TAIL_MS }
+    @Volatile private var heldUntil = 0L
+    @Volatile private var phraseBusy = false
+
+    // Recently PLAYED translations, per direction — used to recognise our own audio coming back in.
+    private val playedA = java.util.concurrent.ConcurrentLinkedDeque<Pair<Long, String>>() // English, into your ear
+    private val playedB = java.util.concurrent.ConcurrentLinkedDeque<Pair<Long, String>>() // their language, loudspeaker
+    private var cmdBuf = ""
+    private var cmdAt = 0L
+    private var lastCmdAt = 0L
 
     /**
      * Warm up: fetch the tokens for both directions in the background (call when the Translate screen
@@ -159,7 +187,8 @@ class TranslationController @Inject constructor(
         startedAt = System.currentTimeMillis()
         synchronized(lines) { lines.clear() }
         retries.clear()
-        curThem.id = 0; curMe.id = 0
+        curThem.id = 0; curMe.id = 0; curThem.echo = false; curMe.echo = false
+        playedA.clear(); playedB.clear(); cmdBuf = ""
         val preset = presetTarget?.let { normalizeLang(it) }.orEmpty()
         val guess = if (mode == TranslateMode.CONVERSATION && preset.isEmpty()) lastLang else ""
         val target = preset.ifEmpty { guess }
@@ -217,6 +246,7 @@ class TranslationController @Inject constructor(
         override fun onAudio(session: LiveTranslateSession, pcm24k: ByteArray) {
             val isA = session === sessionA
             val cur = if (isA) curThem else curMe
+            if (cur.echo) return // our own audio came back in — never play its "translation"
             // Only play audio that belongs to a translated utterance (echo=false still streams some
             // audio when the input is already in the target language).
             if (!cur.hasOut) { val q = pending(isA); synchronized(q) { q.addLast(pcm24k) }; trimPending(isA); return }
@@ -227,7 +257,7 @@ class TranslationController @Inject constructor(
         override fun onInputText(session: LiveTranslateSession, text: String, lang: String) {
             val isA = session === sessionA
             val l = normalizeLang(lang)
-            if (isEnglish(l) && STOP_RE.containsMatchIn(currentText(isA) + text)) { stop(save = true); return }
+            if (isEnglish(l) && handleVoiceCommand(text)) return
             if (isA) {
                 if (isEnglish(l)) {
                     // That's you (session B handles your speech). End their current line and drop any
@@ -262,7 +292,7 @@ class TranslationController @Inject constructor(
                 if (!isEnglish(l)) {
                     // Non-English reaching B is either the loudspeaker playing your own translation
                     // (ignore it — never cut your sentence off) or them talking (A handles that).
-                    if (speakerPlayer?.recentlyPlayed(ECHO_WINDOW_MS) != true) endLine(curMe, isA = false)
+                    if (speakerPlayer?.isPlaying(ECHO_WINDOW_MS) != true) endLine(curMe, isA = false)
                     return
                 }
                 appendInput(curMe, "me", "en", text, isA = false)
@@ -272,7 +302,8 @@ class TranslationController @Inject constructor(
         override fun onOutputText(session: LiveTranslateSession, text: String, lang: String) {
             val isA = session === sessionA
             val cur = if (isA) curThem else curMe
-            if (cur.id == 0L) return
+            if (cur.id == 0L || cur.echo) return
+            remember(if (isA) playedA else playedB, text)
             if (!cur.hasOut && text.isNotBlank()) {
                 cur.hasOut = true
                 cur.firstOutAt = System.currentTimeMillis()
@@ -314,6 +345,11 @@ class TranslationController @Inject constructor(
 
     private fun appendInput(cur: Cur, who: String, lang: String, text: String, isA: Boolean) {
         val now = System.currentTimeMillis()
+        if (cur.echo) {
+            // Still inside an echo: swallow it until there's a real pause.
+            if (now - cur.lastAt <= LINE_GAP_MS) { cur.lastAt = now; return }
+            cur.echo = false; cur.id = 0
+        }
         if (cur.id == 0L || now - cur.lastAt > LINE_GAP_MS) {
             cur.id = nextId++
             cur.firstInAt = now
@@ -325,7 +361,113 @@ class TranslationController @Inject constructor(
             updateLine(cur.id) { it.copy(text = it.text + text) }
         }
         cur.lastAt = now
+        // Is this line just our own translation coming back through the mic? ("them" lines are
+        // compared with what the loudspeaker played; "me" lines with what your ear played.)
+        val sofar = currentText(isA)
+        if (isEcho(sofar, if (isA) playedB else playedA)) {
+            Log.i(TAG, "echo dropped (${if (isA) "A" else "B"}): ${sofar.take(60)}")
+            cur.echo = true
+            val id = cur.id
+            synchronized(lines) { lines.removeAll { it.id == id } }
+            val q = pending(isA); synchronized(q) { q.clear() }
+        }
         publishLines()
+    }
+
+    private fun remember(q: java.util.concurrent.ConcurrentLinkedDeque<Pair<Long, String>>, text: String) {
+        if (text.isBlank()) return
+        val now = System.currentTimeMillis()
+        q.addLast(now to text)
+        while (q.size > 200 || (q.peekFirst()?.first ?: now) < now - ECHO_MEMORY_MS) q.pollFirst()
+    }
+
+    /** ≥3 words and ≥60 % of them appear in what was just played → it's an echo, not a person. */
+    private fun isEcho(heard: String, played: java.util.concurrent.ConcurrentLinkedDeque<Pair<Long, String>>): Boolean {
+        val words = wordsOf(heard)
+        if (words.size < 3 || played.isEmpty()) return false
+        val now = System.currentTimeMillis()
+        val bag = played.filter { it.first > now - ECHO_MEMORY_MS }.joinToString(" ") { it.second }
+        val playedWords = wordsOf(bag).toHashSet()
+        if (playedWords.isEmpty()) return false
+        val hit = words.count { it in playedWords }
+        return hit >= 3 && hit.toDouble() / words.size >= 0.6
+    }
+
+    private fun wordsOf(t: String): List<String> {
+        val clean = t.lowercase().replace(Regex("[\\p{Punct}¿¡。、，！？：；“”‘’«»]"), " ").trim()
+        if (clean.isEmpty()) return emptyList()
+        // Chinese/Japanese have no spaces — compare characters instead of words.
+        return if (clean.any { Character.UnicodeScript.of(it.code) in CJK }) clean.filter { !it.isWhitespace() }.map { it.toString() }
+        else clean.split(Regex("\\s+")).filter { it.isNotBlank() }
+    }
+
+    // ── voice commands said in English while translating ───────────────────────────────────────
+    /** "stop translating" · "Jarvis, let me talk" · "Jarvis, just listen". Returns true if handled. */
+    private fun handleVoiceCommand(text: String): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - cmdAt > 5_000) cmdBuf = ""
+        cmdBuf = (cmdBuf + " " + text).takeLast(160); cmdAt = now
+        if (now - lastCmdAt < 3_000) return false // both directions hear the same words — act once
+        val mode = _ui.value.mode
+        return when {
+            STOP_RE.containsMatchIn(cmdBuf) -> { lastCmdAt = now; cmdBuf = ""; stop(save = true); true }
+            mode == TranslateMode.LISTEN && TALK_RE.containsMatchIn(cmdBuf) -> { lastCmdAt = now; cmdBuf = ""; switchMode(TranslateMode.CONVERSATION); true }
+            mode == TranslateMode.CONVERSATION && LISTEN_RE.containsMatchIn(cmdBuf) -> { lastCmdAt = now; cmdBuf = ""; switchMode(TranslateMode.LISTEN); true }
+            else -> false
+        }
+    }
+
+    /**
+     * Listen ⇄ conversation without stopping. Listen = their words → English in your ear only.
+     * Conversation adds your direction: English → their language on the phone loudspeaker.
+     */
+    fun switchMode(mode: TranslateMode) {
+        if (!active || _ui.value.mode == mode) return
+        val lang = _ui.value.theirLang.ifBlank { lastLang }
+        if (mode == TranslateMode.CONVERSATION) {
+            if (speakerPlayer == null) speakerPlayer = PcmPlayer(context, toSpeaker = true)
+            _ui.value = _ui.value.copy(
+                mode = mode, speakerRoute = "phone speaker",
+                theirLang = _ui.value.theirLang.ifBlank { lang }, langGuessed = _ui.value.theirLang.isBlank() && lang.isNotBlank(),
+                status = if (lang.isBlank()) "Conversation — let them speak first" else "Conversation — ${langName(lang)} and English",
+            )
+            if (lang.isNotBlank() && !isEnglish(lang) && sessionB == null && !openingB) scope.launch { openSession(lang) }
+            _cues.tryEmit(if (lang.isBlank()) "Conversation on. Let them speak first." else "Conversation on. Speak English, they'll hear ${langName(lang)}.")
+        } else {
+            sessionB?.close(); sessionB = null
+            endLine(curMe, isA = false)
+            val sp = speakerPlayer; speakerPlayer = null
+            scope.launch { delay(600); sp?.release() }
+            _ui.value = _ui.value.copy(mode = mode, speakerRoute = "", status = "Listening — translating into English")
+            _cues.tryEmit("Just listening.")
+        }
+    }
+
+    /**
+     * You typed what you want to say (e.g. the speech recogniser got a word wrong): translate it into
+     * their language, show it on their side of the screen and say it out loud on the phone speaker.
+     */
+    suspend fun sayTyped(text: String): String? {
+        val t = text.trim()
+        if (t.isEmpty()) return null
+        val lang = _ui.value.theirLang.ifBlank { lastLang }
+        if (lang.isBlank() || isEnglish(lang)) {
+            setStatus(error = "I don't know their language yet — let them speak first, or pick it on the Translate screen.")
+            return null
+        }
+        setStatus(status = "Translating what you typed…", error = "")
+        val r = runCatching {
+            backend.translatePhrase("Translate exactly this sentence, which I am saying to the person in front of me: \"$t\"", lang)
+        }.getOrElse { setStatus(error = "Couldn't translate that (${it.message?.take(60)})"); return null }
+        val id = nextId++
+        synchronized(lines) { lines.add(LiveLine(id, "me", "en", t, r.translation, typed = true)) }
+        publishLines()
+        remember(playedB, r.translation)
+        // Speak it on the loudspeaker; the mic is held so it isn't heard back as "them".
+        phraseBusy = true
+        try { phrases.speakAloud(r.translation, lang) } finally { phraseBusy = false; heldUntil = System.currentTimeMillis() + HOLD_TAIL_MS }
+        setStatus(status = if (_ui.value.mode == TranslateMode.LISTEN) "Said it — still listening" else "Said it — go ahead")
+        return r.translation
     }
 
     private fun currentText(isA: Boolean): String {
@@ -403,17 +545,16 @@ class TranslationController @Inject constructor(
             while (active) {
                 val n = rec.read(buf, 0, buf.size)
                 if (n <= 0) continue
-                // Echo control, per direction (the old version muted BOTH while the loudspeaker played,
-                // so everything you said after your first few words was thrown away):
-                //  • A (them → English) is muted while the loudspeaker plays YOUR translation, otherwise
-                //    it would hear that French/Chinese and translate it back into your ear.
-                //  • B (you → their language) keeps hearing you the whole time. It ignores its own
-                //    output (already in the target language). It's only muted when your English is
-                //    coming out of the phone speaker (glasses not connected), which it would re-translate.
-                val speakerBusy = speakerPlayer?.recentlyPlayed(GATE_MS) == true
-                val earOnSpeakerBusy = earPlayer?.isSpeakerRoute() == true && earPlayer?.recentlyPlayed(GATE_MS) == true
-                sessionA?.sendPcm16k(if (speakerBusy || earOnSpeakerBusy) silence else buf, n)
-                sessionB?.sendPcm16k(if (earOnSpeakerBusy) silence else buf, n)
+                // Echo control, per direction (see class doc). A loop needs BOTH legs open — the
+                // loudspeaker heard by A AND your ear audio heard by B — so each leg is closed while
+                // its audio is actually playing (measured from the player, plus a room/BT tail).
+                val now = System.currentTimeMillis()
+                val held = micHeld || phraseBusy || now < heldUntil
+                val speakerBusy = speakerPlayer?.isPlaying(SPEAKER_TAIL_MS) == true
+                val earBusy = earPlayer?.isPlaying(if (earPlayer?.isSpeakerRoute() == true) SPEAKER_TAIL_MS else EAR_TAIL_MS) == true
+                val earOnSpeaker = earBusy && earPlayer?.isSpeakerRoute() == true
+                sessionA?.sendPcm16k(if (held || speakerBusy || earOnSpeaker) silence else buf, n)
+                sessionB?.sendPcm16k(if (held || earBusy) silence else buf, n)
             }
         }
     }
@@ -462,8 +603,12 @@ class TranslationController @Inject constructor(
         private const val TAG = "EchoTranslate"
         private const val CHUNK_BYTES = 3200          // 100 ms @ 16 kHz mono PCM16
         private const val LINE_GAP_MS = 1600L
-        private const val GATE_MS = 350L
         private const val ECHO_WINDOW_MS = 1200L
+        private const val SPEAKER_TAIL_MS = 700L   // room echo after the loudspeaker stops
+        private const val EAR_TAIL_MS = 400L       // Bluetooth latency after your ear audio stops
+        private const val HOLD_TAIL_MS = 600L
+        private const val ECHO_MEMORY_MS = 25_000L
+        private val CJK = setOf(Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA, Character.UnicodeScript.HANGUL)
         private const val TOKEN_FRESH_MS = 90_000L
 
         /** "after the match we go to a small after the match we go to a small …" → one copy. */
@@ -471,6 +616,15 @@ class TranslationController @Inject constructor(
             if (t.length < 36) t else REPEAT_RE.replace(t) { it.groupValues[1] }
         private val REPEAT_RE = Regex("(.{12,120}?)(?:\\s*\\1){2,}")
         private const val PENDING_MAX_BYTES = 24_000 * 2 * 2 // ≤2 s of 24 kHz audio held before text arrives
+        private val TALK_RE = Regex(
+            "\\b(let me (talk|reply|respond|answer|speak)|let'?s talk|i want to (talk|reply|respond)|conversation mode|talk mode|reply mode|" +
+                "talk to (him|her|them)|start (the )?conversation|jarvis,? (talk|reply|conversation))\\b",
+            RegexOption.IGNORE_CASE,
+        )
+        private val LISTEN_RE = Regex(
+            "\\b(just listen(ing)?|listen only|only listen|listen mode|listening mode|back to listening|jarvis,? listen)\\b",
+            RegexOption.IGNORE_CASE,
+        )
         private val STOP_RE = Regex("\\b(stop|end|finish)\\s+(the\\s+)?(translating|translation|translator|interpreting)\\b|\\bjarvis,?\\s+stop\\b", RegexOption.IGNORE_CASE)
 
         fun isEnglish(code: String) = code.lowercase().startsWith("en")
@@ -516,7 +670,8 @@ class TranslationController @Inject constructor(
 class PcmPlayer(context: Context, toSpeaker: Boolean) {
     private val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private lateinit var track: AudioTrack
-    @Volatile private var lastWriteEndsAt = 0L
+    @Volatile private var framesWritten = 0L
+    @Volatile private var lastAudibleAt = 0L
 
     // Blocking AudioTrack writes happen on our own thread, never on the WebSocket reader thread.
     private val queue = java.util.concurrent.LinkedBlockingQueue<ByteArray>()
@@ -524,7 +679,7 @@ class PcmPlayer(context: Context, toSpeaker: Boolean) {
     private val writer = Thread({
         while (running) {
             val pcm = runCatching { queue.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS) }.getOrNull() ?: continue
-            runCatching { track.write(pcm, 0, pcm.size) } // blocking write paces playback
+            runCatching { val n = track.write(pcm, 0, pcm.size); if (n > 0) framesWritten += n / 2 } // blocking write paces playback
         }
     }, "pcm-player").apply { isDaemon = true }
 
@@ -556,14 +711,22 @@ class PcmPlayer(context: Context, toSpeaker: Boolean) {
     }
 
     fun write(pcm: ByteArray) {
-        val now = System.currentTimeMillis()
-        val durMs = pcm.size / 48L // 24 kHz × 2 bytes = 48 bytes per ms
-        lastWriteEndsAt = maxOf(lastWriteEndsAt, now) + durMs
+        lastAudibleAt = System.currentTimeMillis()
         queue.offer(pcm)
     }
 
-    /** True if audio is playing now or finished within [ms]. */
-    fun recentlyPlayed(ms: Long): Boolean = System.currentTimeMillis() < lastWriteEndsAt + ms
+    /**
+     * True while sound is actually coming out, or stopped less than [tailMs] ago. Measured from the
+     * AudioTrack's playback head — NOT from when we queued the audio: the track buffers ~1 s, so the
+     * old write-time estimate said "finished" up to a second early and the mic heard the rest (that
+     * is what let the two directions translate each other in a loop).
+     */
+    fun isPlaying(tailMs: Long): Boolean {
+        val now = System.currentTimeMillis()
+        val head = runCatching { track.playbackHeadPosition.toLong() and 0xffffffffL }.getOrDefault(framesWritten)
+        if (queue.isNotEmpty() || framesWritten - head > 240) lastAudibleAt = now // >10 ms still to play
+        return now < lastAudibleAt + tailMs
+    }
 
     fun isSpeakerRoute(): Boolean = track.routedDevice?.type.let {
         it == null || it == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || it == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE

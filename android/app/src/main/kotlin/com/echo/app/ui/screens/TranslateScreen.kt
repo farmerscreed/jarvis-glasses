@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Mic
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +49,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -109,6 +114,7 @@ private fun FaceToFace(vm: HomeViewModel) {
     val lastThem = u.lines.lastOrNull { it.who == "them" }
     val themLive = lastThem != null && now - lastThem.updatedAt < LIVE_WINDOW_MS
     val meLive = lastMe != null && now - lastMe.updatedAt < LIVE_WINDOW_MS
+    var typed by rememberSaveable { mutableStateOf("") }
 
     Column(Modifier.fillMaxSize().padding(horizontal = JarvisSpacing.md, vertical = JarvisSpacing.sm)) {
         if (history) {
@@ -126,7 +132,39 @@ private fun FaceToFace(vm: HomeViewModel) {
             history = history, onHistory = { history = !history },
         )
         Spacer(Modifier.height(JarvisSpacing.sm))
-        YourPanel(lastThem = lastThem, lastMe = lastMe, themLive = themLive, theirLang = u.theirLang, modifier = Modifier.weight(1f))
+        YourPanel(
+            lastThem = lastThem, lastMe = lastMe, themLive = themLive, theirLang = u.theirLang,
+            onFixMine = { typed = it }, modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.height(JarvisSpacing.sm))
+        TypeToThem(vm, typed, onChange = { typed = it })
+    }
+}
+
+/**
+ * Type what you want to say — for when the speech recogniser gets a word wrong, or it's too noisy to
+ * talk. It's translated, shown on their side and spoken out loud in their language.
+ */
+@Composable
+private fun TypeToThem(vm: HomeViewModel, text: String, onChange: (String) -> Unit) {
+    val u = vm.translateUi
+    val lang = u.theirLang
+    val ready = lang.isNotBlank() && !TranslationController.isEnglish(lang)
+    fun send() { if (text.isNotBlank() && ready) { vm.sayTyped(text); onChange("") } }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
+        OutlinedTextField(
+            value = text, onValueChange = onChange, singleLine = true, enabled = ready,
+            placeholder = {
+                Text(if (ready) "Type to them in English — I'll say it in ${TranslationController.langName(lang)}" else "Typing works once I know their language")
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { send() }),
+            modifier = Modifier.weight(1f),
+        )
+        if (vm.typedSending) CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+        else IconButton(onClick = { send() }, enabled = ready && text.isNotBlank()) {
+            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Say it to them", tint = MaterialTheme.colorScheme.primary)
+        }
     }
 }
 
@@ -178,7 +216,7 @@ private fun TheirPanel(lang: String, lastMe: LiveLine?, lastThem: LiveLine?, meL
 
 /** Your half — English. Their latest words big, your last line small for context. */
 @Composable
-private fun YourPanel(lastThem: LiveLine?, lastMe: LiveLine?, themLive: Boolean, theirLang: String, modifier: Modifier) {
+private fun YourPanel(lastThem: LiveLine?, lastMe: LiveLine?, themLive: Boolean, theirLang: String, onFixMine: (String) -> Unit, modifier: Modifier) {
     val cyan = MaterialTheme.colorScheme.primaryContainer
     Column(
         modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
@@ -207,8 +245,11 @@ private fun YourPanel(lastThem: LiveLine?, lastMe: LiveLine?, themLive: Boolean,
             }
             if (lastMe != null && lastMe.text.isNotBlank()) {
                 Spacer(Modifier.height(JarvisSpacing.xs))
-                Text("YOU SAID", style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(lastMe.text.trim(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(if (lastMe.typed) "YOU TYPED" else "YOU SAID · tap to correct it", style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    lastMe.text.trim(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.clickable { onFixMine(lastMe.text.trim()) },
+                )
             }
         }
     }
@@ -247,6 +288,7 @@ private fun ControlBar(vm: HomeViewModel, acrossTable: Boolean, onRotate: () -> 
                 modifier = Modifier.weight(1f),
                 maxLines = 2,
             )
+            JarvisSecondaryButton("Just listen", onClick = { vm.switchTranslateMode(TranslateMode.LISTEN) })
             JarvisPrimaryButton("Stop", onClick = vm::stopTranslation)
         }
     }
@@ -316,8 +358,14 @@ private fun Captions(vm: HomeViewModel) {
             }
         }
         Spacer(Modifier.height(JarvisSpacing.md))
-        JarvisPrimaryButton("Stop listening", onClick = vm::stopTranslation, modifier = Modifier.fillMaxWidth())
-        Text("Or say “stop translating”, or press the glasses button.", style = MaterialTheme.typography.labelSmall,
+        var typed by rememberSaveable { mutableStateOf("") }
+        TypeToThem(vm, typed, onChange = { typed = it })
+        Spacer(Modifier.height(JarvisSpacing.sm))
+        Row(horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm), modifier = Modifier.fillMaxWidth()) {
+            JarvisSecondaryButton("Talk to them", onClick = { vm.switchTranslateMode(TranslateMode.CONVERSATION) }, modifier = Modifier.weight(1f))
+            JarvisPrimaryButton("Stop", onClick = vm::stopTranslation, modifier = Modifier.weight(1f))
+        }
+        Text("Say “Jarvis, let me talk” to reply out loud · double-tap the glasses to stop.", style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = JarvisSpacing.xs))
         Spacer(Modifier.height(JarvisSpacing.sm))
     }
@@ -332,7 +380,6 @@ private fun TranslateHome(vm: HomeViewModel) {
     var phrase by rememberSaveable { mutableStateOf("") }
     var sayLang by rememberSaveable { mutableStateOf(vm.lastTranslateLang.ifBlank { "zh-Hans" }) }
     var showThem by remember { mutableStateOf(false) }
-    var showMore by rememberSaveable { mutableStateOf(false) }
 
     // Phone camera ("read a sign or menu with the phone"): the camera app writes into our cache.
     var pendingPhoto by remember { mutableStateOf<java.io.File?>(null) }
@@ -357,19 +404,31 @@ private fun TranslateHome(vm: HomeViewModel) {
             Text(vm.translateUi.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         }
 
-        // 1 — the main thing, one big button.
+        // 1 — the main thing: listen. Everything you hear, in English, in your ear.
         SectionCard {
-            Text("Talk with someone", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
-            Body("Hold the phone between you and just talk. You hear them in English in your glasses; they hear you in their language from the phone.")
+            Text("Listen & translate", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
+            Body("Someone talking, a video, the TV, a meeting — any language. You hear it in English in your glasses and see captions here. Nothing plays out loud.")
+            JarvisPrimaryButton(
+                "Start listening",
+                onClick = { vm.startTranslation(TranslateMode.LISTEN) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+            )
+            Hint("Hands-free: double-tap the back of your glasses (again to stop). Need to reply? Say “Jarvis, let me talk”.")
+        }
+
+        // 2 — two-way conversation.
+        SectionCard {
+            Text("Talk with someone", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+            Body("Hold the phone between you. You hear them in English in your glasses; they hear you in their language from the phone. You can also type.")
             Text("Their language", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             LangPicker(selected = lang, options = LANGS, onSelect = { lang = it })
             if (lang.isBlank()) Hint("Auto: I'll work out their language as soon as they speak.")
-            JarvisPrimaryButton(
-                "Start translating",
+            JarvisSecondaryButton(
+                "Start a conversation",
                 onClick = { vm.startTranslation(TranslateMode.CONVERSATION, lang.ifBlank { null }) },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
             )
-            Hint("Hands-free: double-tap the back of your glasses, or say “Jarvis, translate”.")
+            Hint("Or say “Jarvis, translate to French”.")
         }
 
         // 2 — reading.
@@ -416,18 +475,6 @@ private fun TranslateHome(vm: HomeViewModel) {
             Hint("Or say: “Jarvis, how do I say ‘where is the taxi’ in Arabic?”")
         }
 
-        // 4 — less common: listen-only, tucked away so the screen stays simple.
-        Text(
-            if (showMore) "▾ More" else "▸ More",
-            style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.clickable { showMore = !showMore }.padding(vertical = JarvisSpacing.xs),
-        )
-        if (showMore) SectionCard {
-            Text("Listen to a speaker", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-            Body("For a talk, meeting, video or announcement. You hear it in English and see big captions. Nothing plays out loud.")
-            JarvisSecondaryButton("Start listening", onClick = { vm.startTranslation(TranslateMode.LISTEN) }, modifier = Modifier.fillMaxWidth())
-            Hint("Or say: “Jarvis, listen and translate”.")
-        }
     }
     val p = vm.lastPhrase
     if (showThem && p != null) ShowThemDialog(text = p.translation, sub = p.romanization, onClose = { showThem = false })
