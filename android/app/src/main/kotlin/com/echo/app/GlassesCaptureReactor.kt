@@ -62,7 +62,9 @@ class GlassesCaptureReactor @Inject constructor(
     private var collectJob: Job? = null
     private var hosts = 0
 
-    private companion object { const val WARM_MS = 90_000L }
+    // The glasses clear their storage and drop Wi-Fi by themselves ~30 s after a download (10-11 log),
+    // so a warm link only helps for looks closer together than that.
+    private companion object { const val WARM_MS = 25_000L }
 
     /** Glasses clear storage after a sync and emit a zero-inventory event — only an INCREASE is new. */
     private var lastInventoryTotal = 0
@@ -195,12 +197,14 @@ class GlassesCaptureReactor @Inject constructor(
                     // 2. Wait for a NEW photo saved (photos>0 skips the post-clear photos=0 echo), then
                     //    a beat for the file to finish writing. Proceed regardless — the pull is truth.
                     android.util.Log.i("EchoVision", "capture sent — waiting for photo-saved")
-                    withTimeoutOrNull(12_000) {
+                    val saved = withTimeoutOrNull(12_000) {
                         ble.notifications.first {
                             (GlassesEvent.parse(it.bytes) as? GlassesEvent.CaptureSaved)?.photos?.let { p -> p > 0 } == true
                         }
                     }
-                    delay(800)
+                    // The glasses only report "saved" once the file is written; the extra beat is just
+                    // for when that report never came (10-11: it cost 0.8 s on every look).
+                    if (saved == null) delay(800)
                     // 3. Pull (doSync is itself bounded + cleans up Wi-Fi Direct).
                     val files = doSync()
                     // 4. The NEWEST photo by filename is the one we just took (timestamps sort).
@@ -363,7 +367,8 @@ class GlassesCaptureReactor @Inject constructor(
             android.util.Log.i("EchoVision", "doSync: connecting BLE + starting Wi-Fi Direct")
             ble.connectGlasses()
             p2p.start()
-            delay(1500) // let the BLE link come up
+            // Let the BLE link come up — only when it isn't already (it usually is: 1.5 s saved per look).
+            if (!ble.status.value.let { it.startsWith("BLE: connected") || it.startsWith("BLE: glasses IP") || it == "BLE: already connected" }) delay(1500)
             p2p.discoverAndConnect()
             ble.startWifiTransfer() // glasses bring up Wi-Fi; IP arrives via BLE notify
             _status.value = "Waiting for glasses Wi-Fi…"
