@@ -147,6 +147,33 @@ fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onOpenDevice
             }
         }
 
+        if (vm.loggedIn) {
+            SectionLabel("Notifications")
+            SettingsCard {
+                val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.sendTestPush() }
+                Text(
+                    "JARVIS can tell you when something it's working on is ready — even with the app closed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(JarvisSpacing.sm))
+                JarvisSecondaryButton(
+                    "Send a test notification",
+                    onClick = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        else vm.sendTestPush()
+                    },
+                    enabled = vm.pushAvailable,
+                )
+                Spacer(Modifier.height(JarvisSpacing.xs))
+                Text(
+                    if (!vm.pushAvailable) "Not available yet — notifications still need to be set up for JARVIS." else vm.pushMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+
         SectionLabel("AI & Intelligence")
         SettingsCard {
             Text("Offline floor", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)

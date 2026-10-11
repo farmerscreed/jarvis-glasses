@@ -42,21 +42,28 @@ class MediaTransferClient(
      * Network — the socket is created from it so traffic egresses the p2p interface, not the
      * phone's default network (home Wi-Fi).
      */
+    /** Whether the last [pull] reached the glasses' server at all (false = link not usable). */
+    @Volatile var lastPullReached = false
+        private set
+
     suspend fun pull(
         ip: String,
         network: Network? = null,
         onProgress: (Int, Int) -> Unit = { _, _ -> },
+        /** Manifest tries (2 s apart). A freshly started server needs a few; a warm link just one or two. */
+        manifestAttempts: Int = 6,
     ): List<File> =
         withContext(Dispatchers.IO) {
             outDir.mkdirs()
             Log.i(TAG, "pull from $ip (bound=${network != null})")
             // The server needs a moment after its AP comes up; retry the manifest a few times.
             var manifestBytes: ByteArray? = null
-            for (attempt in 1..6) {
+            for (attempt in 1..manifestAttempts) {
                 manifestBytes = rawGet(network, ip, MediaProtocol.CONFIG_PATH, attempt)
                 if (manifestBytes != null) break
-                if (attempt < 6) delay(2000)
+                if (attempt < manifestAttempts) delay(2000)
             }
+            lastPullReached = manifestBytes != null
             val manifest = manifestBytes?.toString(Charsets.UTF_8).orEmpty()
             val names = manifest.lines().map { it.trim() }.filter { it.isNotEmpty() }
             Log.i(TAG, "manifest: ${names.size} file(s)")

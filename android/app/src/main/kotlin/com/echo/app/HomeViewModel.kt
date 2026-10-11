@@ -176,6 +176,10 @@ class HomeViewModel @Inject constructor(
     init {
         // Restore sign-in from the persisted session token (survives app restarts).
         if (backend.isLoggedIn) { loggedIn = true; status = "Signed in (restored)" }
+        // Push: (re)register this phone whenever we're signed in — every sign-in path sets loggedIn.
+        viewModelScope.launch {
+            androidx.compose.runtime.snapshotFlow { loggedIn }.collect { if (it) com.echo.app.push.PushManager.register(appContext, backend) }
+        }
         // Offline-first: mirror connectivity + tier + outbox depth into Compose state.
         viewModelScope.launch { governor.online.collect { online = it } }
         // On-device STT: download the Whisper model on first run (needs network once), then it's the
@@ -634,6 +638,21 @@ class HomeViewModel @Inject constructor(
         runCatching { backend.calendarPropose(q) }.getOrElse {
             GoogleLaneResult(false, "I couldn't reach your calendar just now.", "I couldn't reach your calendar just now.")
         }
+
+    // ── Push notifications ──
+    val pushAvailable get() = com.echo.app.push.PushManager.isConfigured
+    var pushMessage by mutableStateOf(""); private set
+
+    fun sendTestPush() {
+        pushMessage = "Sending…"
+        viewModelScope.launch {
+            com.echo.app.push.PushManager.register(appContext, backend)
+            pushMessage = runCatching { backend.pushTest() }.fold(
+                { n -> if (n > 0) "Sent — it should appear in a few seconds." else "No phone registered yet — try again in a moment." },
+                { "Couldn't send: ${it.message?.take(120)}" },
+            )
+        }
+    }
 
     /** Google link status for Settings (null = not checked yet / offline). */
     var google by mutableStateOf<GoogleStatus?>(null); private set

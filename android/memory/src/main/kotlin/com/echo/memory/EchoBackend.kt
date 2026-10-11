@@ -410,6 +410,23 @@ class EchoBackend(
         org.json.JSONObject(post("/functions/v1/translate", b.toString(), slowHttp)).optString("summary")
     }
 
+    // ── Push notifications (FCM): the phone registers its token; the cloud sends. ──
+    suspend fun pushRegister(token: String, appId: String): Unit = withContext(Dispatchers.IO) {
+        post("/functions/v1/push", org.json.JSONObject().put("op", "register").put("token", token).put("appId", appId).toString())
+    }
+
+    suspend fun pushUnregister(token: String): Unit = withContext(Dispatchers.IO) {
+        post("/functions/v1/push", org.json.JSONObject().put("op", "unregister").put("token", token).toString())
+    }
+
+    /** Ask the cloud to send a test notification to this user's phones. Returns how many accepted it. */
+    suspend fun pushTest(): Int = withContext(Dispatchers.IO) {
+        val (code, txt) = postAuthed("/functions/v1/push", """{"op":"test"}""", http)
+        val o = runCatching { org.json.JSONObject(txt) }.getOrElse { org.json.JSONObject() }
+        if (code !in 200..299) error(o.optString("error").ifBlank { "HTTP $code" })
+        o.optInt("sent")
+    }
+
     /** People memory: structure "remember this person: …" into fields (nothing is saved here). */
     suspend fun personParse(text: String): PersonParse = withContext(Dispatchers.IO) {
         val o = org.json.JSONObject(post("/functions/v1/person", org.json.JSONObject().put("text", text).toString()))

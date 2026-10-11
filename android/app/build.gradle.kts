@@ -20,6 +20,33 @@ val agentBridgeToken: String = localProps.getProperty("agentBridge.token", "")
 val agentBridgeProdUrl: String = localProps.getProperty("agentBridge.prodUrl", "")
 val agentBridgeProdToken: String = localProps.getProperty("agentBridge.prodToken", agentBridgeToken)
 
+// Push notifications (Firebase Cloud Messaging): values come from the gitignored
+// app/google-services.json (download it from the Firebase console). No file → empty values → push
+// stays off and the build still works. No Google Services plugin needed.
+@Suppress("UNCHECKED_CAST")
+val firebaseJson: Map<String, Any?>? = file("google-services.json").takeIf { it.exists() }
+    ?.let { groovy.json.JsonSlurper().parse(it) as Map<String, Any?> }
+
+/** (apiKey, appId, projectId, senderId) for the Firebase Android app registered with [pkg]. */
+@Suppress("UNCHECKED_CAST")
+fun firebaseFor(pkg: String): List<String> {
+    val project = firebaseJson?.get("project_info") as? Map<String, Any?> ?: return List(4) { "" }
+    val client = (firebaseJson["client"] as? List<Map<String, Any?>>)?.firstOrNull {
+        ((it["client_info"] as? Map<String, Any?>)?.get("android_client_info") as? Map<String, Any?>)?.get("package_name") == pkg
+    } ?: return List(4) { "" }
+    val apiKey = ((client["api_key"] as? List<Map<String, Any?>>)?.firstOrNull()?.get("current_key") ?: "").toString()
+    val appId = ((client["client_info"] as? Map<String, Any?>)?.get("mobilesdk_app_id") ?: "").toString()
+    return listOf(apiKey, appId, (project["project_id"] ?: "").toString(), (project["project_number"] ?: "").toString())
+}
+
+fun com.android.build.api.dsl.VariantDimension.firebaseFields(pkg: String) {
+    val (apiKey, appId, projectId, senderId) = firebaseFor(pkg)
+    buildConfigField("String", "FIREBASE_API_KEY", "\"$apiKey\"")
+    buildConfigField("String", "FIREBASE_APP_ID", "\"$appId\"")
+    buildConfigField("String", "FIREBASE_PROJECT_ID", "\"$projectId\"")
+    buildConfigField("String", "FIREBASE_SENDER_ID", "\"$senderId\"")
+}
+
 android {
     namespace = "com.echo.app"
     compileSdk = 36
@@ -56,6 +83,7 @@ android {
             // and the untethered prod build (cloud) can be installed side by side on one phone.
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
+            firebaseFields("com.echo.companion.dev")
             buildConfigField("String", "SUPABASE_URL", "\"http://127.0.0.1:54421\"")
             buildConfigField("String", "SUPABASE_ANON_KEY", "\"sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH\"")
             buildConfigField("boolean", "DEV_LOGIN", "true")
@@ -66,6 +94,7 @@ android {
         }
         create("prod") {
             dimension = "backend"
+            firebaseFields("com.echo.companion")
             buildConfigField("String", "SUPABASE_URL", "\"https://agtuimnppqbrjocuzqsk.supabase.co\"")
             buildConfigField(
                 "String",
@@ -129,6 +158,9 @@ dependencies {
     implementation(libs.google.id)
     // Google consent for Gmail drafts + Calendar + Contacts (AuthorizationClient → one-time server code).
     implementation(libs.play.services.auth)
+    // Push notifications (FCM). Inert until app/google-services.json exists (see top of file).
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
     implementation(libs.androidx.navigation.compose)
 
     // DI

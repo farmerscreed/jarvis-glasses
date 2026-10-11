@@ -11,6 +11,7 @@ class JarvisApp : Application() {
     override fun onCreate() {
         super.onCreate()
         CrashReporter.install(this) // capture uncaught exceptions to a local log (no external SDK)
+        com.echo.app.push.PushManager.init(this) // FCM (inert until google-services.json is added)
         // Wire the offline-first outbox to WorkManager: every local write enqueues a background
         // drain (survives app kill), plus a periodic backstop for anything still pending.
         val store = EntryPointAccessors

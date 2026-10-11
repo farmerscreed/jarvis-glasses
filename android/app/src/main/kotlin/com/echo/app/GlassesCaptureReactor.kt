@@ -62,6 +62,8 @@ class GlassesCaptureReactor @Inject constructor(
     private var collectJob: Job? = null
     private var hosts = 0
 
+    private companion object { const val WARM_MS = 90_000L }
+
     /** Glasses clear storage after a sync and emit a zero-inventory event — only an INCREASE is new. */
     private var lastInventoryTotal = 0
 
@@ -179,6 +181,16 @@ class GlassesCaptureReactor @Inject constructor(
                         if (ble.capturePhoto()) { sent = true; break }
                         delay(400)
                     }
+                    if (!sent && warmIp != null) {
+                        // The glasses may refuse a photo while in transfer mode — drop the warm link, try again.
+                        teardownNow("capture refused while warm")
+                        delay(800)
+                        val retryUntil = System.currentTimeMillis() + 6_000
+                        while (System.currentTimeMillis() < retryUntil) {
+                            if (ble.capturePhoto()) { sent = true; break }
+                            delay(400)
+                        }
+                    }
                     if (!sent) { android.util.Log.w("EchoVision", "capture not accepted"); _status.value = "Glasses not reachable"; return@withTimeoutOrNull null }
                     // 2. Wait for a NEW photo saved (photos>0 skips the post-clear photos=0 echo), then
                     //    a beat for the file to finish writing. Proceed regardless — the pull is truth.
@@ -277,34 +289,103 @@ class GlassesCaptureReactor @Inject constructor(
         } // syncMutex.withLock
     }
 
+    // ── Warm Wi-Fi link (2026-10-11) ────────────────────────────────────────────────────────────────
+    // The full ceremony (BLE "start Wi-Fi" → wait for the glasses' IP → Wi-Fi Direct discover/connect →
+    // pull → reset) costs ~6–8 s per look. After a good pull we now keep the link up for [WARM_MS], so
+    // the next look in that window only takes the photo and downloads it. The glasses keep their file
+    // server up until told to reset (docs/recon/Transfer_Protocol.md), and the pull skips files we
+    // already have. Any failure on the warm path → tear down and do the full ceremony (today's speed).
+    private var warmIp: String? = null
+    private var warmUntil = 0L
+    private var teardownJob: Job? = null
+
+    private fun warmUsable(): Boolean =
+        warmIp != null && System.currentTimeMillis() < warmUntil && p2p.connected.value && p2p.boundNetwork() != null
+
+    /** Keep the link up a little longer (each use extends it). */
+    private fun keepWarm(ip: String) {
+        warmIp = ip
+        warmUntil = System.currentTimeMillis() + WARM_MS
+        teardownJob?.cancel()
+        teardownJob = scope.launch {
+            delay(WARM_MS)
+            syncMutex.withLock { if (System.currentTimeMillis() >= warmUntil) teardownNow("idle") }
+        }
+    }
+
+    /** End the glasses' transfer mode and drop Wi-Fi Direct (saves the glasses' battery). */
+    private fun teardownNow(why: String) {
+        if (warmIp != null) android.util.Log.i("EchoVision", "warm link down ($why)")
+        warmIp = null
+        warmUntil = 0L
+        runCatching { ble.resetP2p() }
+        runCatching { p2p.stop() }
+    }
+
+    /** Returns the NEW files: over the warm link when there is one, else the full ceremony. */
+    private suspend fun doSync(): List<File> {
+        if (warmUsable()) {
+            val t0 = System.currentTimeMillis()
+            val files = warmPull()
+            if (files != null) {
+                android.util.Log.i("EchoLatency", "sync=warm ${System.currentTimeMillis() - t0}ms files=${files.size}")
+                return files
+            }
+            teardownNow("warm pull failed")
+        } else if (warmIp != null) {
+            teardownNow("link dropped")
+        }
+        val t0 = System.currentTimeMillis()
+        return fullSync().also { android.util.Log.i("EchoLatency", "sync=full ${System.currentTimeMillis() - t0}ms files=${it.size}") }
+    }
+
+    /** Fast path over the warm link. Null = it didn't answer (caller falls back). */
+    private suspend fun warmPull(): List<File>? {
+        val ip = warmIp ?: return null
+        _status.value = "Downloading…"
+        var files = transfer.pull(ip, p2p.boundNetwork(), manifestAttempts = 2)
+        if (!transfer.lastPullReached) return null
+        // A photo taken a moment ago may not be listed yet — look again briefly.
+        var tries = 0
+        while (files.isEmpty() && tries < 3) {
+            delay(700)
+            files = transfer.pull(ip, p2p.boundNetwork(), manifestAttempts = 1)
+            tries++
+        }
+        keepWarm(ip)
+        return files
+    }
+
     /** The transfer ceremony: BLE start cmd → Wi-Fi Direct → HTTP pull. Returns the NEW files. */
-    private suspend fun doSync(): List<File> = try {
-        android.util.Log.i("EchoVision", "doSync: connecting BLE + starting Wi-Fi Direct")
-        ble.connectGlasses()
-        p2p.start()
-        delay(1500) // let the BLE link come up
-        p2p.discoverAndConnect()
-        ble.startWifiTransfer() // glasses bring up Wi-Fi; IP arrives via BLE notify
-        _status.value = "Waiting for glasses Wi-Fi…"
-        val ip = withTimeoutOrNull(20_000) { ble.glassesWifiIp.filterNotNull().first() }
-        android.util.Log.i("EchoVision", "doSync: glasses Wi-Fi ip=$ip")
-        if (ip == null) {
-            _status.value = "Timed out waiting for glasses Wi-Fi"
-            emptyList()
-        } else {
+    private suspend fun fullSync(): List<File> {
+        var keep = false
+        try {
+            android.util.Log.i("EchoVision", "doSync: connecting BLE + starting Wi-Fi Direct")
+            ble.connectGlasses()
+            p2p.start()
+            delay(1500) // let the BLE link come up
+            p2p.discoverAndConnect()
+            ble.startWifiTransfer() // glasses bring up Wi-Fi; IP arrives via BLE notify
+            _status.value = "Waiting for glasses Wi-Fi…"
+            val ip = withTimeoutOrNull(20_000) { ble.glassesWifiIp.filterNotNull().first() }
+            android.util.Log.i("EchoVision", "doSync: glasses Wi-Fi ip=$ip")
+            if (ip == null) {
+                _status.value = "Timed out waiting for glasses Wi-Fi"
+                return emptyList()
+            }
             val p2pUp = withTimeoutOrNull(15_000) { p2p.connected.first { it } } // P2P link up before HTTP
             _status.value = "Downloading from $ip…"
             // Bind the pull to the Wi-Fi Direct network, else the socket routes out home Wi-Fi.
             val net = p2p.boundNetwork()
-            val files = transfer.pull(ip, net) { i, n -> _status.value = "Downloading $i/$n…" }
+            val files = transfer.pull(ip, net, onProgress = { i, n -> _status.value = "Downloading $i/$n…" })
             android.util.Log.i("EchoVision", "doSync: p2pConnected=$p2pUp pulled=${files.size} files: ${files.map { it.name }}")
-            files
+            if (transfer.lastPullReached && p2pUp == true) { keep = true; keepWarm(ip) }
+            return files
+        } finally {
+            // Tear down unless the link is healthy and kept warm — also when cancelled by the outer
+            // timeout — so a flaky sync never leaves p2p half-engaged (which would wedge the next one).
+            if (!keep) teardownNow("sync not completed")
         }
-    } finally {
-        // Always tear down Wi-Fi Direct — even if cancelled by the outer timeout — so a flaky sync
-        // never leaves p2p engaged (which would wedge the next capture).
-        runCatching { ble.resetP2p() }
-        runCatching { p2p.stop() }
     }
 
     /**
