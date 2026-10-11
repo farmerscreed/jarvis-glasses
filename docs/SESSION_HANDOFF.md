@@ -2,18 +2,28 @@
 
 *The single-source handover between sessions. A new session should be able to read only this and
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
-*Last updated: 2026-10-10. Keep this current at the end of every working session.*
+*Last updated: 2026-10-11. Keep this current at the end of every working session.*
 
 ---
-### ⚠️ 2026-10-11 — moving to Claude Code on the PC. Open **`docs/WORK_QUEUE.md`** first.
-**P0 (blocking): live translation plays Law's own English back into his ear, sometimes in a loop.**
-Cause: Gemini mislabels his accented English (e.g. as Swahili), so it "translates" English→English;
-the playback is re-heard by the phone mic. Full evidence, root causes, fix plan and acceptance tests
-T1–T8 are in WORK_QUEUE §P0. Fix + test with Law before P1/P2 (verify 10-10 features → calendar/
-email in the cloud → FCM push → warm Wi-Fi Direct). The PC's git checkout is at June's `f9eeaf5`
-with newer files copied in — sync per WORK_QUEUE §0 (non-destructive `reset --mixed`).
+### ▶ LATEST (2026-10-11) — start here next session
+Full record: **`docs/SESSION_LOG_2026-10-11.md`**. Work order: **`docs/WORK_QUEUE.md`** + **`docs/PRODUCT_PLAN.md`**.
 
-### ▶ LATEST (2026-10-10) — state of the app
+**First Claude Code session on the PC.** Git synced to `origin/master` (no files lost). Builds, unit
+tests (`:app:testProdDebugUnitTest`, 17 translation tests) and adb installs now run from the session.
+**P0 CLOSED — translation echo/loop fixed, T1–T8 passed with Law on the Pixel.** Key changes in
+`translate/TranslationController.kt` + new `TranslateText.kt`: our own English detector, identity
+guard, echo filter on both outputs, commands caught even when mis-tagged (also in the English
+translation; "Jarpis/Javis" accepted), **conversation = turn-taking** (loudspeaker speaks ~0.9 s after
+Law pauses; both directions deaf while it plays), wordless model audio never played, AudioTrack tail
+flushed, 10 s safety net. Debug log on the phone: `files/translate-debug.log` (`PHONE-LOGS.bat` pulls it).
+**Next: Phase 1** — Google sign-in → "Connect Gmail & Calendar" → `calendar` + `email` (drafts +
+contacts lookup) Edge Functions → people memory → find my glasses. Law decided: same email for Google
+and JARVIS; drafts + contacts, inbox reading later. **Waiting on Law:** Google Cloud setup (Internal
+consent screen; Gmail, Calendar, People APIs; Web + Android clients) + Supabase Google provider — steps
+in the session log §5. Still pending: `STT_VOCAB`. (P1 quick re-verification of the 10-10 features
+is still open in WORK_QUEUE.)
+
+### ◀ PREVIOUS (2026-10-10) — state of the app
 Full record: **`docs/SESSION_LOG_2026-10-10.md`** (decisions, verified API facts, every bug + fix,
 build loop) + **`docs/USER_GUIDE.md`** (how each feature works, mirrors the in-app Help).
 

@@ -36,7 +36,14 @@ double-clicking scripts: run Gradle, `adb install`, and **watch `adb logcat` liv
 
 ---
 
-## P0 — Translation repeats what Law says ("echo"). BLOCKING.
+## P0 — Translation repeats what Law says ("echo"). ✅ CLOSED 2026-10-11 (T1–T8 passed with Law)
+
+> Fixed in 4 device rounds — full story in `docs/SESSION_LOG_2026-10-11.md`. Summary: own English
+> detector + identity guard + echo filter on both outputs + commands regardless of tag (steps 1–4, 7);
+> conversation mode is now **turn-taking** (loudspeaker speaks after you pause, both directions deaf
+> while it plays); wordless/near-silent model audio is never played; AudioTrack tail flushed; safety
+> net re-opens the mic after 10 s of wordless playback. Step 5 (hardware AEC) built behind pref
+> `translate/aec`, OFF, not needed. Step 6 (push-to-talk) not needed. Debug log still on (slim later).
 
 ### Symptom (Law, 2026-10-10 and 2026-10-11)
 In listen mode (glasses double-tap), when **Law himself speaks English**, JARVIS plays his own words
@@ -114,6 +121,11 @@ no device needed) — `android/app/src/test/…`.
 | T7 | Conversation | Type a reply | Translated, shown and spoken once; not re-translated |
 | T8 | Listen mode | Screen off 3 min | Still translating; session saved at the end |
 
+**Results 2026-10-11 (Law, Pixel 8 + glasses):** T1 ✅ · T2 ✅ · T3 ✅ · T4 ✅ · T5 ✅ · T7 ✅ · T8 ✅ on the
+first fix build. T6 failed 3× (loudspeaker loop → mics deadlocked by wordless audio → AudioTrack tail)
+and ✅ passed on the 4th build (15:38 phone time: voice "let me talk" misheard as Vietnamese still caught via the
+translation, 12 turns over 3 min, French video ↔ English, no loop, "Javis, stop" ended it).
+
 **Done = T1–T8 pass, Law confirms, the saved transcripts show no repeats, findings logged in a
 session log.** Only then start P1.
 
@@ -153,5 +165,6 @@ session log.** Only then start P1.
 ---
 
 ## Done
+- 2026-10-11 — **P0 translation echo/loop fixed**, T1–T8 passed on the Pixel with Law. See `SESSION_LOG_2026-10-11.md`.
 - 2026-10-10 — cloud research, look & research, live translation (listen/talk/type), screen-off
   service, script-based language labels, cloud-first STT, docs + Help. See `SESSION_LOG_2026-10-10.md`.

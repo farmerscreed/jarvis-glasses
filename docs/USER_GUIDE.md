@@ -72,6 +72,10 @@ You speak English; they hear you **in their language from the phone's loudspeake
 the screen shows your words in their language (it starts upside-down so they can read it across a table
 — tap the rotate icon to flip). You keep hearing them in English in your glasses. Say **"Jarvis, just
 listen"** (or tap **Just listen**) to go back to listening only.
+**Take turns, like with an interpreter:** say your sentence, then pause — about a second later the
+phone speaks it in their language. While the phone is speaking, JARVIS isn't listening (so it can never
+translate its own voice in a loop), so let it finish before you or they carry on.
+If it picks the wrong language at first, it switches by itself as soon as they speak.
 You can also start a conversation directly: Translate → **Start a conversation** (pick their language,
 or Auto), or say *"Jarvis, translate to French."*
 

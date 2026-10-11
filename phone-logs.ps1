@@ -12,6 +12,9 @@ $target = if ($m) { $m.Matches[0].Groups[1].Value } elseif ($fromFile) { $fromFi
 & $adb connect $target 2>&1 | Out-File $out -Append -Encoding utf8
 & $adb devices -l 2>&1 | Out-File $out -Append -Encoding utf8
 & $adb -s $target logcat -d -v time -s EchoVision:V EchoTranslate:V EchoLatency:V EchoMedia:V EchoPhrase:V EchoP2p:V EchoReactor:V EchoBle:I SherpaStt:V AndroidRuntime:E 2>&1 | Out-File $out -Append -Encoding utf8
+"=== translator debug log (files/translate-debug.log) ===" | Out-File $out -Append -Encoding utf8
+& $adb -s $target shell run-as com.echo.companion cat files/translate-debug.log.1 2>$null | Out-File $out -Append -Encoding utf8
+& $adb -s $target shell run-as com.echo.companion cat files/translate-debug.log 2>&1 | Out-File $out -Append -Encoding utf8
 "=== voice model files on phone ===" | Out-File $out -Append -Encoding utf8
 & $adb -s $target shell run-as com.echo.companion ls -l files/stt 2>&1 | Out-File $out -Append -Encoding utf8
 "=== done ===" | Out-File $out -Append -Encoding utf8

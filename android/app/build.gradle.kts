@@ -142,4 +142,6 @@ dependencies {
     implementation(libs.mediapipe.tasks.genai) // on-device LLM spike (Gemma 3 1B) — docs/ONDEVICE_BRAIN.md
 
     debugImplementation(libs.androidx.ui.tooling)
+
+    testImplementation(libs.junit)
 }

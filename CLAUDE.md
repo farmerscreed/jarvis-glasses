@@ -1,8 +1,8 @@
 # JARVIS (AI glasses companion) — read me first
 
-> **⚠️ FIRST: `docs/WORK_QUEUE.md`.** P0 (translation repeats/echoes Law's own speech) must be fixed,
-> tested on the phone with Law and signed off **before any other work**. It also has the first-10-
-> minutes setup for Claude Code on the PC (git sync, wireless adb, live logcat).
+> **FIRST: `docs/WORK_QUEUE.md`** (order of work; P0 translation echo closed 2026-10-11) and
+> `docs/PRODUCT_PLAN.md` (Phase 1 = email + calendar in the cloud, people memory, find my glasses).
+> WORK_QUEUE §0 has the Claude Code on the PC setup (wireless adb, live logcat, build/install).
 
 **Then read `docs/SESSION_HANDOFF.md`** (the "LATEST" block at the top), then the
 newest `docs/SESSION_LOG_*.md`. They hold the current state, settled decisions, verified API facts and
