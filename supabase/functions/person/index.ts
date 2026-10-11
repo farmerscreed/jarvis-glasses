@@ -63,7 +63,8 @@ transcription slips in common words but not in names.`,
     const parts = [
       p.role && p.organisation ? `${p.role}, ${p.organisation}` : p.role || p.organisation,
       p.where ? `met at ${p.where}` : "",
-      `on ${day}`,
+      // The save date, not the meeting date — "met yesterday" stays in the notes as said.
+      `saved ${day}`,
       p.notes,
       p.phone ? `phone ${p.phone}` : "",
       p.email ? `email ${p.email}` : "",
