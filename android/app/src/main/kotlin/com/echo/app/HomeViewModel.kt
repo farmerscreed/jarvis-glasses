@@ -513,6 +513,13 @@ class HomeViewModel @Inject constructor(
             askConfirmAction = { val r = agent.commitChanges(); askThread.add(AskTurn(false, r.text, kindOf(r, "coding"))) }
             return
         }
+        if (isPersonCommand(q)) {
+            run("Saving…") {
+                askThread.add(AskTurn(false, rememberPerson(q) { status = it }, "note"))
+                status = "Saved"
+            }
+            return
+        }
         if ((online || agent.isConfigured) && isCalendarAdd(q)) {
             // The cloud works out the event first, so the confirm shows exactly what will be added.
             run("Working…") {
@@ -776,6 +783,17 @@ class HomeViewModel @Inject constructor(
             repromptUsed = false
             question = heard
             transcript.add(TurnLine(fromUser = true, text = heard))
+
+            // People memory: "remember this person: Mr Ade, supplier, met at the yard" (checked before
+            // "remember that…", which pins a profile fact instead).
+            if (isPersonCommand(heard)) {
+                status = "Saving that person…"
+                val said = rememberPerson(heard) { tts.speak(it) }
+                answer = said; transcript.add(TurnLine(false, said)); tts.speak(said)
+                if (!continuous) { status = "Saved"; break }
+                status = "Listening…"
+                continue
+            }
 
             // v1.3 explicit memory: "remember that…" pins a fact immediately (no LLM round-trip).
             if (isRememberCommand(heard)) {
@@ -1224,6 +1242,40 @@ class HomeViewModel @Inject constructor(
      * Short closing phrases that end a conversation. Deliberately conservative — only brief
      * utterances match, so a real question that happens to contain "stop"/"bye" doesn't hang up.
      */
+    // People memory: "remember this person / this contact / a new contact…", "remember (that) I met…".
+    private val personRe = Regex(
+        "^\\s*(please\\s+)?(hey\\s+)?(jarvis[,!.]?\\s+)?(remember|save|note|add|make\\s+a\\s+note\\s+of)\\s+(that\\s+)?" +
+            "(this\\s+(person|contact|man|woman|guy|lady|gentleman)|(a\\s+)?(new\\s+)?(person|contact)\\b|i\\s+(just\\s+)?met\\b)",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isPersonCommand(s: String) = personRe.containsMatchIn(s)
+    // "this person / this man…" = they're in front of you → a glasses photo for your own reference
+    // (only to look at later — no face recognition).
+    private val personHereRe = Regex("\\bthis\\s+(person|man|woman|guy|lady|gentleman)\\b", RegexOption.IGNORE_CASE)
+    private val glassesLinked: Boolean
+        get() = glassesBattery != null || bleStatus.contains("connected, listening") || bleStatus.contains("glasses IP")
+
+    /**
+     * Save someone to memory (type person). Online, the `person` function tidies what was said into
+     * name / role / where (and writes the searchable text); offline the words are kept as said.
+     * [say] gives a heads-up before the photo. Returns what to tell the user.
+     */
+    private suspend fun rememberPerson(said: String, say: suspend (String) -> Unit): String {
+        val parsed = if (online) runCatching { backend.personParse(said) }.getOrNull() else null
+        val raw = said.replace(personRe, "").trim().trimStart(':', ',', '-', ' ')
+        val text = parsed?.memoryText?.takeIf { it.isNotBlank() } ?: "Person: $raw"
+        val tags = listOfNotNull("person", parsed?.name?.trim()?.lowercase()?.takeIf { it.isNotBlank() })
+        val photo = if (personHereRe.containsMatchIn(said) && glassesLinked) {
+            say("Taking a picture for your memory.")
+            runCatching { reactor.captureFresh(timeoutMs = 20_000) }.getOrNull()
+        } else null
+        runCatching { store.rememberLocal(Memory(type = MemoryType.PERSON, text = text, tags = tags), photo, "media") }
+            .onFailure { return "I couldn't save that just now (${it.message?.take(60)})." }
+        refreshLibrary()
+        return parsed?.spoken?.takeIf { it.isNotBlank() }
+            ?: if (raw.isNotBlank()) "Saved. I'll remember them." else "Saved — next time tell me their name and how you know them."
+    }
+
     // Explicit "remember that/to/this…" memory command (requires that/to/this so a question like
     // "remember when we…" doesn't trip it). The backend strips the prefix and pins the fact.
     private val rememberRe = Regex(

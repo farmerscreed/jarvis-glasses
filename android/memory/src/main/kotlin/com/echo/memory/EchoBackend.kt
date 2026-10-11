@@ -410,6 +410,21 @@ class EchoBackend(
         org.json.JSONObject(post("/functions/v1/translate", b.toString(), slowHttp)).optString("summary")
     }
 
+    /** People memory: structure "remember this person: …" into fields (nothing is saved here). */
+    suspend fun personParse(text: String): PersonParse = withContext(Dispatchers.IO) {
+        val o = org.json.JSONObject(post("/functions/v1/person", org.json.JSONObject().put("text", text).toString()))
+        PersonParse(
+            name = o.optString("name"),
+            role = o.optString("role"),
+            organisation = o.optString("organisation"),
+            where = o.optString("where"),
+            phone = o.optString("phone"),
+            email = o.optString("email"),
+            memoryText = o.optString("memoryText"),
+            spoken = o.optString("spoken"),
+        )
+    }
+
     // ── Google: calendar + Gmail drafts in the cloud (Phase 1). The phone only ever sends Google's
     // one-time code; the server keeps the refresh token. Failures come back as a plain sentence. ──
 

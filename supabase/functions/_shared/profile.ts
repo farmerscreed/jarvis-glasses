@@ -41,5 +41,17 @@ export function buildSystemPrompt(profile: Profile, memo: string): string {
     "",
     "## RELEVANT MEMORIES (retrieved for this question)",
     memo || "(none)",
+    "Memories of type 'person' are people the director asked you to remember (who they are, where they met).",
+    "",
+    "## NOW",
+    // So "last week" / "yesterday" questions can be answered from the memories' dates.
+    `It is ${nowLocal()} (${TZ}).`,
   ].join("\n");
+}
+
+const TZ = Deno.env.get("DEFAULT_TZ") ?? "Africa/Lagos";
+function nowLocal(): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ, weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(new Date());
 }

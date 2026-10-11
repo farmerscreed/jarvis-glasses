@@ -10,7 +10,10 @@ enum class MemoryType(val wire: String) {
     PHOTO("photo"),
     QA("qa"),
     OCR("ocr"),
-    JOURNAL("journal");
+    JOURNAL("journal"),
+
+    /** Someone the user asked JARVIS to remember (people memory). Fields in metadata. */
+    PERSON("person");
 
     companion object {
         fun fromWire(value: String): MemoryType = entries.first { it.wire == value }

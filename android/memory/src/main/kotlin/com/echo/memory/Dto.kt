@@ -190,3 +190,16 @@ data class GoogleLaneResult(
 
 /** [serverReady] = the Google secrets are set on the server; [connected] = this user linked Google. */
 data class GoogleStatus(val serverReady: Boolean, val connected: Boolean, val email: String, val needsReconnect: Boolean)
+
+// ---- People memory ------------------------------------------------------------------------------
+/** A person, structured by the `person` function from what the user said. [memoryText] is what gets saved. */
+data class PersonParse(
+    val name: String,
+    val role: String,
+    val organisation: String,
+    val where: String,
+    val phone: String,
+    val email: String,
+    val memoryText: String,
+    val spoken: String,
+)

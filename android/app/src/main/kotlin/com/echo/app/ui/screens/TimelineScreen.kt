@@ -4,6 +4,7 @@ import androidx.compose.runtime.remember
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,7 +63,8 @@ private fun dayLabel(instant: Instant): String {
 fun TimelineScreen(vm: HomeViewModel) {
     LaunchedEffect(Unit) { vm.refreshLibrary(); vm.reconcileOrphanMedia() }
     var query by rememberSaveable { mutableStateOf("") }
-    var researchOnly by rememberSaveable { mutableStateOf(false) }
+    // "" = everything; "research" = delegated research notes; "people" = people you asked JARVIS to remember.
+    var filter by rememberSaveable { mutableStateOf("") }
     val hits = vm.searchHits
 
     LazyColumn(
@@ -90,12 +92,19 @@ fun TimelineScreen(vm: HomeViewModel) {
                         icon = Icons.Outlined.Sync,
                     )
                 }
-                // Filter to delegated research notes (tag "research") — the director's "research folder".
-                FilterChip(
-                    selected = researchOnly,
-                    onClick = { researchOnly = !researchOnly },
-                    label = { Text("Research") },
-                )
+                // Filters: research notes (tag "research") and people (type person).
+                Row(horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
+                    FilterChip(
+                        selected = filter == "research",
+                        onClick = { filter = if (filter == "research") "" else "research" },
+                        label = { Text("Research") },
+                    )
+                    FilterChip(
+                        selected = filter == "people",
+                        onClick = { filter = if (filter == "people") "" else "people" },
+                        label = { Text("People") },
+                    )
+                }
             }
         }
 
@@ -143,12 +152,19 @@ fun TimelineScreen(vm: HomeViewModel) {
             }
 
             else -> { // the river, grouped by day (optionally filtered to research)
-                val river = if (researchOnly) vm.timeline.filter { "research" in it.tags } else vm.timeline
+                val river = when (filter) {
+                    "research" -> vm.timeline.filter { "research" in it.tags }
+                    "people" -> vm.timeline.filter { it.type == MemoryType.PERSON }
+                    else -> vm.timeline
+                }
                 if (river.isEmpty()) {
                     item {
                         Text(
-                            if (researchOnly) "No research yet — say “Jarvis, research…” and it lands here."
-                            else "Nothing here yet.",
+                            when (filter) {
+                                "research" -> "No research yet — say “Jarvis, research…” and it lands here."
+                                "people" -> "No people yet — say “Jarvis, remember this person: Mr Ade, supplier, met at the yard.”"
+                                else -> "Nothing here yet."
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.fillMaxWidth(),

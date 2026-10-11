@@ -52,6 +52,15 @@ Look at something and ask about it — no phone, no typing:
   buy, a pro/con — with **sources** on screen. It's saved to your memory **with the photo** (Timeline →
   Research). If it can't read a brand, it says so and researches the closest match.
 
+## People — "remember this person"
+Say **"Jarvis, remember this person: Mr Ade, cement supplier from the Dangote depot, met at the
+Trans-Amadi yard."** (also *"remember I met…"*, *"save a new contact…"*). JARVIS picks out the name, role,
+company, where you met, and any phone or email you said, and saves it with today's date. If you say
+**"this person"** and the glasses are connected, it also takes a picture so you can see who it was later
+(just a picture — JARVIS doesn't recognise faces). Later, ask normally: *"who was the supplier I met last
+week?"*, *"what's Mr Ade's number?"*. Timeline → **People** shows everyone you've saved. Works offline
+too — then it's saved exactly as you said it.
+
 ## Translate
 Open **Translate** (Live screen button, or just use the glasses / your voice). Mandarin, French and
 Arabic are the main ones; 70+ languages work.
