@@ -49,3 +49,6 @@ voice_system.log
 /phone-*.log
 /phone-logs-run.txt
 /voice_*.log
+
+# Firebase service-account private keys (push sender) — never commit
+*firebase-adminsdk*.json
