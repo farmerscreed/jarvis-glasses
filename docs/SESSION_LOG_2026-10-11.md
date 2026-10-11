@@ -115,3 +115,29 @@ Inbox reading stays bridge-only (deferred by Law). Installed on the Pixel.
 People** APIs, OAuth **Web** client + **Android** client (`com.echo.companion`, SHA-1 above), Supabase Auth →
 Google provider. Then (in this session, from the PC) set secrets `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
 and put the Web client ID in `android/app/build.gradle.kts` `GOOGLE_WEB_CLIENT_ID`, rebuild, and test E1–E6.
+
+## 7. People memory + Find my glasses (built, deployed, tested with Law)
+
+**People memory** — new memory type `person` (migration `20261011151021_person_memory_type`, applied
+alone + repaired like §6). Edge Function `person` structures what was said on the fast model (Haiku 5.5,
+verified on Law's key, ~4 s); the app saves it offline-first (`MemoryType.PERSON`, tags `person` + name),
+optional glasses photo when "this person" is said (picture only — no face recognition). "Add this number
+for X" (needs a real number/email in the sentence) also saves to people; numbers are read back digit by
+digit. Chat prompt now knows today's date (`_shared/profile.ts`), so "who did I meet last week?" works.
+Timeline → **People** filter. *Tested:* save + photo ✅, recall "the cement player I saw today" ✅, number
+added + "what's Mr D's number?" ✅. *Found:* names misheard ("Mr Ade" → "Mr. D") — the cloud STT only had
+3.5 s, so on long sentences the on-device Whisper won → **cloud wait now scales with speech length**
+(3.5 s + 0.45 s per second over 3 s, max 9 s); the rest is a vocabulary issue → Law to set `STT_VOCAB`
+with his frequent names. The wrong "Mr. D" entries were deleted at Law's request (6 cloud rows + 2 photos;
+3 local rows + 2 photos via a pulled/edited/restored Room DB — backup kept in the session scratchpad).
+
+**Find my glasses** — `GlassesLocator` (@Singleton, started with the capture reactor so it runs in the
+companion service with the app closed) watches the BLE status; on "BLE: disconnected" after a connected
+state it takes a location fix with Android's LocationManager (fused → network → GPS, 20 s, else last known
+≤10 min) + a Geocoder place name, stored in prefs `find_glasses`. "Where are my glasses?" (voice / Ask) →
+spoken when + where; Device screen card: one-button setup (location, then "All the time") + **Show on map**
+(`geo:` intent). Manifest: coarse + background location. *Tested:* disconnect noted at 17:21 (±100 m, a
+street name), Show on map opened Google Maps ✅.
+
+**Phase 1 status:** people memory ✅, find my glasses ✅, calendar + email built + deployed — waiting only
+on Law's Google Cloud setup (§6).

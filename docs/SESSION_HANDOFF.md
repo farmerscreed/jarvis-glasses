@@ -18,7 +18,8 @@ Law pauses; both directions deaf while it plays), wordless model audio never pla
 flushed, 10 s safety net. Debug log on the phone: `files/translate-debug.log` (`PHONE-LOGS.bat` pulls it).
 **Phase 1 in progress:** calendar + Gmail drafts in the cloud are **built and deployed** (functions
 `google-connect`/`calendar`/`email`, tables `google_connections`/`pending_actions`, Settings → Gmail &
-Calendar) — inert until Law's Google setup (session log §6). Then: people memory → find my glasses. Law decided: same email for Google
+Calendar) — inert until Law's Google setup (session log §6). **People memory ✅ and Find my glasses ✅** built, deployed
+and tested on the Pixel (§7). Next after Google: Phase 2 (meeting capture) per `PRODUCT_PLAN.md`. Law decided: same email for Google
 and JARVIS; drafts + contacts, inbox reading later. **Waiting on Law:** Google Cloud setup (Internal
 consent screen; Gmail, Calendar, People APIs; Web + Android clients) + Supabase Google provider — steps
 in the session log §5. Still pending: `STT_VOCAB`. (P1 quick re-verification of the 10-10 features
