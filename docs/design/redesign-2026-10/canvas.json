@@ -1,0 +1,24 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-11T21:10:00Z"},
+  "title": "JARVIS app redesign",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 470, "y": 0, "w": 390, "h": 844, "title": "Translate — home"},
+    "Listening.dc.html": {"x": 940, "y": 0, "w": 390, "h": 844, "title": "Translate — listening"},
+    "Conversation.dc.html": {"x": 1410, "y": 0, "w": 390, "h": 844, "title": "Translate — face to face"},
+    "Phrase.dc.html": {"x": 1880, "y": 0, "w": 390, "h": 844, "title": "Translate — say a phrase"},
+    "Home.dc.html": {"x": 0, "y": 0, "w": 390, "h": 844, "title": "Home"},
+    "Memories.dc.html": {"x": 0, "y": 1264, "w": 390, "h": 844, "title": "Memories"},
+    "Settings.dc.html": {"x": 470, "y": 1264, "w": 390, "h": 844, "title": "Settings"},
+    "Research.dc.html": {"x": 940, "y": 1264, "w": 390, "h": 844, "title": "Research — ask"},
+    "ResearchAnswer.dc.html": {"x": 1410, "y": 1264, "w": 390, "h": 844, "title": "Research — answer"}
+  },
+  "order": ["Home.dc.html", "Main.dc.html", "Listening.dc.html", "Conversation.dc.html", "Phrase.dc.html", "Memories.dc.html", "Settings.dc.html", "Research.dc.html", "ResearchAnswer.dc.html"],
+  "notes": {
+    "row1": {"x": 0, "y": -300, "text": "Home + Translate", "kind": "title1", "maxW": 2270},
+    "row2": {"x": 0, "y": 964, "text": "Memories, Settings + Research", "kind": "title1", "maxW": 1800}
+  },
+  "designSystems": []
+}

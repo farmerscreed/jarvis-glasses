@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#3DDCFF}a:hover{color:#BBEFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0A0E13; color: #E0E2EA; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; position: relative; overflow: hidden;">
+
+  <!-- top -->
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 0;">
+    <div style="font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 4px; color: #3DDCFF;">JARVIS</div>
+    <button aria-label="Help" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #262A30; background: #12161B; color: #BBC9CE; display: flex; align-items: center; justify-content: center; padding: 0;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17.5h.01"/></svg>
+    </button>
+  </div>
+
+  <!-- orb + status + talk -->
+  <div style="display: flex; flex-direction: column; align-items: center; padding-top: 18px;">
+    <button aria-label="Talk to JARVIS" style="width: 168px; height: 168px; border-radius: 50%; border: 1px solid rgba(61,220,255,0.3); background: radial-gradient(circle at 50% 55%, rgba(61,220,255,0.45) 0%, rgba(61,220,255,0.12) 38%, #0D1317 72%); box-shadow: 0 0 60px rgba(61,220,255,0.22), inset 0 0 30px rgba(61,220,255,0.15); display: flex; align-items: center; justify-content: center; color: #BBEFFF; padding: 0;">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+    </button>
+    <div style="margin-top: 16px; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 500;">Say “Jarvis”, or tap</div>
+    <div style="margin-top: 10px; display: flex; align-items: center; gap: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8E9CA1;">
+      <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 4px; background: #3DDCFF;"></span>Glasses 24%</span>
+      <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 4px; background: #3DDCFF;"></span>Online</span>
+      <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 4px; background: #FFB454;"></span>2 to sync</span>
+    </div>
+  </div>
+
+  <!-- what JARVIS can do -->
+  <div style="padding: 26px 20px 0;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; color: #8E9CA1; margin-bottom: 12px;">DO SOMETHING</div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+      <button style="height: 96px; border-radius: 20px; border: 1px solid #262A30; background: #12161B; color: #E0E2EA; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 0;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3DDCFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span style="font-size: 13px;">Look</span>
+      </button>
+      <button style="height: 96px; border-radius: 20px; border: 1px solid #262A30; background: #12161B; color: #E0E2EA; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 0;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3DDCFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>
+        <span style="font-size: 13px;">Translate</span>
+      </button>
+      <button style="height: 96px; border-radius: 20px; border: 1px solid #262A30; background: #12161B; color: #E0E2EA; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 0;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3DDCFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+        <span style="font-size: 13px;">Ask</span>
+      </button>
+      <button style="height: 96px; border-radius: 20px; border: 1px solid #262A30; background: #12161B; color: #E0E2EA; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 0;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3DDCFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <span style="font-size: 13px;">Research</span>
+      </button>
+      <button style="height: 96px; border-radius: 20px; border: 1px solid #262A30; background: #12161B; color: #E0E2EA; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 0;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3DDCFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M19 8v6"/><path d="M16 11h6"/></svg>
+        <span style="font-size: 13px;">Remember</span>
+      </button>
+      <button style="height: 96px; border-radius: 20px; border: 1px solid #262A30; background: #12161B; color: #E0E2EA; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 0;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3DDCFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        <span style="font-size: 13px;">Find glasses</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- last answer -->
+  <div style="padding: 16px 20px 0;">
+    <div style="border-radius: 18px; background: #11151A; border: 1px solid #1F262B; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3DDCFF;">LAST ANSWER · 21:01</span>
+      <span style="font-size: 14px; line-height: 20px; color: #BBC9CE;">A living room with a yellow tufted armchair and a large family portrait on the wall.</span>
+    </div>
+  </div>
+
+  <!-- bottom nav -->
+  <nav aria-label="Main" style="margin-top: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 10px 8px 24px; border-top: 1px solid #1A2026; background: #0C1015;">
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #3DDCFF; font-size: 12px; padding: 6px 0;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>Home</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #8E9CA1; font-size: 12px; padding: 6px 0;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>Translate</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #8E9CA1; font-size: 12px; padding: 6px 0;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Memories</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #8E9CA1; font-size: 12px; padding: 6px 0;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h4"/><path d="M12 12h8"/><circle cx="10" cy="12" r="2"/><path d="M4 18h12"/><path d="M20 18h0"/><circle cx="18" cy="18" r="2"/></svg>Settings</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

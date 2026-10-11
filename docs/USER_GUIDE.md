@@ -111,6 +111,11 @@ phone is. Ask **"Jarvis, where are my glasses?"** → *"They were last connected
 Road."* — and **Show on map** opens the spot in Google Maps. If they're connected right now, it says so.
 It's the phone's location when the link dropped, so it's accurate to a room or a car park, not a drawer.
 
+## Notifications
+JARVIS can tell you when something it's working on is ready, even with the app closed (for example a
+meeting summary). To check it works: Settings → **Notifications** → **Send a test notification** (allow
+notifications when Android asks).
+
 ## Glasses buttons (decoded)
 | Button | Action |
 |---|---|

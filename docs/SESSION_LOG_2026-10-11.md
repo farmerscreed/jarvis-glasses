@@ -141,3 +141,45 @@ street name), Show on map opened Google Maps ✅.
 
 **Phase 1 status:** people memory ✅, find my glasses ✅, calendar + email built + deployed — waiting only
 on Law's Google Cloud setup (§6).
+
+## 8. Push notifications (FCM) — built, configured, phone registered
+
+- **Backend:** table `push_tokens` (migration `20261011163616_push_tokens`, applied alone + repaired;
+  service-role only), Edge Function **`push`** (`register` / `unregister` / `status` / `test`),
+  `_shared/fcm.ts` → `sendPush(userId, title, body, data)` for any function (FCM HTTP v1, OAuth via a
+  self-signed RS256 service-account JWT; dead tokens deleted). Signing verified against Google.
+- **Firebase project `jarvis-47d18`** (Law created it 2026-10-11), Android app `com.echo.companion`.
+  `android/app/google-services.json` is gitignored; the build reads it (`firebaseFor()` in
+  `app/build.gradle.kts`) into `BuildConfig.FIREBASE_*` — **no Google Services plugin**; no file ⇒ push off,
+  build still works. Service-account key stored as Supabase secret **`FCM_SERVICE_ACCOUNT`** (verified: Google
+  issued a token). The key file sits in `android/app/` and is now gitignored (`*firebase-adminsdk*.json`) —
+  Law may delete it.
+- **App:** `push/PushManager` (manual Firebase init, channel `jarvis_updates`, token → `push register` on every
+  sign-in), `push/JarvisMessagingService` (shows pushes in the foreground, re-registers rotated tokens),
+  Settings → Notifications → "Send a test notification". *Verified:* the Pixel's token is registered.
+  *Not yet confirmed by Law:* whether the test notification appeared.
+- **Use it:** `import { sendPush } from "../_shared/fcm.ts"` — first real users: meeting summaries, long research.
+
+## 9. Faster glasses looks (warm link) — findings
+
+- Built a 90 s "warm" Wi-Fi Direct link (skip the BLE→Wi-Fi→P2P handshake for the next look). **Device test:
+  the glasses clear their storage and drop Wi-Fi on their own ~30 s after a download** (zero-inventory event
+  at 21:00:52, link gone by the next look at 21:01:12), so the warm link only helps for looks < ~30 s apart.
+  Window set to 25 s; any warm failure falls back to the full ceremony.
+- **Real saving on every look:** dropped the fixed 0.8 s post-save wait (only when the "saved" event never
+  came) and the 1.5 s BLE wait (only when BLE isn't already connected) ≈ 2.3 s off ~8 s. Not re-measured yet.
+- Timeline of a full look (log): capture → saved ≈2 s · discovery+P2P connect ≈4–6 s (glasses-controlled) ·
+  IP · pull ≈1 s. `EchoLatency sync=warm|full …ms` now logs each.
+
+## 10. UI redesign — designed, approved, not yet built
+
+Law: Translate "too busy and not attractive" → futuristic, simple, intuitive; same for Settings and the
+whole app, without losing any feature. Mockups (9 screens) on a private canvas
+(https://claude.ai/artifact/X1J3XY65QGdcwvntpiR5Ee), sources in `docs/design/redesign-2026-10/`, full spec +
+build order in **`docs/UI_REDESIGN.md`**. Law approved Home, Translate ×4, Memories, Settings; Research ask +
+answer added on request. Key decisions: tabs Home · Translate · Memories · Settings; "Do something" feature
+grid on Home; Timeline + Gallery merged into Memories; Settings as grouped one-line rows; research answer
+gets a headline figure (needs a `HEADLINE:` line from the `research` function).
+
+Note: screenshots for the review were taken over adb; automated taps were stopped when the phone showed
+Android's Wireless-debugging page (risk of hitting "Forget"). Don't drive the phone's UI while Law uses it.

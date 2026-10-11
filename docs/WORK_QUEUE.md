@@ -143,10 +143,15 @@ session log.** Only then start P1.
 1. 🟡 **Built + deployed 2026-10-11, waiting on Law's Google Cloud setup** (`SESSION_LOG_2026-10-11.md` §6). **Calendar + email drafts in the cloud** (Google OAuth, Edge Functions on the Anthropic API key —
    "Option B"). Today they need the PC Agent Bridge + Tailscale (`docs/AGENT_DELEGATION.md`). Keep the
    confirm-before-acting gates (`ASSISTANT_ROADMAP.md` v2.4). Drafts only — never send email.
-2. **Push notifications (FCM)** for long tasks (research done, reminders). Setup steps already in
+2. ✅ **Built + configured 2026-10-11** (Firebase `jarvis-47d18`; session log §8 — Law to confirm the test push). **Push notifications (FCM)** for long tasks (research done, reminders). Setup steps already in
    `docs/SETUP_TUNNEL_AND_FCM.md` (needs Law's Firebase console step).
-3. **Keep the Wi-Fi Direct link warm** between photos (each look re-negotiates ~6–8 s) — makes
+3. 🟡 **Done 2026-10-11, limited by the glasses** (they drop Wi-Fi ~30 s after a download; −2.3 s per look from removed waits; §9). **Keep the Wi-Fi Direct link warm** between photos (each look re-negotiates ~6–8 s) — makes
    look-and-research and reading signs much faster.
+
+## P2.5 — UI redesign (approved 2026-10-11) — NEXT
+Build `docs/UI_REDESIGN.md` in its build order: theme + shared components → Translate → navigation/Home →
+Settings → Memories → Research (+ `headline` from the research function) → Ask/Device/Help/onboarding.
+Install + screenshot each step for Law. Nothing removed, only moved.
 
 ## P3 — Planned upgrades carried from earlier docs (not yet scheduled; confirm with Law)
 - **Assistant roadmap** (`docs/ASSISTANT_ROADMAP.md`): v2.1 skills via tool-use in the chat path;

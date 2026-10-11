@@ -19,7 +19,12 @@ flushed, 10 s safety net. Debug log on the phone: `files/translate-debug.log` (`
 **Phase 1 in progress:** calendar + Gmail drafts in the cloud are **built and deployed** (functions
 `google-connect`/`calendar`/`email`, tables `google_connections`/`pending_actions`, Settings → Gmail &
 Calendar) — inert until Law's Google setup (session log §6). **People memory ✅ and Find my glasses ✅** built, deployed
-and tested on the Pixel (§7). Next after Google: Phase 2 (meeting capture) per `PRODUCT_PLAN.md`. Law decided: same email for Google
+and tested on the Pixel (§7). Next after Google: Phase 2 (meeting capture) per `PRODUCT_PLAN.md`.
+**Also 2026-10-11 evening:** push notifications built + configured (Firebase `jarvis-47d18`, secret
+`FCM_SERVICE_ACCOUNT`, phone registered — Law to confirm the test notification arrived; §8); faster glasses looks
+(−2.3 s per look; the glasses drop Wi-Fi ~30 s after a download so a warm link rarely helps; §9).
+**NEXT: build the approved UI redesign** — spec + build order in **`docs/UI_REDESIGN.md`**, mockups
+https://claude.ai/artifact/X1J3XY65QGdcwvntpiR5Ee (§10). Start with theme + shared components, then Translate. Law decided: same email for Google
 and JARVIS; drafts + contacts, inbox reading later. **Waiting on Law:** Google Cloud setup (Internal
 consent screen; Gmail, Calendar, People APIs; Web + Android clients) + Supabase Google provider — steps
 in the session log §5. Still pending: `STT_VOCAB`. (P1 quick re-verification of the 10-10 features

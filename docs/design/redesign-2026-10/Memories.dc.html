@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Memories</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#3DDCFF}a:hover{color:#BBEFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0A0E13; color: #E0E2EA; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; position: relative; overflow: hidden;">
+
+  <div style="padding: 22px 20px 0; display: flex; align-items: baseline; justify-content: space-between;">
+    <div style="font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 600;">Memories</div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8E9CA1;">312 saved</div>
+  </div>
+
+  <!-- ask-style search -->
+  <div style="padding: 14px 20px 0;">
+    <label for="msearch" style="position: absolute; left: -9999px;">Search memories</label>
+    <div style="display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px; border-radius: 26px; background: #12161B; border: 1px solid #2B3A40;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3DDCFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="msearch" placeholder="Who was the supplier I met last week?" style="flex-grow: 1; min-width: 0; border: none; background: transparent; color: #E0E2EA; font-size: 15px; font-family: 'Inter', sans-serif; outline: none;">
+    </div>
+  </div>
+
+  <!-- filters -->
+  <div style="display: flex; gap: 8px; padding: 14px 20px 0;">
+    <button style="height: 36px; padding: 0 14px; border-radius: 18px; border: none; background: #3DDCFF; color: #00222A; font-size: 13px; font-weight: 600;">All</button>
+    <button style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #2B3A40; background: transparent; color: #BBC9CE; font-size: 13px;">Photos</button>
+    <button style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #2B3A40; background: transparent; color: #BBC9CE; font-size: 13px;">People</button>
+    <button style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #2B3A40; background: transparent; color: #BBC9CE; font-size: 13px;">Research</button>
+    <button style="height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #2B3A40; background: transparent; color: #BBC9CE; font-size: 13px;">Notes</button>
+  </div>
+
+  <div style="padding: 18px 20px 0; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; color: #8E9CA1;">TODAY</div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px; padding: 10px 20px 0;">
+    <!-- person -->
+    <div style="display: flex; gap: 14px; align-items: center; padding: 14px; border-radius: 20px; background: #12161B; border: 1px solid #1F262B;">
+      <div style="width: 52px; height: 52px; border-radius: 26px; background: linear-gradient(135deg, #3DDCFF 0%, #0B6E86 100%); color: #00222A; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; flex-shrink: 0;">MA</div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0;">
+        <div style="display: flex; justify-content: space-between;"><span style="font-size: 16px; font-weight: 600;">Mr Ade</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3DDCFF;">PERSON</span></div>
+        <span style="font-size: 13px; color: #9AA8AD;">Cement supplier · Trans-Amadi yard</span>
+        <span style="font-size: 13px; color: #9AA8AD;">0803 705 8711</span>
+      </div>
+    </div>
+
+    <!-- photo -->
+    <div style="display: flex; gap: 14px; padding: 14px; border-radius: 20px; background: #12161B; border: 1px solid #1F262B;">
+      <div style="width: 76px; height: 76px; border-radius: 14px; background: linear-gradient(135deg, #3A3226 0%, #6B5B3A 45%, #C9A227 100%); flex-shrink: 0; display: flex; align-items: flex-end; justify-content: flex-start; padding: 6px; box-sizing: border-box;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #FFFFFF; background: rgba(0,0,0,0.45); border-radius: 6px; padding: 2px 5px;">[PHOTO]</span>
+      </div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+        <div style="display: flex; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8E9CA1;">21:01</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3DDCFF;">LOOK</span></div>
+        <span style="font-size: 14px; line-height: 20px; color: #E0E2EA;">A living room with a yellow tufted armchair and a family portrait.</span>
+      </div>
+    </div>
+
+    <!-- research -->
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 20px; background: #12161B; border: 1px solid #1F262B;">
+      <div style="display: flex; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8E9CA1;">14:50</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #FFB454;">RESEARCH</span></div>
+      <span style="font-size: 15px; font-weight: 600;">Standing fan, 16–18 inch</span>
+      <span style="font-size: 13px; line-height: 19px; color: #9AA8AD;">About ₦45,000–₦60,000 on Jumia and Jiji; cheaper in Mile 1 market.</span>
+      <div style="display: flex; gap: 6px;">
+        <span style="font-size: 12px; color: #BBEFFF; border: 1px solid #2B3A40; border-radius: 10px; padding: 3px 8px;">jumia.com.ng</span>
+        <span style="font-size: 12px; color: #BBEFFF; border: 1px solid #2B3A40; border-radius: 10px; padding: 3px 8px;">jiji.ng</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- bottom nav -->
+  <nav aria-label="Main" style="margin-top: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 10px 8px 24px; border-top: 1px solid #1A2026; background: #0C1015;">
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #8E9CA1; font-size: 12px; padding: 6px 0;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>Home</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #8E9CA1; font-size: 12px; padding: 6px 0;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l6 6"/><path d="M4 14l6-6 2-3"/><path d="M2 5h12"/><path d="M22 22l-5-10-5 10"/><path d="M14 18h6"/></svg>Translate</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #3DDCFF; font-size: 12px; padding: 6px 0;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>Memories</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #8E9CA1; font-size: 12px; padding: 6px 0;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10"/><path d="M18 6h2"/><circle cx="16" cy="6" r="2"/><path d="M4 12h4"/><path d="M12 12h8"/><circle cx="10" cy="12" r="2"/><path d="M4 18h12"/><circle cx="18" cy="18" r="2"/></svg>Settings</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

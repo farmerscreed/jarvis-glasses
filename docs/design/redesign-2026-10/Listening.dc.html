@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Listening</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#3DDCFF}a:hover{color:#BBEFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0A0E13; color: #E0E2EA; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; position: relative; overflow: hidden;">
+
+  <div aria-hidden="true" style="position: absolute; left: -60px; bottom: 120px; width: 510px; height: 260px; border-radius: 50%; background: radial-gradient(ellipse, rgba(61,220,255,0.14) 0%, rgba(61,220,255,0) 70%);"></div>
+
+  <!-- top: live status + close -->
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 0; position: relative;">
+    <div style="display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border-radius: 18px; background: rgba(61,220,255,0.08); border: 1px solid #2B3A40; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #BBEFFF; letter-spacing: 0.5px;">
+      <span style="width: 8px; height: 8px; border-radius: 4px; background: #3DDCFF; box-shadow: 0 0 10px #3DDCFF;"></span>
+      FRENCH → ENGLISH
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6F7D82;">1.2s</span>
+      <button aria-label="Close" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #262A30; background: #12161B; color: #BBC9CE; display: flex; align-items: center; justify-content: center; padding: 0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- captions: older lines fade upward, latest is huge -->
+  <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 18px; padding: 24px 24px 20px; position: relative;">
+    <div style="font-size: 17px; line-height: 25px; color: #3F4B50;">Good evening, welcome to the market.</div>
+    <div style="font-size: 18px; line-height: 26px; color: #6F7D82;">The fresh fish arrived this morning from the coast.</div>
+    <div style="font-size: 19px; line-height: 27px; color: #9AA8AD;">We can deliver to your hotel if you like.</div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; line-height: 40px; font-weight: 500; color: #FFFFFF;">The price is twelve euros a kilo, <span style="color: #3DDCFF;">but for you, ten.</span></div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 18px; color: #6F7D82;">FR · Le prix est de douze euros le kilo, mais pour vous, dix.</div>
+    </div>
+  </div>
+
+  <!-- waveform -->
+  <div aria-hidden="true" style="display: flex; align-items: center; justify-content: center; gap: 5px; height: 48px; position: relative;">
+    <span style="width: 4px; height: 10px; border-radius: 2px; background: #2B3A40;"></span>
+    <span style="width: 4px; height: 18px; border-radius: 2px; background: #2B6A7A;"></span>
+    <span style="width: 4px; height: 30px; border-radius: 2px; background: #3DDCFF;"></span>
+    <span style="width: 4px; height: 42px; border-radius: 2px; background: #3DDCFF;"></span>
+    <span style="width: 4px; height: 26px; border-radius: 2px; background: #3DDCFF;"></span>
+    <span style="width: 4px; height: 36px; border-radius: 2px; background: #BBEFFF;"></span>
+    <span style="width: 4px; height: 20px; border-radius: 2px; background: #3DDCFF;"></span>
+    <span style="width: 4px; height: 32px; border-radius: 2px; background: #3DDCFF;"></span>
+    <span style="width: 4px; height: 14px; border-radius: 2px; background: #2B6A7A;"></span>
+    <span style="width: 4px; height: 24px; border-radius: 2px; background: #2B6A7A;"></span>
+    <span style="width: 4px; height: 8px; border-radius: 2px; background: #2B3A40;"></span>
+  </div>
+  <div style="text-align: center; font-size: 13px; color: #8E9CA1; padding: 6px 0 18px; position: relative;">In your glasses · nothing plays out loud</div>
+
+  <!-- dock -->
+  <div style="display: flex; align-items: center; gap: 12px; padding: 0 20px 28px; position: relative;">
+    <button aria-label="Type to them" style="width: 56px; height: 56px; border-radius: 28px; border: 1px solid #262A30; background: #12161B; color: #BBC9CE; display: flex; align-items: center; justify-content: center; padding: 0;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h1"/><path d="M10 10h1"/><path d="M14 10h1"/><path d="M18 10h0"/><path d="M8 14h8"/></svg>
+    </button>
+    <button style="flex-grow: 1; height: 56px; border-radius: 28px; border: none; background: #3DDCFF; color: #00222A; font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 0 28px rgba(61,220,255,0.35);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+      Reply to them
+    </button>
+    <button aria-label="Stop translating" style="width: 56px; height: 56px; border-radius: 28px; border: 1px solid rgba(255,180,171,0.45); background: rgba(147,0,10,0.18); color: #FFB4AB; display: flex; align-items: center; justify-content: center; padding: 0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>
+    </button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

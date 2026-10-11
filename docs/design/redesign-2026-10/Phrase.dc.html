@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Say a phrase</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Sans+SC:wght@500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#3DDCFF}a:hover{color:#BBEFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0A0E13; color: #E0E2EA; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; position: relative; overflow: hidden;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 8px;">
+    <button aria-label="Back" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #262A30; background: #12161B; color: #BBC9CE; display: flex; align-items: center; justify-content: center; padding: 0;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div style="font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600;">Say it for me</div>
+    <div style="width: 44px;"></div>
+  </div>
+
+  <!-- language chips -->
+  <div style="display: flex; gap: 8px; padding: 14px 20px 0; flex-wrap: wrap;">
+    <button style="height: 40px; padding: 0 16px; border-radius: 20px; border: none; background: #3DDCFF; color: #00222A; font-size: 14px; font-weight: 600;">Mandarin</button>
+    <button style="height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #2B3A40; background: transparent; color: #BBC9CE; font-size: 14px;">French</button>
+    <button style="height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid #2B3A40; background: transparent; color: #BBC9CE; font-size: 14px;">Arabic</button>
+    <button style="height: 40px; padding: 0 14px; border-radius: 20px; border: 1px dashed #3C494D; background: transparent; color: #8E9CA1; font-size: 14px;">+ More</button>
+  </div>
+
+  <!-- input -->
+  <div style="padding: 18px 20px 0;">
+    <label for="phrase" style="display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; color: #8E9CA1; margin-bottom: 8px;">IN ENGLISH</label>
+    <div style="display: flex; align-items: center; gap: 10px; height: 60px; padding: 0 8px 0 18px; border-radius: 30px; background: #12161B; border: 1px solid #2B3A40;">
+      <input id="phrase" value="How much is this?" style="flex-grow: 1; min-width: 0; border: none; background: transparent; color: #FFFFFF; font-size: 18px; font-family: 'Inter', sans-serif; outline: none;">
+      <button aria-label="Speak it instead" style="width: 44px; height: 44px; border-radius: 22px; border: none; background: rgba(61,220,255,0.12); color: #3DDCFF; display: flex; align-items: center; justify-content: center; padding: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- result card -->
+  <div style="margin: 22px 20px 0; border-radius: 28px; padding: 28px 24px; background: radial-gradient(circle at 80% 0%, rgba(61,220,255,0.16) 0%, rgba(61,220,255,0) 55%), #12161B; border: 1px solid #22313A; display: flex; flex-direction: column; gap: 12px;">
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; color: #3DDCFF;">MANDARIN</span>
+    <div style="font-family: 'Noto Sans SC', sans-serif; font-size: 46px; line-height: 56px; font-weight: 500; color: #FFFFFF;">这个多少钱？</div>
+    <div style="font-size: 18px; color: #BBEFFF;">Zhège duōshǎo qián?</div>
+    <div style="font-size: 13px; color: #6F7D82;">“jeh-guh dwor-shao chyen”</div>
+  </div>
+
+  <!-- actions -->
+  <div style="display: flex; gap: 12px; padding: 18px 20px 0;">
+    <button style="flex-grow: 1; height: 56px; border-radius: 28px; border: none; background: #3DDCFF; color: #00222A; font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 0 24px rgba(61,220,255,0.3);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+      Play out loud
+    </button>
+    <button style="flex-grow: 1; height: 56px; border-radius: 28px; border: 1px solid #2B3A40; background: #12161B; color: #E0E2EA; font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg>
+      Show them
+    </button>
+  </div>
+
+  <!-- recent phrases -->
+  <div style="padding: 26px 20px 0; display: flex; flex-direction: column; gap: 10px;">
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; color: #8E9CA1;">RECENT</span>
+    <button style="display: flex; justify-content: space-between; align-items: center; height: 52px; padding: 0 16px; border-radius: 16px; border: 1px solid #1F262B; background: #11151A; color: #E0E2EA; font-size: 15px; text-align: left;">
+      <span>Where is the taxi?</span><span style="font-family: 'Noto Sans SC', sans-serif; color: #8E9CA1;">出租车在哪里？</span>
+    </button>
+    <button style="display: flex; justify-content: space-between; align-items: center; height: 52px; padding: 0 16px; border-radius: 16px; border: 1px solid #1F262B; background: #11151A; color: #E0E2EA; font-size: 15px; text-align: left;">
+      <span>Thank you very much</span><span style="color: #8E9CA1;">Merci beaucoup</span>
+    </button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

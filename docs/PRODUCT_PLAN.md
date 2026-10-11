@@ -29,7 +29,7 @@ add next and what to leave out.
 | Look & Ask | "What am I looking at?" / "read this" from a glasses photo | Working |
 | Look & research | "How much is this?" → photo, web research, prices and sources | Working |
 | Research | "Jarvis, research…" in the cloud with sources | Working |
-| Live translation | Double-tap BACK: any language into English in your ear; "let me talk" for two-way; type to them | Built; echo-loop fix awaiting Law's test |
+| Live translation | Double-tap BACK: any language into English in your ear; "let me talk" for two-way; type to them | Working — echo/loop fixed 11 Oct (T1–T8 passed); conversation takes turns |
 | Sign and menu translation | Glasses or phone camera, read aloud in English | Working |
 | Auto photo sync | Button press → BLE → Wi-Fi Direct pull → memory, in the background | Working |
 | Voice notes | Hold BACK to record, transcribed into a note | Working, no summary |
@@ -37,8 +37,11 @@ add next and what to leave out.
 | Glasses battery | Battery % on the Live screen | Working, needs a check vs real battery |
 | Offline mode | Memory, recall and basic answers with no internet | Working |
 | Delete everything | Wipes memory and media | Working |
-| Email and calendar | Drafts and calendar via Google | Next: move to the cloud (was PC agent bridge) |
-| Push notifications | JARVIS can reach Law without the app open | Not started (needs Firebase) |
+| Email and calendar | Drafts (+ contacts lookup) and calendar read/add, in the cloud | Built + deployed 11 Oct; waiting on Law's Google Cloud setup |
+| People memory | "Jarvis, remember this person…" → recall later; Timeline → People | Working (11 Oct) |
+| Find my glasses | Location noted when the glasses disconnect; "where are my glasses?" + map | Working (11 Oct) |
+| Push notifications | JARVIS can reach Law without the app open | Built + Firebase configured 11 Oct; test push to confirm |
+| UI redesign | Futuristic, simpler screens; every feature one tap from Home | Approved 11 Oct — `docs/UI_REDESIGN.md`; building next |
 
 ## What we will not build (for now)
 
