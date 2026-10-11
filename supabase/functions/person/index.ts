@@ -70,8 +70,11 @@ transcription slips in common words but not in names.`,
     ].filter(Boolean);
     // The searchable memory text — written so "who was the supplier I met last week?" finds it.
     const memoryText = `Person: ${who} — ${parts.join(" · ")}`;
+    // Read back what was saved — including a number, so a misheard digit is caught on the spot.
+    const extra = [p.phone ? `number ${p.phone.split("").join(" ")}` : "", p.email ? `email ${p.email}` : ""]
+      .filter(Boolean).join(", ");
     const spoken = p.name
-      ? `Got it: ${p.name}${p.role ? ", " + p.role : ""}${p.where ? ", met at " + p.where : ""}. Saved.`
+      ? `Got it: ${p.name}${p.role ? ", " + p.role : ""}${p.where ? ", met at " + p.where : ""}${extra ? ", " + extra : ""}. Saved.`
       : "Saved. I didn't catch a name, so add one next time if you can.";
     return json({ ...p, memoryText, spoken });
   } catch (e) {

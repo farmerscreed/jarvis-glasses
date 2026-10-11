@@ -88,6 +88,12 @@ class HomeViewModel @Inject constructor(
     // to the user's ~1700 voice RMS; tune further from the EchoBarge logs after testing.
     private val bargeInEnabled = true
     private val CLOUD_STT_WAIT_MS = 3_500L
+    /** The cloud needs longer for longer speech — a fixed 3.5 s let the weaker on-device model win
+     *  every long sentence (10-11: "Mr Ade, cement supplier" → "Mr. D, Cemento Player Factory"). */
+    private fun cloudSttWaitMs(pcmBytes: Int, rate: Int): Long {
+        val seconds = pcmBytes / (rate * 2.0)
+        return (CLOUD_STT_WAIT_MS + (seconds - 3).coerceAtLeast(0.0) * 450).toLong().coerceAtMost(9_000L)
+    }
 
     /** Running transcript of the current conversation for the scrollable on-screen chat. */
     val transcript = mutableStateListOf<TurnLine>()
@@ -1248,7 +1254,15 @@ class HomeViewModel @Inject constructor(
             "(this\\s+(person|contact|man|woman|guy|lady|gentleman)|(a\\s+)?(new\\s+)?(person|contact)\\b|i\\s+(just\\s+)?met\\b)",
         RegexOption.IGNORE_CASE,
     )
-    private fun isPersonCommand(s: String) = personRe.containsMatchIn(s)
+    // Adding a detail to someone: "for Mr D add this phone number 0803…", "save Chief Okoro's email
+    // okoro@…". Needs an actual number/address in the sentence, so calendar/email requests never match.
+    private val personDetailRe = Regex(
+        "\\b(add|save|update|store|remember|note|record)\\b.{0,60}\\b(phone|number|mobile|email|e-mail|contact)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+    private val contactValueRe = Regex("\\d[\\d\\s-]{6,}\\d|[\\w.+-]+@[\\w-]+\\.[\\w.]+")
+    private fun isPersonCommand(s: String) =
+        personRe.containsMatchIn(s) || (personDetailRe.containsMatchIn(s) && contactValueRe.containsMatchIn(s))
     // "this person / this man…" = they're in front of you → a glasses photo for your own reference
     // (only to look at later — no face recognition).
     private val personHereRe = Regex("\\bthis\\s+(person|man|woman|guy|lady|gentleman)\\b", RegexOption.IGNORE_CASE)
@@ -1527,14 +1541,14 @@ class HomeViewModel @Inject constructor(
     /**
      * Speech → text. Online: the cloud transcriber (Gemini, primed for a Nigerian accent and the
      * assistant's vocabulary) is far more accurate than the on-device Whisper model, so it wins
-     * whenever it answers within [CLOUD_STT_WAIT_MS]. Whisper runs at the same time as the
+     * whenever it answers within [cloudSttWaitMs] (longer for longer speech). Whisper runs at the same time as the
      * safety net (offline, slow network, quota). Returns (result, source) — source logged.
      */
     private suspend fun bestTranscript(pcm: ByteArray, rate: Int, wav: ByteArray): Pair<Result<String>, String> = coroutineScope {
         val device = async(Dispatchers.Default) { if (sherpa.isReady) runCatching { sherpa.transcribe(pcm, rate) }.getOrDefault("") else "" }
         if (online) {
             val cloud = async { runCatching { backend.transcribe(wav) } }
-            val c = withTimeoutOrNull(CLOUD_STT_WAIT_MS) { cloud.await() }
+            val c = withTimeoutOrNull(cloudSttWaitMs(pcm.size, rate)) { cloud.await() }
             if (c != null && c.getOrNull()?.isNotBlank() == true) { device.cancel(); return@coroutineScope c to "cloud" }
             val d = device.await()
             if (d.isNotBlank()) { cloud.cancel(); return@coroutineScope Result.success(d) to "device(${sherpa.loadedModelName})" }
