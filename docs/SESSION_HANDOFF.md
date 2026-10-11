@@ -5,7 +5,15 @@ know exactly where we are, how to run/verify, what not to relitigate, and what t
 *Last updated: 2026-10-10. Keep this current at the end of every working session.*
 
 ---
-### ▶ LATEST (2026-10-10) — start here next session
+### ⚠️ 2026-10-11 — moving to Claude Code on the PC. Open **`docs/WORK_QUEUE.md`** first.
+**P0 (blocking): live translation plays Law's own English back into his ear, sometimes in a loop.**
+Cause: Gemini mislabels his accented English (e.g. as Swahili), so it "translates" English→English;
+the playback is re-heard by the phone mic. Full evidence, root causes, fix plan and acceptance tests
+T1–T8 are in WORK_QUEUE §P0. Fix + test with Law before P1/P2 (verify 10-10 features → calendar/
+email in the cloud → FCM push → warm Wi-Fi Direct). The PC's git checkout is at June's `f9eeaf5`
+with newer files copied in — sync per WORK_QUEUE §0 (non-destructive `reset --mixed`).
+
+### ▶ LATEST (2026-10-10) — state of the app
 Full record: **`docs/SESSION_LOG_2026-10-10.md`** (decisions, verified API facts, every bug + fix,
 build loop) + **`docs/USER_GUIDE.md`** (how each feature works, mirrors the in-app Help).
 

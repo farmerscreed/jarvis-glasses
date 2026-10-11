@@ -145,7 +145,16 @@ The cloud sandbox cannot reach Google Maven, so **builds run on Law's PC**. The 
 | "It should write English when English is spoken" | Listen mode dropped English input (only translations were shown) | English speech now appears as captions in listen mode (nothing played) |
 | `"Saved to your memory"` never spoken | Checked only on the stop transition, before the summary arrived | Speak when the summary lands |
 
-## 5. Still open / next
+## 4b. 2026-10-11 test — echo still present (now P0 in `docs/WORK_QUEUE.md`)
+Listen-mode session 08:57 UTC (saved memory, tagged `sw`): Law's English "Let me talk", "Stop.
+Stop.", "I don't need to talk about nutrition" were labelled **Swahili**, "translated" to the same
+English and played in his ear, then re-heard by the mic and repeated (×2–×3); voice commands were
+ignored because they require an English tag. Mandarin video at 08:56 translated correctly. Google's
+docs confirm there is no source-language hint and detection struggles with heavy accents → the fix
+must be client-side (own English detector, identity-translation guard, self-echo filter, commands
+regardless of tag, AEC experiment). Law chose to continue in Claude Code on the PC.
+
+## 5. Still open / next — superseded by `docs/WORK_QUEUE.md` (kept for history)
 1. **Law to re-test** (build of 2026-10-10 ~15:40: screen-off service, language labels, English
    captions; the 15:11 build added listen-first, typing and the echo fix): double-tap listening on a French video; "Jarvis,
    let me talk"; a real two-way chat; typing a reply; look-and-research on a few objects.
