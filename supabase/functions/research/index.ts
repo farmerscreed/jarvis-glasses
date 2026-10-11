@@ -21,7 +21,9 @@ things that could have changed. If sources conflict or you can't verify somethin
 When the question is about prices or availability and no location is given, assume Nigeria
 (Port Harcourt / Lagos) and quote naira where sources allow, with USD if useful.
 Answer in a natural SPOKEN style for an earpiece: 3 to 6 short sentences, lead with the answer,
-no markdown, no bullet points, no URLs, no "Sources" line (the app adds sources itself).`;
+no markdown, no bullet points, no URLs, no "Sources" line (the app adds sources itself).
+Start your reply with ONE line exactly like: HEADLINE: <the key answer in at most 6 words — e.g. a price
+range "₦45,000 – ₦60,000", "Yes, until 6 pm", a name or a number>. Then a newline, then the spoken answer.`;
 
 const VISUAL = `
 The user is wearing camera glasses. The attached photo is exactly what they are looking at right now,
@@ -115,8 +117,14 @@ Deno.serve(async (req) => {
       const m = b.type === "text" ? (b.text ?? "").match(/ITEM:\s*([^\n]+)/) : null;
       if (m) item = m[1].trim();
     }
+    // "HEADLINE: …" — the key answer for the app's big answer card (last one wins).
+    let headline = "";
+    for (const b of content) {
+      const m = b.type === "text" ? (b.text ?? "").match(/HEADLINE:\s*([^\n]+)/) : null;
+      if (m) headline = m[1].replace(/\*\*|__|`/g, "").trim();
+    }
     const spoken = (answerBlocks.length ? answerBlocks : content.filter((b) => b.type === "text"))
-      .map((b) => b.text ?? "").join("").replace(/ITEM:[^\n]*\n?/g, "")
+      .map((b) => b.text ?? "").join("").replace(/ITEM:[^\n]*\n?/g, "").replace(/HEADLINE:[^\n]*\n?/g, "")
       .replace(/\*\*|__|`/g, "").replace(/\s+\n/g, "\n").trim();
 
     const seen = new Set<string>();
@@ -128,7 +136,7 @@ Deno.serve(async (req) => {
     }
     const top = sources.slice(0, 6);
     const text = top.length ? `${spoken}\nSources:\n${top.map((s) => s.url).join("\n")}` : spoken;
-    return json({ text, spoken, item, sources: top, searches, visual: !!img, ms: Date.now() - t0 });
+    return json({ text, spoken, headline, item, sources: top, searches, visual: !!img, ms: Date.now() - t0 });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }

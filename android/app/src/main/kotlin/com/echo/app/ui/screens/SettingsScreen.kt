@@ -2,425 +2,286 @@ package com.echo.app.ui.screens
 
 import android.Manifest
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Logout
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.RecordVoiceOver
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.echo.app.BuildConfig
 import com.echo.app.CompanionPrefs
 import com.echo.app.ConnectedCompanionService
 import com.echo.app.HomeViewModel
-import com.echo.app.ui.components.JarvisPrimaryButton
-import com.echo.app.ui.components.JarvisSecondaryButton
-import com.echo.app.ui.components.SectionLabel
-import com.echo.app.ui.components.StatusChip
-import com.echo.app.ui.components.StatusLabel
+import com.echo.app.ui.components.GhostButton
+import com.echo.app.ui.components.GlowButton
+import com.echo.app.ui.components.MonoLabel
+import com.echo.app.ui.components.Neo
+import com.echo.app.ui.components.NeoCard
+import com.echo.app.ui.components.NeoTopBar
+import com.echo.app.ui.components.SettingsGroup
+import com.echo.app.ui.components.SettingsRow
 import com.echo.app.ui.components.rememberGlassesAudioConnected
-import com.echo.app.ui.theme.JarvisSpacing
-import com.echo.app.ui.theme.JarvisTheme
 
 /**
- * Settings (settings_system_console), wired to what exists: account/sign-out, the Jarvis Lite
- * offline floor status, the wake-word toggle, live device/cloud state + manual sync, and the
- * developer console. Export/delete-my-data are Phase F (GDPR) — intentionally absent until real.
+ * Settings (redesign 2026-10): a header (you + your glasses), then short grouped rows — each shows its
+ * state in a word and opens its detail one tap deeper. Nothing removed: Gmail & Calendar, notifications,
+ * personality + memory editor, export/delete, voice engine, sync and the developer console all live here.
  */
-@OptIn(ExperimentalLayoutApi::class) // FlowRow
 @Composable
-fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onOpenDevice: () -> Unit = {}) {
-    val cyan = MaterialTheme.colorScheme.primaryContainer
-    val amber = JarvisTheme.colors.presenceAmber
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = JarvisSpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(JarvisSpacing.md),
-    ) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
+fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onOpenDevice: () -> Unit = {}, onHelp: () -> Unit = {}) {
+    var page by rememberSaveable { mutableStateOf("main") }
+    if (page != "main") BackHandler { page = "main" }
+    when (page) {
+        "gmail" -> GmailPage(vm) { page = "main" }
+        "notifications" -> NotificationsPage(vm) { page = "main" }
+        "personality" -> PersonalityPage(vm) { page = "main" }
+        "data" -> DataPage(vm) { page = "main" }
+        "advanced" -> AdvancedPage(vm, onOpenDevConsole) { page = "main" }
+        else -> MainPage(vm, onOpen = { page = it }, onOpenDevice = onOpenDevice, onHelp = onHelp)
+    }
+}
 
-        SectionLabel("Account")
-        SettingsCard {
-            Text(
-                if (vm.loggedIn) "Signed in" + (vm.email.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "") else "Not signed in",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+@Composable
+private fun MainPage(vm: HomeViewModel, onOpen: (String) -> Unit, onOpenDevice: () -> Unit, onHelp: () -> Unit) {
+    val ctx = LocalContext.current
+    val audio = rememberGlassesAudioConnected()
+    val bleUp = vm.bleStatus.contains("listening", true) || vm.bleStatus.contains("glasses IP", true) || vm.bleStatus.contains("already connected", true)
+    LaunchedEffect(vm.loggedIn) { if (vm.loggedIn) vm.refreshGoogleStatus() }
+    var bgOn by remember { mutableStateOf(CompanionPrefs.isEnabled(ctx)) }
+    val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    Column(Modifier.fillMaxSize().background(Neo.Ground).verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Settings", style = Neo.display.copy(fontSize = 28.sp), modifier = Modifier.padding(top = 16.dp))
+
+        // You + glasses.
+        NeoCard(hero = true, padding = 16.dp) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                val who = vm.email.ifBlank { "You" }
+                Box(Modifier.size(52.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Neo.Cyan, Color(0xFF0B6E86)))), contentAlignment = Alignment.Center) {
+                    Text(who.take(1).uppercase(), style = Neo.display.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Neo.OnCyan))
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(if (vm.loggedIn) "Signed in" else "Not signed in", style = Neo.body.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold))
+                    if (vm.email.isNotBlank()) Text(vm.email, style = Neo.body.copy(fontSize = 13.sp, color = Neo.Muted), maxLines = 1)
+                }
+                Column(horizontalAlignment = Alignment.End, modifier = Modifier.clickable(onClick = onOpenDevice)) {
+                    Text(vm.glassesBattery?.let { "$it%" } ?: if (bleUp || audio) "On" else "Off", style = Neo.display.copy(fontSize = 20.sp, color = if (bleUp || audio) Neo.Cyan else Neo.Amber))
+                    MonoLabel("Glasses", size = 10)
+                }
+            }
+        }
+
+        SettingsGroup("Connections") {
+            SettingsRow(Icons.Outlined.Visibility, "Glasses", value = if (bleUp || audio) "Connected" else "Not connected", valueColor = if (bleUp || audio) Neo.Cyan else Neo.Amber, onClick = onOpenDevice)
+            val g = vm.google
+            SettingsRow(
+                Icons.Outlined.Email, "Gmail & Calendar", accent = Neo.Amber,
+                value = when { g?.connected == true -> "Connected"; g?.needsReconnect == true -> "Reconnect"; else -> "Connect" },
+                valueColor = if (g?.connected == true) Neo.Cyan else Neo.Amber, onClick = { onOpen("gmail") },
             )
-            if (vm.loggedIn) {
-                Spacer(Modifier.height(JarvisSpacing.sm))
-                JarvisSecondaryButton("Sign out", onClick = vm::signOut, enabled = !vm.busy)
-            }
+            SettingsRow(Icons.Outlined.Notifications, "Notifications", value = if (vm.pushAvailable) "On" else "Not set up", onClick = { onOpen("notifications") })
+            SettingsRow(Icons.Outlined.LocationOn, "Find my glasses", value = if (vm.glassesLocator.hasLocationPermission()) "On" else "Off", divider = false, onClick = onOpenDevice)
         }
 
-        if (vm.loggedIn) {
-            SectionLabel("Gmail & Calendar")
-            SettingsCard {
-                val ctx = LocalContext.current
-                LaunchedEffect(Unit) { vm.refreshGoogleStatus() }
-                // Google's own consent screen; its result carries the one-time code for the cloud.
-                val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
-                    vm.finishGoogleConnect(
-                        if (res.resultCode == android.app.Activity.RESULT_OK) com.echo.app.GoogleSignInHelper.codeFromConsentResult(ctx, res.data) else null,
-                    )
-                }
-                val g = vm.google
-                val connected = g?.connected == true
-                Text(
-                    when {
-                        connected -> "Connected" + (g?.email?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "")
-                        g?.needsReconnect == true -> "Needs reconnecting"
-                        else -> "Not connected"
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.height(JarvisSpacing.xs))
-                Text(
-                    "Lets JARVIS check and add to your calendar, and write email drafts for you to send from Gmail. " +
-                        "It never sends email itself, and always asks before adding anything to your calendar.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(JarvisSpacing.sm))
-                if (!connected) {
-                    JarvisPrimaryButton(
-                        if (vm.googleBusy) "Connecting…" else "Connect Gmail & Calendar",
-                        onClick = { vm.connectGoogle(ctx) { pi -> consent.launch(IntentSenderRequest.Builder(pi).build()) } },
-                        enabled = !vm.googleBusy && com.echo.app.GoogleSignInHelper.isConfigured && g?.serverReady != false,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (!com.echo.app.GoogleSignInHelper.isConfigured || g?.serverReady == false) {
-                        Spacer(Modifier.height(JarvisSpacing.xs))
-                        Text(
-                            "Not available yet — Google still needs to be set up for JARVIS.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    JarvisSecondaryButton(
-                        if (vm.googleBusy) "Working…" else "Disconnect",
-                        onClick = vm::disconnectGoogle,
-                        enabled = !vm.googleBusy,
-                    )
-                }
-                if (vm.googleMessage.isNotBlank()) {
-                    Spacer(Modifier.height(JarvisSpacing.xs))
-                    Text(vm.googleMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                }
-            }
-        }
-
-        if (vm.loggedIn) {
-            SectionLabel("Notifications")
-            SettingsCard {
-                val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.sendTestPush() }
-                Text(
-                    "JARVIS can tell you when something it's working on is ready — even with the app closed.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(JarvisSpacing.sm))
-                JarvisSecondaryButton(
-                    "Send a test notification",
-                    onClick = {
+        SettingsGroup("JARVIS") {
+            SettingsRow(Icons.Outlined.Mic, "“Jarvis” wake word", checked = vm.handsFree, onCheckedChange = { vm.toggleHandsFree(it) })
+            SettingsRow(
+                Icons.Outlined.GraphicEq, "Listen with the app closed", sub = "Glasses buttons work in the background",
+                checked = bgOn,
+                onCheckedChange = { on ->
+                    bgOn = on
+                    CompanionPrefs.setEnabled(ctx, on)
+                    if (on) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        else vm.sendTestPush()
-                    },
-                    enabled = vm.pushAvailable,
-                )
-                Spacer(Modifier.height(JarvisSpacing.xs))
-                Text(
-                    if (!vm.pushAvailable) "Not available yet — notifications still need to be set up for JARVIS." else vm.pushMessage,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-
-        SectionLabel("AI & Intelligence")
-        SettingsCard {
-            Text("Offline floor", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.height(JarvisSpacing.xs))
-            Text(
-                "Jarvis Lite answers from on-device memory when there's no connection. The full Offline Pack (local LLM) is a future optional download.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ConnectedCompanionService.start(ctx)
+                    } else ConnectedCompanionService.stop(ctx)
+                },
             )
-            Spacer(Modifier.height(JarvisSpacing.sm))
-            StatusLabel("Local fallback ready", accent = amber)
+            SettingsRow(Icons.Outlined.AutoAwesome, "Personality & what it knows", divider = false, onClick = { onOpen("personality") })
         }
 
-        if (vm.loggedIn) {
-            SectionLabel("JARVIS's memory")
-            SettingsCard {
-                LaunchedEffect(Unit) { vm.loadProfile() }
-                var soul by remember { mutableStateOf("") }
-                var facts by remember { mutableStateOf("") }
-                LaunchedEffect(vm.profileSoul) { soul = vm.profileSoul }
-                LaunchedEffect(vm.profileFacts) { facts = vm.profileFacts }
-
-                Text("Character (SOUL)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(
-                    "Who JARVIS is and how it acts for you — injected into every answer.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(JarvisSpacing.xs))
-                OutlinedTextField(
-                    value = soul,
-                    onValueChange = { soul = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 4,
-                    maxLines = 12,
-                )
-                Spacer(Modifier.height(JarvisSpacing.md))
-                Text("What JARVIS knows about you", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(
-                    "Curated facts it has learned (and you can edit). Grows as you talk.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(JarvisSpacing.xs))
-                OutlinedTextField(
-                    value = facts,
-                    onValueChange = { facts = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    maxLines = 12,
-                )
-                Spacer(Modifier.height(JarvisSpacing.sm))
-                JarvisSecondaryButton(
-                    if (vm.profileBusy) "Saving…" else "Save memory",
-                    onClick = { vm.saveProfile(soul, facts) },
-                    enabled = !vm.profileBusy,
-                )
-            }
+        SettingsGroup("Privacy & help") {
+            SettingsRow(Icons.Outlined.Shield, "Your data — export or delete", onClick = { onOpen("data") })
+            SettingsRow(Icons.AutoMirrored.Outlined.HelpOutline, "Help, tips & voice commands", divider = false, onClick = onHelp)
         }
 
-        SectionLabel("Control")
-        SettingsCard {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Voice wake word", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Text("“Jarvis”", style = JarvisTheme.dataMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(
-                    checked = vm.handsFree,
-                    onCheckedChange = { vm.toggleHandsFree(it) },
-                    colors = SwitchDefaults.colors(checkedTrackColor = cyan),
-                )
-            }
-        }
-        SettingsCard {
-            Column {
-                Text("Voice recognition", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(vm.voiceEngineSummary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        SettingsCard {
-            val ctx = LocalContext.current
-            var bgOn by remember { mutableStateOf(CompanionPrefs.isEnabled(ctx)) }
-            val notifLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission(),
-            ) { /* runs regardless; the service shows even if the notification is suppressed */ }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Keep listening in the background", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Text(
-                        "React to glasses captures with the app closed.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = bgOn,
-                    onCheckedChange = { on ->
-                        bgOn = on
-                        CompanionPrefs.setEnabled(ctx, on)
-                        if (on) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                            ConnectedCompanionService.start(ctx)
-                        } else {
-                            ConnectedCompanionService.stop(ctx)
-                        }
-                    },
-                    colors = SwitchDefaults.colors(checkedTrackColor = cyan),
-                )
-            }
-        }
-
-        SectionLabel("Device & Cloud")
-        SettingsCard {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm),
-                verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm),
-            ) {
-                val glassesConnected = rememberGlassesAudioConnected()
-                StatusChip(
-                    if (glassesConnected) "Glasses · Connected" else "Glasses · Not connected",
-                    accent = if (glassesConnected) cyan else amber,
-                )
-                when {
-                    !vm.online -> StatusChip("Cloud · Off-grid", accent = amber)
-                    vm.tier == "lean" -> StatusChip("Cloud · Slow", accent = amber)
-                    else -> StatusChip("Cloud · Full", accent = cyan)
-                }
-            }
-            Spacer(Modifier.height(JarvisSpacing.sm))
-            Text(
-                if (vm.pendingSync > 0) "${vm.pendingSync} memories on phone — will sync when online." else "All memories synced.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(JarvisSpacing.sm))
-            JarvisSecondaryButton("Sync from glasses", onClick = vm::syncGlasses, enabled = !vm.busy)
-        }
-
-        SectionLabel("Privacy & Data")
-        SettingsCard {
-            val ctx = LocalContext.current
-            var confirmWipe by remember { mutableStateOf(false) }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !vm.busy) { vm.exportData(ctx) },
-            ) {
-                Icon(Icons.Outlined.FileDownload, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(JarvisSpacing.md))
-                Column(Modifier.weight(1f)) {
-                    Text("Export all my data", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Save your memories as a JSON file.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            Spacer(Modifier.height(JarvisSpacing.md))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !vm.busy) { confirmWipe = true },
-            ) {
-                Icon(Icons.Outlined.DeleteForever, null, tint = MaterialTheme.colorScheme.error)
-                Spacer(Modifier.width(JarvisSpacing.md))
-                Column(Modifier.weight(1f)) {
-                    Text("Delete everything", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                    Text("Remove all memories from this phone and the cloud.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            if (confirmWipe) {
-                AlertDialog(
-                    onDismissRequest = { confirmWipe = false },
-                    title = { Text("Delete everything?") },
-                    text = { Text("This permanently removes every memory, photo, and recording from this phone and the cloud, and signs you out. It can't be undone.") },
-                    confirmButton = { TextButton(onClick = { confirmWipe = false; vm.deleteEverything() }) { Text("Delete everything", color = MaterialTheme.colorScheme.error) } },
-                    dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text("Cancel") } },
-                )
-            }
-        }
-
-        SectionLabel("Device")
-        SettingsCard {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpenDevice),
-            ) {
-                Text(
-                    "Glasses & device" + (vm.glassesBattery?.let { "  ·  $it%" } ?: ""),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        SectionLabel("Advanced")
-        SettingsCard {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpenDevConsole),
-            ) {
-                Text(
-                    "Developer console",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        SectionLabel("About")
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                "JARVIS ${BuildConfig.VERSION_NAME} · ${BuildConfig.FLAVOR}",
-                style = JarvisTheme.dataMono,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Spacer(Modifier.height(JarvisSpacing.lg))
+        Text(
+            "JARVIS ${BuildConfig.VERSION_NAME} · Advanced & developer tools ›",
+            style = Neo.mono.copy(fontSize = 11.sp, letterSpacing = 0.sp, color = Neo.Faint),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onOpen("advanced") }.padding(vertical = 12.dp),
+        )
+        Spacer(Modifier.height(12.dp))
     }
 }
 
 @Composable
-private fun SettingsCard(content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(Modifier.padding(JarvisSpacing.md)) { content() }
+private fun SubPage(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxSize().background(Neo.Ground)) {
+        NeoTopBar(title, onBack = onBack)
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            content()
+            Spacer(Modifier.height(24.dp))
+        }
     }
 }
+
+@Composable
+private fun Explain(text: String) = Text(text, style = Neo.body.copy(fontSize = 14.sp, lineHeight = 21.sp, color = Neo.Muted))
+
+@Composable
+private fun GmailPage(vm: HomeViewModel, onBack: () -> Unit) {
+    val ctx = LocalContext.current
+    val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
+        vm.finishGoogleConnect(if (res.resultCode == android.app.Activity.RESULT_OK) com.echo.app.GoogleSignInHelper.codeFromConsentResult(ctx, res.data) else null)
+    }
+    LaunchedEffect(Unit) { vm.refreshGoogleStatus() }
+    val g = vm.google
+    val connected = g?.connected == true
+    SubPage("Gmail & Calendar", onBack) {
+        NeoCard(hero = true) {
+            MonoLabel(if (connected) "Connected" else if (g?.needsReconnect == true) "Needs reconnecting" else "Not connected", color = if (connected) Neo.Cyan else Neo.Amber)
+            if (connected && !g?.email.isNullOrBlank()) Text(g?.email.orEmpty(), style = Neo.body.copy(fontSize = 16.sp))
+            Explain("JARVIS can check and add to your calendar, and write email drafts for you to send from Gmail. It never sends email itself, and always asks before adding anything to your calendar.")
+        }
+        if (!connected) {
+            val ready = com.echo.app.GoogleSignInHelper.isConfigured && g?.serverReady != false
+            GlowButton(if (vm.googleBusy) "Connecting…" else "Connect Gmail & Calendar", enabled = ready && !vm.googleBusy, modifier = Modifier.fillMaxWidth(),
+                onClick = { vm.connectGoogle(ctx) { pi -> consent.launch(IntentSenderRequest.Builder(pi).build()) } })
+            if (!ready) Explain("Not available yet — Google still needs to be set up for JARVIS.")
+        } else {
+            GhostButton(if (vm.googleBusy) "Working…" else "Disconnect", onClick = vm::disconnectGoogle, enabled = !vm.googleBusy, modifier = Modifier.fillMaxWidth(), color = Neo.Danger)
+        }
+        if (vm.googleMessage.isNotBlank()) Text(vm.googleMessage, style = Neo.body.copy(fontSize = 14.sp, color = Neo.Cyan))
+        MonoLabel("Try saying")
+        Explain("“What's on my calendar tomorrow?”\n“Add a site meeting on Tuesday at 10.”\n“Draft an email to Mr Ade about the cement delivery.”")
+    }
+}
+
+@Composable
+private fun NotificationsPage(vm: HomeViewModel, onBack: () -> Unit) {
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.sendTestPush() }
+    SubPage("Notifications", onBack) {
+        NeoCard(hero = true) {
+            MonoLabel(if (vm.pushAvailable) "On" else "Not set up", color = if (vm.pushAvailable) Neo.Cyan else Neo.Amber)
+            Explain("JARVIS tells you when something it's working on is ready — a meeting summary, long research — even with the app closed.")
+        }
+        GlowButton("Send a test notification", enabled = vm.pushAvailable, modifier = Modifier.fillMaxWidth(), onClick = {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permission.launch(Manifest.permission.POST_NOTIFICATIONS) else vm.sendTestPush()
+        })
+        if (vm.pushMessage.isNotBlank()) Text(vm.pushMessage, style = Neo.body.copy(fontSize = 14.sp, color = Neo.Cyan))
+    }
+}
+
+@Composable
+private fun PersonalityPage(vm: HomeViewModel, onBack: () -> Unit) {
+    LaunchedEffect(Unit) { vm.loadProfile() }
+    var soul by remember { mutableStateOf("") }
+    var facts by remember { mutableStateOf("") }
+    LaunchedEffect(vm.profileSoul) { soul = vm.profileSoul }
+    LaunchedEffect(vm.profileFacts) { facts = vm.profileFacts }
+    SubPage("Personality & memory", onBack) {
+        MonoLabel("Character")
+        Explain("Who JARVIS is and how it acts for you — used in every answer.")
+        OutlinedTextField(value = soul, onValueChange = { soul = it }, minLines = 4, maxLines = 12, shape = RoundedCornerShape(20.dp), colors = neoFieldColors(), modifier = Modifier.fillMaxWidth())
+        MonoLabel("What JARVIS knows about you")
+        Explain("Facts it has learned — edit anything that's wrong. It grows as you talk.")
+        OutlinedTextField(value = facts, onValueChange = { facts = it }, minLines = 3, maxLines = 12, shape = RoundedCornerShape(20.dp), colors = neoFieldColors(), modifier = Modifier.fillMaxWidth())
+        GlowButton(if (vm.profileBusy) "Saving…" else "Save", onClick = { vm.saveProfile(soul, facts) }, enabled = !vm.profileBusy, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun DataPage(vm: HomeViewModel, onBack: () -> Unit) {
+    val ctx = LocalContext.current
+    var confirmWipe by remember { mutableStateOf(false) }
+    SubPage("Your data", onBack) {
+        SettingsGroup(null) {
+            SettingsRow(Icons.Outlined.FileDownload, "Export all my data", sub = "Your memories as a file you can keep", onClick = { if (!vm.busy) vm.exportData(ctx) })
+            SettingsRow(Icons.Outlined.DeleteForever, "Delete everything", sub = "From this phone and the cloud", titleColor = Neo.Danger, accent = Neo.Danger, divider = false, onClick = { confirmWipe = true })
+        }
+        SettingsGroup(null) {
+            SettingsRow(Icons.Outlined.Logout, "Sign out", divider = false, onClick = vm::signOut)
+        }
+        if (vm.status.isNotBlank()) Text(vm.status, style = Neo.mono.copy(fontSize = 12.sp, letterSpacing = 0.sp))
+    }
+    if (confirmWipe) AlertDialog(
+        onDismissRequest = { confirmWipe = false },
+        containerColor = Neo.Card,
+        title = { Text("Delete everything?", style = Neo.display.copy(fontSize = 20.sp)) },
+        text = { Text("This permanently removes every memory, photo and recording from this phone and the cloud, and signs you out. It can't be undone.", style = Neo.body.copy(color = Neo.TextSoft)) },
+        confirmButton = { TextButton(onClick = { confirmWipe = false; vm.deleteEverything() }) { Text("Delete everything", color = Neo.Danger) } },
+        dismissButton = { TextButton(onClick = { confirmWipe = false }) { Text("Cancel", color = Neo.Text) } },
+    )
+}
+
+@Composable
+private fun AdvancedPage(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onBack: () -> Unit) {
+    SubPage("Advanced", onBack) {
+        SettingsGroup(null) {
+            SettingsRow(Icons.Outlined.RecordVoiceOver, "Voice recognition", sub = vm.voiceEngineSummary)
+            SettingsRow(Icons.Outlined.WifiOff, "Offline", sub = "Answers from memory on the phone when there's no connection")
+            SettingsRow(
+                Icons.Outlined.Sync, "Sync from glasses",
+                sub = if (vm.pendingSync > 0) "${vm.pendingSync} memories on the phone — they sync when online" else "All memories synced",
+                value = if (vm.syncing) "Syncing…" else null, onClick = { if (!vm.syncing) vm.syncGlasses() },
+            )
+            SettingsRow(Icons.Outlined.Code, "Developer console", divider = false, onClick = onOpenDevConsole)
+        }
+        Text("JARVIS ${BuildConfig.VERSION_NAME} · ${BuildConfig.FLAVOR}", style = Neo.mono.copy(fontSize = 11.sp, letterSpacing = 0.sp, color = Neo.Faint), modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+    }
+}
+

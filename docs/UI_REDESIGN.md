@@ -143,3 +143,17 @@ Follow-ups pass the previous Q/A as `history` (already supported).
 7. Ask JARVIS, Device, Help, onboarding restyled to match.
 Each step: build, install on the Pixel, screenshot, Law reviews. Keep every existing function reachable;
 nothing is removed, only moved (see the "Backed by" lines).
+
+## Build status (2026-10-11, built + installed on the Pixel; not yet reviewed on screen by Law)
+| Step | State | Where |
+|---|---|---|
+| 1 Theme + shared components | ✅ | `ui/components/Neo.kt` (Neo tokens, GlowButton, GhostButton, RoundButton, NeoTopBar, NeoCard, FeatureTile, SettingsGroup/Row, FilterChips/NeoChip, LiveBars, StatusDot, SourceCard, LivePill); background → `#0A0E13` in `Theme.kt` |
+| 2 Translate | ✅ | `ui/screens/TranslateScreen.kt` (home + language pill + Read chooser, listening captions + dock, face-to-face + TurnBar, say-it-for-me + Show them, finished) |
+| 3 Navigation + Home | ✅ | `ui/components/Bars.kt` (tabs Home·Translate·Memories·Settings), `ui/AppRoot.kt` (full screens, back handling, Translating bar; voice-opened translation jumps to the tab), `ui/screens/LiveConsoleScreen.kt` = Home (orb-as-talk, status dots, Do-something grid, Remember dialog, sign-in) |
+| 4 Settings | ✅ | `ui/screens/SettingsScreen.kt` (header, groups, sub-pages: Gmail & Calendar, Notifications, Personality & memory, Your data, Advanced) |
+| 5 Memories | ✅ | `ui/screens/MemoriesScreen.kt` (search, filters, person/photo/research/note cards, photo grid → PhotoDetailScreen). `TimelineScreen.kt` + `GalleryScreen.kt` removed |
+| 6 Research | ✅ | `ui/screens/ResearchScreen.kt` + `HomeViewModel.researchUi/startResearch/researchWhatImLookingAt/researchByVoice`; `research` function returns `headline` (deployed) |
+| 7 Ask / Device / Help / onboarding | 🟡 partial | new top bar + dark ground; their inner cards still use the older card style — restyle after Law's review |
+
+New ViewModel entry points: `lookNow()` (fresh glasses photo → spoken description), `rememberPersonTyped()`,
+`researchUi` + research functions above. Help + `USER_GUIDE.md` updated for the new navigation.

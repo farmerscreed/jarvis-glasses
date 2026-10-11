@@ -595,6 +595,18 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Research screen mic: hear the question, then research it. */
+    fun researchByVoice() {
+        withRecordingConsent {
+            run("Listening…") {
+                val heard = captureUtterance(playCue = true)
+                if (heard.isBlank()) { status = "Didn't catch that"; return@run }
+                startResearch(heard)
+                status = "Researching…"
+            }
+        }
+    }
+
     /** Proceed with a confirm-gated Ask action (calendar-add / commit). */
     fun confirmAsk() {
         val action = askConfirmAction
@@ -1268,6 +1280,95 @@ class HomeViewModel @Inject constructor(
     fun repeatPhrase() = viewModelScope.launch { phrases.repeat() }
 
     /** Cloud research (works anywhere); falls back to the PC bridge only if the cloud call fails. */
+    // ── Research screens (redesign 2026-10): structured answer = headline + spoken + sources. ──
+    data class ResearchUi(
+        val question: String = "",
+        val running: Boolean = false,
+        val stage: String = "",
+        val headline: String = "",
+        val spoken: String = "",
+        val item: String = "",
+        val sources: List<Pair<String, String>> = emptyList(),
+        val searches: Int = 0,
+        val seconds: Int = 0,
+        val photoPath: String? = null,
+        val error: String = "",
+        val history: List<ChatMsg> = emptyList(),
+    ) { val hasAnswer get() = spoken.isNotBlank() }
+
+    var researchUi by mutableStateOf(ResearchUi()); private set
+
+    /** Research a typed/spoken question. [followUp] keeps the thread (previous Q/A as history). */
+    fun startResearch(question: String, followUp: Boolean = false) {
+        val q = question.trim()
+        if (q.isBlank() || researchUi.running) return
+        val history = if (followUp && researchUi.hasAnswer) researchUi.history + listOf(ChatMsg("user", researchUi.question), ChatMsg("assistant", researchUi.spoken)) else emptyList()
+        researchUi = ResearchUi(question = q, running = true, stage = "Searching the web…", history = history, photoPath = if (followUp) researchUi.photoPath else null, item = if (followUp) researchUi.item else "")
+        viewModelScope.launch {
+            val r = runCatching { backend.research(q, history) }
+            r.onSuccess { applyResearch(it, q) }
+                .onFailure { researchUi = researchUi.copy(running = false, error = "I couldn't finish that research (${it.message?.take(100)}).") }
+        }
+    }
+
+    /** "Research what I'm looking at": a glasses photo, then research the item in it. */
+    fun researchWhatImLookingAt(question: String = "What is this, how much does it cost in Nigeria, and where can I buy it?") {
+        if (researchUi.running) return
+        researchUi = ResearchUi(question = question, running = true, stage = "Taking a photo with your glasses…")
+        viewModelScope.launch {
+            val f = runCatching { reactor.captureFresh() }.getOrNull()
+            if (f == null) { researchUi = researchUi.copy(running = false, error = "I couldn't get a photo from the glasses — are they on and connected?"); return@launch }
+            researchUi = researchUi.copy(stage = "Identifying it and searching…", photoPath = f.absolutePath)
+            val r = runCatching { backend.research(question, image = f.readBytes()) }
+            r.onSuccess { applyResearch(it, question, photo = f) }
+                .onFailure { researchUi = researchUi.copy(running = false, error = "I took the photo but couldn't finish the research (${it.message?.take(100)}).") }
+        }
+    }
+
+    private suspend fun applyResearch(r: com.echo.memory.ResearchResult, q: String, photo: java.io.File? = null) {
+        researchUi = researchUi.copy(
+            running = false, stage = "", headline = r.headline, spoken = r.spoken.ifBlank { r.text }, item = r.item.ifBlank { researchUi.item },
+            sources = r.sources, searches = r.searches, seconds = (r.durationMs / 1000).toInt(),
+        )
+        val title = r.item.ifBlank { q }
+        runCatching {
+            val m = Memory(type = if (photo != null) MemoryType.PHOTO else MemoryType.NOTE, text = "Research — $title:\n${r.text}", tags = listOf("research"))
+            if (photo != null) store.rememberLocal(m, photo, "media") else store.remember(m)
+        }
+        refreshLibrary()
+    }
+
+    fun speakResearch() { researchUi.spoken.takeIf { it.isNotBlank() }?.let { s -> viewModelScope.launch { tts.speak(s) } } }
+    fun clearResearch() { researchUi = ResearchUi() }
+
+    /** Home "Look" tile: a FRESH glasses photo, described out loud and saved. */
+    fun lookNow() = run("Looking…") {
+        if (!loggedIn) { status = "Sign in first"; return@run }
+        val f = reactor.captureFresh()
+        if (f == null) { status = "Couldn't get a photo — are the glasses on and connected?"; return@run }
+        status = "Claude is looking…"
+        val seen = runCatching {
+            backend.describeImage(f.readBytes(), "You are JARVIS. The wearer asked what they are looking at. Say what you see in one or two natural spoken sentences.", true)
+        }.getOrNull()
+        if (seen == null) {
+            store.rememberLocal(Memory(type = MemoryType.PHOTO, text = "(photo captured — description pending)", tags = listOf("needs_vision")), f, "media")
+            answer = "I saved the photo — I'll describe it when we're back online."; status = "Saved"
+        } else {
+            answer = seen
+            store.rememberLocal(Memory(type = MemoryType.PHOTO, text = seen), f, "media")
+            status = "Speaking…"; tts.speak(seen); status = "Done"
+        }
+        refreshLibrary()
+    }
+
+    /** Home "Remember" tile: save a person from typed text ("Mr Ade, cement supplier, Trans-Amadi"). */
+    fun rememberPersonTyped(text: String) = run("Saving…") {
+        val t = text.trim()
+        if (t.isBlank()) return@run
+        val said = rememberPerson("remember this contact: $t") { status = it }
+        answer = said; status = "Saved"
+    }
+
     private suspend fun research(topic: String, history: List<ChatMsg> = emptyList()): com.echo.memory.AgentResult {
         val cloud = runCatching { backend.research(topic, history) }
         cloud.getOrNull()?.let { r ->

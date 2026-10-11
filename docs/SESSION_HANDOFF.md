@@ -23,8 +23,8 @@ and tested on the Pixel (§7). Next after Google: Phase 2 (meeting capture) per 
 **Also 2026-10-11 evening:** push notifications built + configured (Firebase `jarvis-47d18`, secret
 `FCM_SERVICE_ACCOUNT`, phone registered — Law to confirm the test notification arrived; §8); faster glasses looks
 (−2.3 s per look; the glasses drop Wi-Fi ~30 s after a download so a warm link rarely helps; §9).
-**NEXT: build the approved UI redesign** — spec + build order in **`docs/UI_REDESIGN.md`**, mockups
-https://claude.ai/artifact/X1J3XY65QGdcwvntpiR5Ee (§10). Start with theme + shared components, then Translate. Law decided: same email for Google
+**UI redesign BUILT + installed (§11)** — all main screens per **`docs/UI_REDESIGN.md`** (status table at its end).
+**NEXT:** Law reviews it on the phone → fixes; then restyle Ask / Device / Help / onboarding inner cards (step 7). Law decided: same email for Google
 and JARVIS; drafts + contacts, inbox reading later. **Waiting on Law:** Google Cloud setup (Internal
 consent screen; Gmail, Calendar, People APIs; Web + Android clients) + Supabase Google provider — steps
 in the session log §5. Still pending: `STT_VOCAB`. (P1 quick re-verification of the 10-10 features

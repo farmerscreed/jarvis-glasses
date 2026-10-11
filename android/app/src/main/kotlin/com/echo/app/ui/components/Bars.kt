@@ -16,10 +16,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Translate
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -127,12 +128,12 @@ private fun MicIndicator() {
     }
 }
 
-/** The app's four destinations, exactly as in the designs' bottom bar. */
+/** The app's four destinations (redesign 2026-10: Translate promoted, Timeline + Gallery = Memories). */
 enum class JarvisTab(val label: String, val icon: ImageVector) {
-    Live("Live", Icons.Outlined.GraphicEq),
-    Timeline("Timeline", Icons.Outlined.History),
-    Gallery("Gallery", Icons.Outlined.PhotoLibrary),
-    Settings("Settings", Icons.Outlined.Settings),
+    Home("Home", Icons.Outlined.GraphicEq),
+    Translate("Translate", Icons.Outlined.Translate),
+    Memories("Memories", Icons.Outlined.GridView),
+    Settings("Settings", Icons.Outlined.Tune),
 }
 
 /** Bottom nav: hairline divider on top, icon+label items, active item in Electric Cyan. */
@@ -142,9 +143,9 @@ fun JarvisBottomBar(
     onSelect: (JarvisTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest, modifier = modifier) {
+    Surface(color = Neo.Bar, modifier = modifier) {
         Column(Modifier.navigationBarsPadding()) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+            HorizontalDivider(color = Neo.Divider, thickness = 1.dp)
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -154,9 +155,9 @@ fun JarvisBottomBar(
                 JarvisTab.entries.forEach { tab ->
                     val active = tab == current
                     val tint = if (active) {
-                        MaterialTheme.colorScheme.primaryContainer
+                        Neo.Cyan
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        Neo.Muted
                     }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -168,7 +169,7 @@ fun JarvisBottomBar(
                         Icon(tab.icon, contentDescription = tab.label, tint = tint, modifier = Modifier.size(24.dp))
                         Text(
                             tab.label,
-                            style = JarvisTheme.dataMono.copy(fontSize = 11.sp),
+                            style = Neo.body.copy(fontSize = 12.sp),
                             color = tint,
                             maxLines = 1,
                         )

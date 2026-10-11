@@ -148,7 +148,7 @@ session log.** Only then start P1.
 3. 🟡 **Done 2026-10-11, limited by the glasses** (they drop Wi-Fi ~30 s after a download; −2.3 s per look from removed waits; §9). **Keep the Wi-Fi Direct link warm** between photos (each look re-negotiates ~6–8 s) — makes
    look-and-research and reading signs much faster.
 
-## P2.5 — UI redesign (approved 2026-10-11) — NEXT
+## P2.5 — UI redesign (approved 2026-10-11) — 🟡 BUILT 2026-10-11, awaiting Law's review (steps 1–6 done, 7 partial)
 Build `docs/UI_REDESIGN.md` in its build order: theme + shared components → Translate → navigation/Home →
 Settings → Memories → Research (+ `headline` from the research function) → Ask/Device/Help/onboarding.
 Install + screenshot each step for Law. Nothing removed, only moved.

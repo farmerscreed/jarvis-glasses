@@ -371,6 +371,11 @@ class EchoBackend(
             searches = o.optInt("searches"),
             item = o.optString("item"),
             durationMs = System.currentTimeMillis() - t0,
+            headline = o.optString("headline"),
+            sources = o.optJSONArray("sources")?.let { a ->
+                (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { it.optString("title") to it.optString("url") } }
+                    .filter { it.second.isNotBlank() }
+            }.orEmpty(),
         )
     }
 
@@ -576,7 +581,17 @@ class EchoBackend(
     }
 }
 
-data class ResearchResult(val text: String, val spoken: String, val searches: Int, val durationMs: Long, val item: String = "")
+data class ResearchResult(
+    val text: String,
+    val spoken: String,
+    val searches: Int,
+    val durationMs: Long,
+    val item: String = "",
+    /** The key answer in a few words ("₦45,000 – ₦60,000") for the answer card's headline. */
+    val headline: String = "",
+    /** (title, url) of each source Claude actually cited. */
+    val sources: List<Pair<String, String>> = emptyList(),
+)
 data class TranslateToken(val token: String, val model: String, val urls: List<String>)
 data class PhraseResult(
     val langCode: String,

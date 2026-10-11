@@ -183,3 +183,12 @@ gets a headline figure (needs a `HEADLINE:` line from the `research` function).
 
 Note: screenshots for the review were taken over adb; automated taps were stopped when the phone showed
 Android's Wireless-debugging page (risk of hitting "Forget"). Don't drive the phone's UI while Law uses it.
+
+## 11. UI redesign built (all screens) — installed, awaiting Law's on-screen review
+
+Built the approved redesign end to end (status table in `docs/UI_REDESIGN.md`): new building blocks
+(`ui/components/Neo.kt`), Translate rewritten, new tabs Home · Translate · Memories · Settings, Home with the
+feature grid, Memories (Timeline + Gallery merged and removed), Settings with sub-pages, Research ask + answer
+(+ `headline` from the deployed `research` function). Builds clean, 17 unit tests pass, installed on the Pixel.
+Not yet screenshotted: the phone was locked (screenshots only taken while JARVIS is the focused app — see
+`safecap` approach in §10's note). Step 7 (Ask / Device / Help / onboarding inner cards) is partly done.
