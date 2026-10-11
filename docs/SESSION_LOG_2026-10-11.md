@@ -85,3 +85,33 @@ add) → `email` function (drafts + contacts lookup) → app wiring → people m
 Calendar + People APIs, Web + Android OAuth clients (debug SHA-1
 `E0:34:A1:55:77:82:D3:A6:47:C7:0C:80:0D:B2:88:D7:E8:76:4F:02`), enable Google in Supabase Auth, put the
 client secret in Supabase secrets (not in chat). Still pending: `STT_VOCAB` secret.
+
+## 6. Phase 1 started — calendar + Gmail drafts in the cloud (built + deployed, waiting on Law's Google setup)
+
+**Backend (deployed to `jarvis-prod`):**
+- Migration `20261011144628_google_connections` — `google_connections` (one row per user; Google
+  refresh token **AES-GCM encrypted** by the functions) and `pending_actions` (calendar adds waiting for
+  "yes"). RLS on, **no client grants** — only the functions (service role) touch them. Applied ALONE via
+  `supabase db query --linked -f …` + `migration repair --status applied` because June's
+  `20260614000000_agent_tasks` is still deliberately unapplied on prod (needs Law's OK) — a plain
+  `supabase db push` would apply both. Advisors clean.
+- `_shared/google.ts` (code exchange, refresh, revoke, `googleApi`, time-zone helpers), `_shared/crypto.ts`,
+  `serviceClient()`, `claudeJson()` (structured outputs; falls back to `CLAUDE_MODEL` if the fast model is
+  rejected), `FAST_MODEL` (default `claude-haiku-5-5`, secret-overridable).
+- Functions **`google-connect`** (status/connect/disconnect), **`calendar`** (query; propose → confirm/
+  cancel — the server only creates an event it proposed, unused, within 10 min), **`email`** (draft only;
+  recipient from People API saved + "other" contacts). Calendar parsing on the fast model; email drafts on
+  `EMAIL_MODEL` (defaults to `CLAUDE_MODEL`). All return 401 without a session (verified).
+- Secret **`GOOGLE_TOKEN_KEY`** generated and set from the PC (never displayed).
+
+**App:** `EchoBackend` google calls (errors come back as a plain sentence); `GoogleSignInHelper.authorizeWorkspace`
+(AuthorizationClient, offline access → one-time server code; `play-services-auth` 21.1.1 added explicitly);
+Settings → **Gmail & Calendar** (status, Connect, Disconnect; shows "Not available yet" until configured);
+voice + Ask JARVIS route calendar/email to the cloud first (PC bridge only as fallback when Google isn't
+linked and a bridge exists). Calendar add reads back the server's exact event and waits for a clear yes.
+Inbox reading stays bridge-only (deferred by Law). Installed on the Pixel.
+
+**To switch it on (Law):** Google Cloud project (Workspace, consent **Internal**), enable **Gmail, Calendar,
+People** APIs, OAuth **Web** client + **Android** client (`com.echo.companion`, SHA-1 above), Supabase Auth →
+Google provider. Then (in this session, from the PC) set secrets `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`
+and put the Web client ID in `android/app/build.gradle.kts` `GOOGLE_WEB_CLIENT_ID`, rebuild, and test E1–E6.

@@ -140,7 +140,7 @@ session log.** Only then start P1.
   transcriber). Never put those names in code (public repo).
 
 ## P2 — Next features Law asked for (his order, 2026-10-09)
-1. **Calendar + email drafts in the cloud** (Google OAuth, Edge Functions on the Anthropic API key —
+1. 🟡 **Built + deployed 2026-10-11, waiting on Law's Google Cloud setup** (`SESSION_LOG_2026-10-11.md` §6). **Calendar + email drafts in the cloud** (Google OAuth, Edge Functions on the Anthropic API key —
    "Option B"). Today they need the PC Agent Bridge + Tailscale (`docs/AGENT_DELEGATION.md`). Keep the
    confirm-before-acting gates (`ASSISTANT_ROADMAP.md` v2.4). Drafts only — never send email.
 2. **Push notifications (FCM)** for long tasks (research done, reminders). Setup steps already in

@@ -16,8 +16,9 @@ guard, echo filter on both outputs, commands caught even when mis-tagged (also i
 translation; "Jarpis/Javis" accepted), **conversation = turn-taking** (loudspeaker speaks ~0.9 s after
 Law pauses; both directions deaf while it plays), wordless model audio never played, AudioTrack tail
 flushed, 10 s safety net. Debug log on the phone: `files/translate-debug.log` (`PHONE-LOGS.bat` pulls it).
-**Next: Phase 1** — Google sign-in → "Connect Gmail & Calendar" → `calendar` + `email` (drafts +
-contacts lookup) Edge Functions → people memory → find my glasses. Law decided: same email for Google
+**Phase 1 in progress:** calendar + Gmail drafts in the cloud are **built and deployed** (functions
+`google-connect`/`calendar`/`email`, tables `google_connections`/`pending_actions`, Settings → Gmail &
+Calendar) — inert until Law's Google setup (session log §6). Then: people memory → find my glasses. Law decided: same email for Google
 and JARVIS; drafts + contacts, inbox reading later. **Waiting on Law:** Google Cloud setup (Internal
 consent screen; Gmail, Calendar, People APIs; Web + Android clients) + Supabase Google provider — steps
 in the session log §5. Still pending: `STT_VOCAB`. (P1 quick re-verification of the 10-10 features

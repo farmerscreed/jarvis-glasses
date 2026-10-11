@@ -3,6 +3,7 @@ package com.echo.app.ui.screens
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +47,7 @@ import com.echo.app.BuildConfig
 import com.echo.app.CompanionPrefs
 import com.echo.app.ConnectedCompanionService
 import com.echo.app.HomeViewModel
+import com.echo.app.ui.components.JarvisPrimaryButton
 import com.echo.app.ui.components.JarvisSecondaryButton
 import com.echo.app.ui.components.SectionLabel
 import com.echo.app.ui.components.StatusChip
@@ -83,6 +85,65 @@ fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onOpenDevice
             if (vm.loggedIn) {
                 Spacer(Modifier.height(JarvisSpacing.sm))
                 JarvisSecondaryButton("Sign out", onClick = vm::signOut, enabled = !vm.busy)
+            }
+        }
+
+        if (vm.loggedIn) {
+            SectionLabel("Gmail & Calendar")
+            SettingsCard {
+                val ctx = LocalContext.current
+                LaunchedEffect(Unit) { vm.refreshGoogleStatus() }
+                // Google's own consent screen; its result carries the one-time code for the cloud.
+                val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
+                    vm.finishGoogleConnect(
+                        if (res.resultCode == android.app.Activity.RESULT_OK) com.echo.app.GoogleSignInHelper.codeFromConsentResult(ctx, res.data) else null,
+                    )
+                }
+                val g = vm.google
+                val connected = g?.connected == true
+                Text(
+                    when {
+                        connected -> "Connected" + (g?.email?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "")
+                        g?.needsReconnect == true -> "Needs reconnecting"
+                        else -> "Not connected"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(JarvisSpacing.xs))
+                Text(
+                    "Lets JARVIS check and add to your calendar, and write email drafts for you to send from Gmail. " +
+                        "It never sends email itself, and always asks before adding anything to your calendar.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(JarvisSpacing.sm))
+                if (!connected) {
+                    JarvisPrimaryButton(
+                        if (vm.googleBusy) "Connecting…" else "Connect Gmail & Calendar",
+                        onClick = { vm.connectGoogle(ctx) { pi -> consent.launch(IntentSenderRequest.Builder(pi).build()) } },
+                        enabled = !vm.googleBusy && com.echo.app.GoogleSignInHelper.isConfigured && g?.serverReady != false,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (!com.echo.app.GoogleSignInHelper.isConfigured || g?.serverReady == false) {
+                        Spacer(Modifier.height(JarvisSpacing.xs))
+                        Text(
+                            "Not available yet — Google still needs to be set up for JARVIS.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    JarvisSecondaryButton(
+                        if (vm.googleBusy) "Working…" else "Disconnect",
+                        onClick = vm::disconnectGoogle,
+                        enabled = !vm.googleBusy,
+                    )
+                }
+                if (vm.googleMessage.isNotBlank()) {
+                    Spacer(Modifier.height(JarvisSpacing.xs))
+                    Text(vm.googleMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
             }
         }
 

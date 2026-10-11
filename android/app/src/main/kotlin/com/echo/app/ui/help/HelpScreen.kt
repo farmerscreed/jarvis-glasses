@@ -267,7 +267,7 @@ private fun TutorialsPage() {
         Triple("Reply in a conversation", listOf("While listening, say “Jarvis, let me talk” (or tap “Talk to them”)", "Hold the phone between you and speak English, then pause", "About a second later they hear you in their language from the phone speaker — let it finish before carrying on"), "Take turns, like with an interpreter. Say “Jarvis, just listen” to go back to listening only. Or start straight away: Translate → “Start a conversation”, or say “Jarvis, translate to French”."),
         Triple("Type instead of speaking", listOf("During translation, type in the box at the bottom", "Tap send", "It's translated, shown on their side and said out loud"), "Use it when a word was misheard — tap “YOU SAID” to correct your last sentence — or when it's too noisy."),
         Triple("Translate a sign or menu", listOf("Look at it", "Say “Jarvis, translate this”", "Hear it in English"), "Also reads English text aloud: “read this to me”."),
-        Triple("Ask JARVIS (get things done)", listOf("Tap ✨ on the Live screen (or type / speak)", "Ask it to research, check your calendar, or draft an email", "Read the answer card — research shows its sources"), "The deliberate lane: patient, tool-using, reviewable. Research works anywhere; email & calendar still need the PC agent."),
+        Triple("Ask JARVIS (get things done)", listOf("Tap ✨ on the Live screen (or type / speak)", "Ask it to research, check your calendar, or draft an email", "Read the answer card — research shows its sources"), "Patient, tool-using, reviewable — works anywhere. For calendar and email drafts, connect Google once: Settings → Gmail & Calendar. JARVIS never sends email, and asks before adding to your calendar."),
         Triple("Drill down on a photo", listOf("Open a photo in Gallery", "Tap “Ask about this photo”", "Ask “how many…?” or “read the text”, by text or mic"), "JARVIS re-examines that exact photo to answer follow-ups."),
         Triple("Check your glasses", listOf("Open Settings → Glasses & device", "See battery %, connection, and the buttons map", "Tap “Fix connection” if the link drops"), "Battery also shows on the Live screen."),
         Triple("Voice recognition", listOf("Online, your voice is understood in the cloud (tuned for your accent)", "Offline, a model on the phone takes over", "Settings → Voice recognition shows which is in use"), "If a word keeps coming out wrong, type it instead (Ask JARVIS, or the box during translation)."),
@@ -331,8 +331,8 @@ private fun CommandsPage() {
         "Get things done (Ask JARVIS)" to listOf(
             "“Jarvis, research the price of 30 kVA inverters in Port Harcourt.”",
             "“What's on my calendar this week?”",
-            "“Add lunch to my calendar tomorrow at noon.”  (it confirms first)",
-            "“Draft an email to Sam about Friday.”",
+            "“Add lunch to my calendar tomorrow at noon.”  (it reads it back and waits for your yes)",
+            "“Draft an email to Sam about Friday.”  (a draft in your Gmail — you send it)",
             "“Check my email.”",
         ),
         "Discuss a photo" to listOf(

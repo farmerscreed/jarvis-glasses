@@ -112,15 +112,18 @@ as cards by type:
   chips. Runs in the cloud (works anywhere, no PC needed). Saved to your Timeline (Research filter).
   Say it by voice too: *"Jarvis, research the price of a 5 kVA inverter in Port Harcourt."*
   Ask about *"this"* (*"how much is this?"*) and it uses the glasses camera (see Look & research).
-- **Calendar** — *"what's on my calendar this week?"* → an events list. *"add lunch tomorrow at noon"* →
-  it **asks you to confirm**, then adds it.
-- **Email** — *"draft an email to Sam about Friday"* → a Gmail **draft** (it never sends — you review +
-  send). *"check my email"* → an inbox summary.
+- **Calendar** — *"what's on my calendar this week?"* / *"am I free Thursday at 3?"* → a spoken answer +
+  an events list. *"add a site meeting with Mr Ade on Tuesday at 10"* → JARVIS reads back exactly what it
+  will add (*"Shall I add Site meeting with Mr Ade, Tue 14 Oct 10:00–11:00?"*) and **only a clear "yes"
+  adds it**. It never changes or deletes events.
+- **Email** — *"draft an email to Mr Ade about the cement delivery"* → a **draft in your Gmail** (it never
+  sends — you review and send it from Gmail). JARVIS finds the address in your Google contacts; if it
+  can't, the To line is left empty and it tells you.
 - **Coding** — *"fix the typo in the README"* → it edits the code for you to review (never commits
   unless you say *"commit"* and confirm).
-> Research runs in the cloud. **Calendar, email and coding** still run on your PC (Agent Bridge); on the
-> cloud build they work once a **tunnel** is set up (Tailscale), otherwise those phrases fall back to a
-> normal chat answer. Moving calendar + email drafts to the cloud is next on the plan.
+> **First, connect Google once:** Settings → **Gmail & Calendar** → **Connect Gmail & Calendar**, and
+> allow access on Google's screen. Calendar and email then work anywhere — in the cloud, no PC needed.
+> Disconnect any time from the same place. Research also runs in the cloud. Coding still needs the PC.
 
 ## Discuss a photo (drill down)
 From **Gallery → tap a photo → "Ask about this photo"**, the photo pins as context and you can

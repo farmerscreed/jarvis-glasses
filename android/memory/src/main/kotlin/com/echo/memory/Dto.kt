@@ -175,3 +175,18 @@ data class AgentTaskResponse(
 
 /** Outcome of a delegated agent task, surfaced to the UI/voice loop. */
 data class AgentResult(val ok: Boolean, val text: String, val durationMs: Long)
+
+// ---- Google in the cloud (Phase 1: calendar + Gmail drafts via Supabase Edge Functions) ---------
+/** Outcome of a cloud calendar/email call. [text] = spoken + the card block (EVENTS:/DRAFT:);
+ *  [id] = a calendar proposal waiting for "yes"; [notConnected] = Google isn't linked (or expired). */
+data class GoogleLaneResult(
+    val ok: Boolean,
+    val text: String,
+    val spoken: String,
+    val id: String = "",
+    val notConnected: Boolean = false,
+    val needsMore: Boolean = false,
+)
+
+/** [serverReady] = the Google secrets are set on the server; [connected] = this user linked Google. */
+data class GoogleStatus(val serverReady: Boolean, val connected: Boolean, val email: String, val needsReconnect: Boolean)

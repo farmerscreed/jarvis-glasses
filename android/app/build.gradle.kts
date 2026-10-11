@@ -127,6 +127,8 @@ dependencies {
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services)
     implementation(libs.google.id)
+    // Google consent for Gmail drafts + Calendar + Contacts (AuthorizationClient → one-time server code).
+    implementation(libs.play.services.auth)
     implementation(libs.androidx.navigation.compose)
 
     // DI

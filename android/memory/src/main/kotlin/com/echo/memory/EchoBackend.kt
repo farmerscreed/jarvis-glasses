@@ -410,6 +410,59 @@ class EchoBackend(
         org.json.JSONObject(post("/functions/v1/translate", b.toString(), slowHttp)).optString("summary")
     }
 
+    // ── Google: calendar + Gmail drafts in the cloud (Phase 1). The phone only ever sends Google's
+    // one-time code; the server keeps the refresh token. Failures come back as a plain sentence. ──
+
+    suspend fun googleStatus(): GoogleStatus = withContext(Dispatchers.IO) {
+        val o = org.json.JSONObject(post("/functions/v1/google-connect", """{"op":"status"}"""))
+        GoogleStatus(
+            serverReady = o.optBoolean("configured"),
+            connected = o.optBoolean("connected"),
+            email = o.optString("email"),
+            needsReconnect = o.optString("status") == "needs_reconnect",
+        )
+    }
+
+    /** Hand Google's one-time server auth code to the cloud. Returns the linked Google email. */
+    suspend fun googleConnect(serverAuthCode: String): String = withContext(Dispatchers.IO) {
+        val (code, txt) = postAuthed("/functions/v1/google-connect", org.json.JSONObject().put("op", "connect").put("serverAuthCode", serverAuthCode).toString(), http)
+        val o = runCatching { org.json.JSONObject(txt) }.getOrElse { org.json.JSONObject() }
+        if (code !in 200..299) error(o.optString("error").ifBlank { "HTTP $code" })
+        o.optString("email")
+    }
+
+    suspend fun googleDisconnect(): Unit = withContext(Dispatchers.IO) {
+        post("/functions/v1/google-connect", """{"op":"disconnect"}""")
+    }
+
+    suspend fun calendarQuery(text: String) = googleLane("/functions/v1/calendar", org.json.JSONObject().put("op", "query").put("text", text))
+    /** Step 1 of adding: the server works out the event and holds it; nothing is written yet. */
+    suspend fun calendarPropose(text: String) = googleLane("/functions/v1/calendar", org.json.JSONObject().put("op", "propose").put("text", text))
+    /** Step 2: create the event the server proposed (only works once, within 10 minutes). */
+    suspend fun calendarConfirm(id: String) = googleLane("/functions/v1/calendar", org.json.JSONObject().put("op", "confirm").put("id", id))
+    suspend fun calendarCancel(id: String) = googleLane("/functions/v1/calendar", org.json.JSONObject().put("op", "cancel").put("id", id))
+    /** Draft (never send) an email in Gmail; the recipient is looked up in Google contacts. */
+    suspend fun emailDraft(text: String) = googleLane("/functions/v1/email", org.json.JSONObject().put("op", "draft").put("text", text))
+
+    private suspend fun googleLane(path: String, body: org.json.JSONObject): GoogleLaneResult = withContext(Dispatchers.IO) {
+        val (code, txt) = postAuthed(path, body.toString(), slowHttp)
+        val o = runCatching { org.json.JSONObject(txt) }.getOrElse { org.json.JSONObject() }
+        if (code in 200..299) {
+            val spoken = o.optString("spoken")
+            GoogleLaneResult(true, o.optString("text").ifBlank { spoken }, spoken, o.optString("id"), needsMore = o.optBoolean("needsMore"))
+        } else {
+            val msg = o.optString("spoken").ifBlank { o.optString("error") }.ifBlank { "HTTP $code" }
+            GoogleLaneResult(false, msg, msg, notConnected = o.optBoolean("notConnected"))
+        }
+    }
+
+    /** POST with one token refresh on 401, returning (code, body) instead of throwing. */
+    private fun postAuthed(path: String, body: String, client: OkHttpClient): Pair<Int, String> {
+        var r = postOnce(path, body, client)
+        if (r.first == 401 && refreshSession()) r = postOnce(path, body, client)
+        return r
+    }
+
     private fun get(path: String): String {
         var (code, txt) = getOnce(path)
         if (code == 401 && refreshSession()) { val r = getOnce(path); code = r.first; txt = r.second }

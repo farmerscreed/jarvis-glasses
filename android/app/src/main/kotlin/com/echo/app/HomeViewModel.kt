@@ -24,6 +24,8 @@ import com.echo.memory.ChatMsg
 import com.echo.memory.ChatResult
 import com.echo.memory.ConnectivityGovernor
 import com.echo.memory.EchoBackend
+import com.echo.memory.GoogleLaneResult
+import com.echo.memory.GoogleStatus
 import com.echo.memory.MemoryStore
 import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -511,15 +513,31 @@ class HomeViewModel @Inject constructor(
             askConfirmAction = { val r = agent.commitChanges(); askThread.add(AskTurn(false, r.text, kindOf(r, "coding"))) }
             return
         }
-        if (agent.isConfigured && isCalendarAdd(q)) {
-            askConfirmPrompt = "Add this to your calendar?"
-            askConfirmAction = { val r = agent.calendarAdd(q); askThread.add(AskTurn(false, r.text, kindOf(r, "calendar"))) }
+        if ((online || agent.isConfigured) && isCalendarAdd(q)) {
+            // The cloud works out the event first, so the confirm shows exactly what will be added.
+            run("Working…") {
+                val p = calendarProposeLane(q)
+                when {
+                    p.ok && p.id.isNotBlank() -> {
+                        askThread.add(AskTurn(false, p.text, "calendar"))
+                        askConfirmPrompt = p.spoken
+                        askConfirmAction = { val c = backend.calendarConfirm(p.id); askThread.add(AskTurn(false, c.text, if (c.ok) "calendar" else "error")) }
+                        askConfirmCancel = { runCatching { backend.calendarCancel(p.id) } }
+                    }
+                    !p.ok && p.notConnected && agent.isConfigured -> {
+                        askConfirmPrompt = "Add this to your calendar?"
+                        askConfirmAction = { val r = agent.calendarAdd(q); askThread.add(AskTurn(false, r.text, kindOf(r, "calendar"))) }
+                    }
+                    else -> askThread.add(AskTurn(false, p.text, if (p.ok) "calendar" else "error"))
+                }
+                status = "Done"
+            }
             return
         }
         run("Working…") {
             when {
-                agent.isConfigured && isCalendarQuery(q) -> agent.calendarQuery(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "calendar"))) }
-                agent.isConfigured && isEmailDraft(q) -> agent.emailDraft(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "email"))) }
+                (online || agent.isConfigured) && isCalendarQuery(q) -> calendarQueryLane(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "calendar"))) }
+                (online || agent.isConfigured) && isEmailDraft(q) -> emailDraftLane(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "email"))) }
                 agent.isConfigured && isEmailRead(q) -> agent.emailRead(q).let { askThread.add(AskTurn(false, it.text, kindOf(it, "email"))) }
                 online && isLookResearch(q) -> {
                     val r = lookAndResearch(researchTopic(q)) { first -> status = first }
@@ -559,14 +577,95 @@ class HomeViewModel @Inject constructor(
         val action = askConfirmAction
         askConfirmPrompt = null
         askConfirmAction = null
+        askConfirmCancel = null
         if (action != null) run("Working…") { action(); status = "Done" }
     }
 
     /** Decline a confirm-gated Ask action. */
     fun dismissAskConfirm() {
+        val cancel = askConfirmCancel
         askConfirmPrompt = null
         askConfirmAction = null
+        askConfirmCancel = null
+        if (cancel != null) viewModelScope.launch { cancel() }
         askThread.add(AskTurn(false, "Okay — I won't do that.", "chat"))
+    }
+    /** Tells the cloud a held proposal was declined (so it can never be used). */
+    private var askConfirmCancel: (suspend () -> Unit)? = null
+
+    // ── Phase 1: calendar + Gmail drafts in the cloud (Google linked via Supabase). The PC bridge is
+    // only a fallback when Google isn't connected and a bridge is configured (dev). ─────────────────
+
+    private suspend fun calendarQueryLane(q: String): com.echo.memory.AgentResult {
+        val r = runCatching { backend.calendarQuery(q) }.getOrElse { GoogleLaneResult(false, "I couldn't check your calendar just now.", "") }
+        if (!r.ok && r.notConnected && agent.isConfigured) return agent.calendarQuery(q)
+        return com.echo.memory.AgentResult(r.ok, r.text, 0)
+    }
+
+    private suspend fun emailDraftLane(q: String): com.echo.memory.AgentResult {
+        val r = runCatching { backend.emailDraft(q) }.getOrElse { GoogleLaneResult(false, "I couldn't reach Gmail just now.", "") }
+        if (!r.ok && r.notConnected && agent.isConfigured) return agent.emailDraft(q)
+        if (r.ok) runCatching {
+            store.remember(Memory(type = MemoryType.NOTE, text = "Email draft — ${r.text.substringAfter("DRAFT:").trim().take(600)}", tags = listOf("email")))
+        }
+        return com.echo.memory.AgentResult(r.ok, r.text, 0)
+    }
+
+    private suspend fun calendarProposeLane(q: String): GoogleLaneResult =
+        runCatching { backend.calendarPropose(q) }.getOrElse {
+            GoogleLaneResult(false, "I couldn't reach your calendar just now.", "I couldn't reach your calendar just now.")
+        }
+
+    /** Google link status for Settings (null = not checked yet / offline). */
+    var google by mutableStateOf<GoogleStatus?>(null); private set
+    var googleBusy by mutableStateOf(false); private set
+    var googleMessage by mutableStateOf(""); private set
+
+    fun refreshGoogleStatus() {
+        viewModelScope.launch { google = runCatching { backend.googleStatus() }.getOrNull() }
+    }
+
+    /**
+     * "Connect Gmail & Calendar": Google's consent screen (via [showConsent]) or, if consent was
+     * given before, straight to the one-time code → the cloud keeps the long-lived token.
+     */
+    fun connectGoogle(context: android.content.Context, showConsent: (android.app.PendingIntent) -> Unit) {
+        if (!GoogleSignInHelper.isConfigured) { googleMessage = "Google isn't set up in this version of the app yet."; return }
+        googleBusy = true
+        googleMessage = ""
+        viewModelScope.launch {
+            runCatching { GoogleSignInHelper.authorizeWorkspace(context) }
+                .onSuccess {
+                    when (it) {
+                        is GoogleSignInHelper.Authorization.Consent -> showConsent(it.pendingIntent)
+                        is GoogleSignInHelper.Authorization.Code -> finishGoogleConnect(it.serverAuthCode)
+                    }
+                }
+                .onFailure { googleBusy = false; googleMessage = "Couldn't open Google sign-in (${it.message?.take(80)})." }
+        }
+    }
+
+    fun finishGoogleConnect(serverAuthCode: String?) {
+        if (serverAuthCode.isNullOrBlank()) { googleBusy = false; googleMessage = "Cancelled — nothing was connected."; return }
+        googleBusy = true
+        viewModelScope.launch {
+            runCatching { backend.googleConnect(serverAuthCode) }
+                .onSuccess { email -> googleMessage = "Connected${if (email.isNotBlank()) " as $email" else ""}. Try: “What's on my calendar tomorrow?”" }
+                .onFailure { googleMessage = "Couldn't connect: ${it.message?.take(160)}" }
+            google = runCatching { backend.googleStatus() }.getOrNull()
+            googleBusy = false
+        }
+    }
+
+    fun disconnectGoogle() {
+        googleBusy = true
+        viewModelScope.launch {
+            runCatching { backend.googleDisconnect() }
+                .onSuccess { googleMessage = "Disconnected. JARVIS can no longer see your calendar or make drafts." }
+                .onFailure { googleMessage = "Couldn't disconnect (${it.message?.take(80)})." }
+            google = runCatching { backend.googleStatus() }.getOrNull()
+            googleBusy = false
+        }
     }
 
     /** Vision drill-down: re-analyze the pinned photo to answer a specific question about it. */
@@ -820,33 +919,58 @@ class HomeViewModel @Inject constructor(
                 status = "Listening…"; continue
             }
 
-            // M3 — add to calendar (gated): confirm by voice, then create the event (never edits/deletes).
-            if (agent.isConfigured && isCalendarAdd(heard)) {
-                if (awaitConfirmation("I'll add that to your calendar. Shall I go ahead?")) {
-                    status = "Adding to your calendar…"
-                    val res = agent.calendarAdd(heard)
-                    answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
-                    status = if (res.ok) "Added to your calendar" else "Couldn't add it"
-                } else { tts.speak("Okay, I won't add it."); status = "Cancelled" }
+            // Add to calendar (gated): the cloud works out the event and holds it; JARVIS reads back
+            // exactly what it will add, and only a clear "yes" creates it (never edits/deletes).
+            if ((online || agent.isConfigured) && isCalendarAdd(heard)) {
+                status = "Setting that up…"
+                val p = calendarProposeLane(heard)
+                when {
+                    p.ok && p.id.isNotBlank() -> {
+                        transcript.add(TurnLine(false, p.text))
+                        if (awaitConfirmation(p.spoken)) {
+                            status = "Adding to your calendar…"
+                            val c = runCatching { backend.calendarConfirm(p.id) }
+                                .getOrElse { GoogleLaneResult(false, "I couldn't add it just now.", "I couldn't add it just now.") }
+                            answer = c.text; transcript.add(TurnLine(false, c.text)); tts.speak(spokenPart(c.text))
+                            status = if (c.ok) "Added to your calendar" else "Couldn't add it"
+                        } else {
+                            runCatching { backend.calendarCancel(p.id) }
+                            tts.speak("Okay, I won't add it."); status = "Cancelled"
+                        }
+                    }
+                    !p.ok && p.notConnected && agent.isConfigured -> {
+                        if (awaitConfirmation("I'll add that to your calendar. Shall I go ahead?")) {
+                            status = "Adding to your calendar…"
+                            val res = agent.calendarAdd(heard)
+                            answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
+                            status = if (res.ok) "Added to your calendar" else "Couldn't add it"
+                        } else { tts.speak("Okay, I won't add it."); status = "Cancelled" }
+                    }
+                    else -> {
+                        // A question back ("When should I put it in?") or a plain failure.
+                        answer = p.text; transcript.add(TurnLine(false, p.text)); tts.speak(spokenPart(p.text))
+                        status = if (p.ok) "Need a time" else "Couldn't add it"
+                    }
+                }
                 if (!continuous) break
                 status = "Listening…"; continue
             }
 
-            // M3 — read the calendar (no side effects, no confirm).
-            if (agent.isConfigured && isCalendarQuery(heard)) {
+            // Read the calendar (no side effects, no confirm).
+            if ((online || agent.isConfigured) && isCalendarQuery(heard)) {
                 status = "Checking your calendar…"
-                val res = agent.calendarQuery(heard)
+                val res = calendarQueryLane(heard)
                 answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
                 status = if (res.ok) "Checked your calendar" else "Couldn't check your calendar"
                 if (!continuous) break
                 status = "Listening…"; continue
             }
 
-            // M3 — draft an email (DRAFT ONLY; the Gmail MCP has no send tool, so this is safe).
-            if (agent.isConfigured && isEmailDraft(heard)) {
+            // Draft an email (DRAFT ONLY — the cloud has compose permission only; Law sends from Gmail).
+            if ((online || agent.isConfigured) && isEmailDraft(heard)) {
                 status = "Drafting your email…"
                 tts.speak("I'll draft that for you.")
-                val res = agent.emailDraft(heard)
+                val res = emailDraftLane(heard)
                 answer = res.text; transcript.add(TurnLine(false, res.text)); tts.speak(spokenPart(res.text))
                 status = if (res.ok) "Draft saved to Gmail" else "Couldn't draft it"
                 if (!continuous) break
