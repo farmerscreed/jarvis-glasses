@@ -71,6 +71,8 @@ class HomeViewModel @Inject constructor(
     private val onDeviceLlm: com.echo.app.ml.OnDeviceLlm,
     private val translator: com.echo.app.translate.TranslationController,
     private val phrases: com.echo.app.translate.PhraseSpeaker,
+    /** Find my glasses — read by the Device screen. */
+    val glassesLocator: GlassesLocator,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -519,6 +521,10 @@ class HomeViewModel @Inject constructor(
             askConfirmAction = { val r = agent.commitChanges(); askThread.add(AskTurn(false, r.text, kindOf(r, "coding"))) }
             return
         }
+        if (isFindGlasses(q)) {
+            askThread.add(AskTurn(false, glassesLocator.spokenAnswer(), "note"))
+            return
+        }
         if (isPersonCommand(q)) {
             run("Saving…") {
                 askThread.add(AskTurn(false, rememberPerson(q) { status = it }, "note"))
@@ -789,6 +795,15 @@ class HomeViewModel @Inject constructor(
             repromptUsed = false
             question = heard
             transcript.add(TurnLine(fromUser = true, text = heard))
+
+            // Find my glasses: where the phone was when the glasses last disconnected.
+            if (isFindGlasses(heard)) {
+                val said = glassesLocator.spokenAnswer()
+                answer = said; transcript.add(TurnLine(false, said)); tts.speak(said)
+                if (!continuous) { status = "Done"; break }
+                status = "Listening…"
+                continue
+            }
 
             // People memory: "remember this person: Mr Ade, supplier, met at the yard" (checked before
             // "remember that…", which pins a profile fact instead).
@@ -1248,6 +1263,14 @@ class HomeViewModel @Inject constructor(
      * Short closing phrases that end a conversation. Deliberately conservative — only brief
      * utterances match, so a real question that happens to contain "stop"/"bye" doesn't hang up.
      */
+    // "Where are my glasses?" / "find my glasses" / "where did I leave my glasses?"
+    private val findGlassesRe = Regex(
+        """\b(where('?s| is| are)? (are |is )?my glasses|where did i (leave|put|drop) my glasses|find my glasses|""" +
+            """(i )?(lost|can'?t find|cannot find) my glasses|last (seen|saw) my glasses)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private fun isFindGlasses(s: String) = findGlassesRe.containsMatchIn(s)
+
     // People memory: "remember this person / this contact / a new contact…", "remember (that) I met…".
     private val personRe = Regex(
         "^\\s*(please\\s+)?(hey\\s+)?(jarvis[,!.]?\\s+)?(remember|save|note|add|make\\s+a\\s+note\\s+of)\\s+(that\\s+)?" +

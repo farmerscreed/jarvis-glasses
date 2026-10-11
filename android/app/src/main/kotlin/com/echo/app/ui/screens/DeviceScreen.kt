@@ -1,5 +1,17 @@
 package com.echo.app.ui.screens
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import com.echo.app.ui.components.JarvisSecondaryButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -100,6 +112,9 @@ fun DeviceScreen(vm: HomeViewModel) {
             }
         }
 
+        // ── Find my glasses ───────────────────────────────────────────────
+        FindGlassesCard(vm, bleUp)
+
         // ── Buttons map (decoded — recon/Glasses_Controls.md) ─────────────
         SectionTitle("Buttons")
         ButtonRow(Icons.Outlined.CameraAlt, "Front button", "Single press — take a photo")
@@ -120,6 +135,95 @@ fun DeviceScreen(vm: HomeViewModel) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * Find my glasses: one plain card. Not set up → one button that asks for location, then "Allow all the
+ * time" (so the spot is noted even with the app closed). Set up → when/where they were last connected
+ * and a big "Show on map" button.
+ */
+@Composable
+private fun FindGlassesCard(vm: HomeViewModel, bleUp: Boolean) {
+    val ctx = LocalContext.current
+    val locator = vm.glassesLocator
+    var refresh by remember { mutableIntStateOf(0) }
+    val background = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
+    val foreground = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+        refresh++
+        // Step 2 (Android 11+ shows it as a separate screen): "Allow all the time".
+        if (res.values.any { it } && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !locator.hasBackgroundPermission()) {
+            background.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+    }
+    // Re-read when the screen comes back (e.g. from the permission settings page).
+    LaunchedEffect(Unit) { refresh++ }
+    val hasLoc = remember(refresh) { locator.hasLocationPermission() }
+    val hasBg = remember(refresh) { locator.hasBackgroundPermission() }
+    val last = remember(refresh, bleUp) { locator.lastSeen() }
+
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(Modifier.padding(JarvisSpacing.lg), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
+                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Text("Find my glasses", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            }
+            when {
+                !hasLoc -> {
+                    Text(
+                        "When your glasses disconnect, JARVIS notes where your phone is — so you can find them later. " +
+                            "Then just ask “Jarvis, where are my glasses?”",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    JarvisPrimaryButton(
+                        "Turn on Find my glasses",
+                        onClick = { foreground.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                else -> {
+                    Text(
+                        when {
+                            bleUp -> "Connected now — they're with you."
+                            last == null -> "No spot saved yet. It's noted the next time the glasses disconnect."
+                            else -> "Last connected ${agoText(last.at)}" + (if (last.place.isNotBlank()) ", near ${last.place}" else "") + "."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (last != null) {
+                        JarvisPrimaryButton(
+                            "Show on map",
+                            onClick = { runCatching { ctx.startActivity(locator.mapIntent(last)) } },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    if (!hasBg) {
+                        Text(
+                            "To note the spot while the app is closed, allow location “All the time”.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        JarvisSecondaryButton("Allow all the time", onClick = { background.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun agoText(at: Long): String {
+    val mins = ((System.currentTimeMillis() - at) / 60_000).toInt()
+    return when {
+        mins < 2 -> "just now"
+        mins < 60 -> "$mins min ago"
+        mins < 24 * 60 -> "${mins / 60} h ago"
+        else -> "${mins / (24 * 60)} days ago"
     }
 }
 

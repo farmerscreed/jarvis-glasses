@@ -45,6 +45,7 @@ class GlassesCaptureReactor @Inject constructor(
     private val store: MemoryStore,
     private val backend: EchoBackend,
     private val tts: TtsEngine,
+    private val locator: GlassesLocator,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val syncMutex = Mutex()
@@ -71,6 +72,7 @@ class GlassesCaptureReactor @Inject constructor(
     @Synchronized
     fun start() {
         hosts++
+        locator.start() // find-my-glasses: note the phone's location whenever the glasses disconnect
         if (collectJob == null) {
             // Bring up the GATT link so button-press notifications actually reach us. Without this,
             // the glasses are only connected after a manual sync, so a fresh app never sees a

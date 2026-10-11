@@ -104,6 +104,13 @@ phone says the phrase out loud for them, and **Show them** puts it on screen in 
 and remembers it for next time. Translation needs internet. For privacy, your glasses should be
 connected for sound; if not, the app warns you and your English plays from the phone.
 
+## Find my glasses
+Device screen → **Find my glasses** → **Turn on**, and allow location (then **"All the time"**, so it
+works with the app closed). From then on, the moment your glasses disconnect, JARVIS notes where your
+phone is. Ask **"Jarvis, where are my glasses?"** → *"They were last connected 2 hours ago, near Trans-Amadi
+Road."* — and **Show on map** opens the spot in Google Maps. If they're connected right now, it says so.
+It's the phone's location when the link dropped, so it's accurate to a room or a car park, not a drawer.
+
 ## Glasses buttons (decoded)
 | Button | Action |
 |---|---|

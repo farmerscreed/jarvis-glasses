@@ -259,6 +259,7 @@ private fun GesturesPage() {
 private fun TutorialsPage() {
     val tutorials = listOf(
         Triple("Ask your memory", listOf("Tap the mic or say “Jarvis”", "Ask a question", "Hear the answer from your memories"), "Works offline too — JARVIS searches on-device when there's no signal."),
+        Triple("Find my glasses", listOf("Device screen → Find my glasses → Turn on (allow location “All the time”)", "When the glasses disconnect, JARVIS notes where your phone is", "Ask “Jarvis, where are my glasses?” or tap Show on map"), "It's where the link dropped — good to a room or a car park."),
         Triple("Remember a person", listOf("Say “Jarvis, remember this person: Mr Ade, supplier, met at the yard”", "JARVIS saves their name, role and where you met (and a picture if the glasses are on)", "Later ask “who was the supplier I met last week?”"), "Timeline → People lists everyone you've saved. Just a picture for you — no face recognition."),
         Triple("Look & Ask", listOf("Say “what am I looking at?”", "JARVIS captures the frame", "It describes what you're seeing, out loud"), "Great for “what is this?” moments — works mid-conversation."),
         Triple("Look & research", listOf("Look at the thing (a cot, a fan, a product)", "Say “Jarvis, how much is this?” or “research this”", "It says what it sees, then gives prices, where to buy and sources"), "Takes ~15–25 s. Prices are for Nigeria unless you name a place. Saved to your memory with the photo."),
@@ -335,6 +336,7 @@ private fun CommandsPage() {
             "“Add lunch to my calendar tomorrow at noon.”  (it reads it back and waits for your yes)",
             "“Draft an email to Sam about Friday.”  (a draft in your Gmail — you send it)",
             "“Remember this person: Mr Ade, supplier, met at the yard.”   Later: “Who was the supplier I met?”",
+            "“Where are my glasses?”",
             "“Check my email.”",
         ),
         "Discuss a photo" to listOf(
