@@ -1,8 +1,7 @@
 -- Agent Delegation M4 (Phase 2 groundwork): the task store for delegated "deliberate lane" work.
 -- One row per delegated Claude Code task (research/coding/email/calendar). Lets tickets survive,
 -- be reviewable in the app, and (later) drive an FCM "done" notification. Phase 1 (M1–M3) runs
--- synchronously and doesn't need this; M4 async + hosted does. Deployed to LOCAL first; prod is a
--- separate director-authorized deploy. See docs/AGENT_DELEGATION.md §2 / §10.
+-- synchronously and doesn't need this; M4 async + hosted does. Applied to prod 2026-10-12 (Law authorized). See docs/AGENT_DELEGATION.md §2 / §10.
 
 create table if not exists public.agent_tasks (
   id          uuid primary key default gen_random_uuid(),
@@ -27,5 +26,6 @@ alter table public.agent_tasks enable row level security;
 -- A user can only see/manage their own delegated tasks.
 create policy "agent_tasks_owner_all" on public.agent_tasks
   for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);

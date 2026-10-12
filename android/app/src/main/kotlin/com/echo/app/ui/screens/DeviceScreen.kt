@@ -4,144 +4,123 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
-import com.echo.app.ui.components.JarvisSecondaryButton
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bluetooth
-import androidx.compose.material.icons.outlined.BatteryFull
 import androidx.compose.material.icons.outlined.CameraAlt
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Mic
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.echo.app.HomeViewModel
-import com.echo.app.ui.components.JarvisPrimaryButton
+import com.echo.app.ui.components.GhostButton
+import com.echo.app.ui.components.GlowButton
+import com.echo.app.ui.components.MonoLabel
+import com.echo.app.ui.components.Neo
+import com.echo.app.ui.components.NeoCard
+import com.echo.app.ui.components.SettingsGroup
+import com.echo.app.ui.components.SettingsRow
+import com.echo.app.ui.components.StatusDot
 import com.echo.app.ui.components.rememberGlassesAudioConnected
-import com.echo.app.ui.theme.JarvisSpacing
-import com.echo.app.ui.theme.JarvisTheme
 
 /**
- * Device screen (from the Stitch `device_jarvis_glasses` design): glasses connection + the decoded
- * **battery %** (BLE-pushed), the decoded buttons map (recon), and a "Fix connection" action.
- * Read-only over the engine — surfaces state the ViewModel already exposes.
+ * Glasses (redesign 2026-10): a status hero (battery %, Bluetooth + audio link), Find my glasses (one-button
+ * setup, then when/where + Show on map), the decoded buttons map, and Fix connection.
  */
 @Composable
 fun DeviceScreen(vm: HomeViewModel) {
     val audioConnected = rememberGlassesAudioConnected()
-    val bleUp = vm.bleStatus.contains("listening", true) || vm.bleStatus.contains("connected", true) ||
-        vm.bleStatus.contains("IP", true)
+    val bleUp = vm.bleStatus.contains("listening", true) || vm.bleStatus.contains("connected", true) || vm.bleStatus.contains("IP", true)
     val battery = vm.glassesBattery
+    val up = bleUp || audioConnected
 
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(JarvisSpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(JarvisSpacing.md),
-    ) {
-        // ── Status + battery ──────────────────────────────────────────────
-        Card(
-            Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        ) {
-            Column(Modifier.padding(JarvisSpacing.lg), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
-                    Icon(
-                        Icons.Outlined.Bluetooth,
-                        contentDescription = null,
-                        tint = if (bleUp) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(
-                        when {
-                            bleUp && audioConnected -> "Connected · audio in glasses"
-                            bleUp -> "Connected over Bluetooth"
-                            else -> "Not connected"
-                        },
-                        style = JarvisTheme.dataMono,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+    Column(Modifier.fillMaxSize().background(Neo.Ground).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        NeoCard(hero = true, padding = 22.dp) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MonoLabel(if (up) "Connected" else "Not connected", color = if (up) Neo.Cyan else Neo.Amber)
+                    Text(battery?.let { "$it%" } ?: "—", style = Neo.display.copy(fontSize = 48.sp, fontWeight = FontWeight.Bold, color = when {
+                        battery == null -> Neo.Muted
+                        battery <= 20 -> Neo.Danger
+                        else -> androidx.compose.ui.graphics.Color.White
+                    }))
+                    Text(if (battery == null) "Battery unknown — turn the glasses on" else "Glasses battery", style = Neo.body.copy(fontSize = 13.sp, color = Neo.Muted))
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
-                    Icon(
-                        Icons.Outlined.BatteryFull,
-                        contentDescription = "battery",
-                        tint = when {
-                            battery == null -> MaterialTheme.colorScheme.onSurfaceVariant
-                            battery <= 20 -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.primary
-                        },
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Text(
-                        battery?.let { "$it%" } ?: "—",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        if (battery == null) "battery unknown (turn the glasses on)" else "glasses battery",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text(vm.bleStatus, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                BatteryRing(battery)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                StatusDot(if (bleUp) "Bluetooth on" else "Bluetooth off", if (bleUp) Neo.Cyan else Neo.Amber)
+                StatusDot(if (audioConnected) "Sound in glasses" else "Sound on phone", if (audioConnected) Neo.Cyan else Neo.Amber)
             }
         }
 
-        // ── Find my glasses ───────────────────────────────────────────────
         FindGlassesCard(vm, bleUp)
 
-        // ── Buttons map (decoded — recon/Glasses_Controls.md) ─────────────
-        SectionTitle("Buttons")
-        ButtonRow(Icons.Outlined.CameraAlt, "Front button", "Single press — take a photo")
-        ButtonRow(Icons.Outlined.Mic, "BACK button — hold", "Start/stop a voice recording")
-        ButtonRow(Icons.Outlined.Visibility, "BACK button — double-click", "Listen & translate on / off")
+        SettingsGroup("Buttons on your glasses") {
+            SettingsRow(Icons.Outlined.CameraAlt, "Front button", sub = "Press once — take a photo")
+            SettingsRow(Icons.Outlined.Videocam, "Front button — double-click", sub = "Start / stop a video")
+            SettingsRow(Icons.Outlined.Mic, "Back button — hold", sub = "Record a voice note")
+            SettingsRow(Icons.Outlined.GraphicEq, "Back button — double-click", sub = "Listen & translate on / off", divider = false)
+        }
 
-        Spacer(Modifier.height(JarvisSpacing.sm))
+        GlowButton(if (vm.syncing) "Reconnecting…" else "Fix connection", onClick = vm::syncGlasses, enabled = !vm.busy && !vm.syncing, icon = Icons.Outlined.Sync, modifier = Modifier.fillMaxWidth())
+        Text("Reconnects Bluetooth + Wi-Fi and pulls anything new off the glasses.", style = Neo.body.copy(fontSize = 12.sp, color = Neo.Muted))
+        Text(vm.bleStatus, style = Neo.mono.copy(fontSize = 11.sp, letterSpacing = 0.sp, color = Neo.Faint))
+        Spacer(Modifier.height(20.dp))
+    }
+}
 
-        // ── Fix connection ────────────────────────────────────────────────
-        JarvisPrimaryButton(
-            text = if (vm.syncing) "Reconnecting…" else "Fix connection",
-            onClick = vm::syncGlasses,
-            enabled = !vm.busy && !vm.syncing,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Text(
-            "Re-establishes the Bluetooth + Wi-Fi Direct link and pulls anything new off the glasses.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+/** A simple ring that fills with the battery level. */
+@Composable
+private fun BatteryRing(level: Int?) {
+    val pct = (level ?: 0).coerceIn(0, 100) / 100f
+    val color = when {
+        level == null -> Neo.AccentBorder
+        level <= 20 -> Neo.Danger
+        else -> Neo.Cyan
+    }
+    Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(Modifier.size(84.dp)) {
+            val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = 8.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawArc(Neo.Border, 0f, 360f, false, style = stroke)
+            drawArc(color, -90f, 360f * pct, false, style = stroke)
+        }
+        Box(Modifier.size(10.dp).clip(CircleShape).background(color))
     }
 }
 
 /**
- * Find my glasses: one plain card. Not set up → one button that asks for location, then "Allow all the
- * time" (so the spot is noted even with the app closed). Set up → when/where they were last connected
- * and a big "Show on map" button.
+ * Find my glasses: not set up → one button that asks for location, then "Allow all the time" (so the
+ * spot is noted even with the app closed). Set up → when/where they were last connected + Show on map.
  */
 @Composable
 private fun FindGlassesCard(vm: HomeViewModel, bleUp: Boolean) {
@@ -151,67 +130,39 @@ private fun FindGlassesCard(vm: HomeViewModel, bleUp: Boolean) {
     val background = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
     val foreground = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
         refresh++
-        // Step 2 (Android 11+ shows it as a separate screen): "Allow all the time".
         if (res.values.any { it } && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !locator.hasBackgroundPermission()) {
             background.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
         }
     }
-    // Re-read when the screen comes back (e.g. from the permission settings page).
     LaunchedEffect(Unit) { refresh++ }
     val hasLoc = remember(refresh) { locator.hasLocationPermission() }
     val hasBg = remember(refresh) { locator.hasBackgroundPermission() }
     val last = remember(refresh, bleUp) { locator.lastSeen() }
 
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(Modifier.padding(JarvisSpacing.lg), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
-                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                Text("Find my glasses", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+    NeoCard(padding = 18.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(34.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(Neo.Cyan.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.LocationOn, contentDescription = null, tint = Neo.Cyan, modifier = Modifier.size(18.dp))
             }
-            when {
-                !hasLoc -> {
-                    Text(
-                        "When your glasses disconnect, JARVIS notes where your phone is — so you can find them later. " +
-                            "Then just ask “Jarvis, where are my glasses?”",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    JarvisPrimaryButton(
-                        "Turn on Find my glasses",
-                        onClick = { foreground.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                else -> {
-                    Text(
-                        when {
-                            bleUp -> "Connected now — they're with you."
-                            last == null -> "No spot saved yet. It's noted the next time the glasses disconnect."
-                            else -> "Last connected ${agoText(last.at)}" + (if (last.place.isNotBlank()) ", near ${last.place}" else "") + "."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    if (last != null) {
-                        JarvisPrimaryButton(
-                            "Show on map",
-                            onClick = { runCatching { ctx.startActivity(locator.mapIntent(last)) } },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    if (!hasBg) {
-                        Text(
-                            "To note the spot while the app is closed, allow location “All the time”.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        JarvisSecondaryButton("Allow all the time", onClick = { background.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) })
-                    }
-                }
+            Text("Find my glasses", style = Neo.display.copy(fontSize = 17.sp))
+        }
+        if (!hasLoc) {
+            Text("When your glasses disconnect, JARVIS notes where your phone is — then ask “Jarvis, where are my glasses?”",
+                style = Neo.body.copy(fontSize = 14.sp, lineHeight = 21.sp, color = Neo.Muted))
+            GlowButton("Turn on", onClick = { foreground.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }, modifier = Modifier.fillMaxWidth())
+        } else {
+            Text(
+                when {
+                    bleUp -> "Connected now — they're with you."
+                    last == null -> "No spot saved yet — it's noted the next time they disconnect."
+                    else -> "Last connected ${agoText(last.at)}" + (if (last.place.isNotBlank()) ", near ${last.place}" else "") + "."
+                },
+                style = Neo.body.copy(fontSize = 16.sp, lineHeight = 23.sp),
+            )
+            if (last != null) GhostButton("Show on map", onClick = { runCatching { ctx.startActivity(locator.mapIntent(last)) } }, icon = Icons.Outlined.Map, modifier = Modifier.fillMaxWidth(), color = Neo.CyanPale)
+            if (!hasBg) {
+                Text("To note the spot while the app is closed, allow location “All the time”.", style = Neo.body.copy(fontSize = 13.sp, color = Neo.Amber))
+                GhostButton("Allow all the time", onClick = { background.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) }, height = 44.dp)
             }
         }
     }
@@ -224,35 +175,5 @@ private fun agoText(at: Long): String {
         mins < 60 -> "$mins min ago"
         mins < 24 * 60 -> "${mins / 60} h ago"
         else -> "${mins / (24 * 60)} days ago"
-    }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text.uppercase(),
-        style = JarvisTheme.dataMono,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-@Composable
-private fun ButtonRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
-    Card(
-        Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Row(
-            Modifier.padding(JarvisSpacing.md),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.md),
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
     }
 }

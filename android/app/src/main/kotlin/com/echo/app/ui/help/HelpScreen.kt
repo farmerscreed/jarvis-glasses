@@ -46,6 +46,9 @@ import com.echo.app.ui.components.SectionLabel
 import com.echo.app.ui.components.StatusChip
 import com.echo.app.ui.theme.JarvisSpacing
 import com.echo.app.ui.theme.JarvisTheme
+import com.echo.app.ui.components.Neo
+import com.echo.app.ui.components.NeoStroke
+import com.echo.app.ui.components.NeoTopBar
 
 private enum class HelpTab(val label: String, val icon: ImageVector) {
     Hub("Hub", Icons.AutoMirrored.Outlined.MenuBook),
@@ -65,25 +68,9 @@ fun HelpScreen(onClose: () -> Unit) {
     BackHandler(onBack = onClose)
     var tab by remember { mutableStateOf(HelpTab.Hub) }
 
-    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+    Surface(color = Neo.Ground, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            // Top bar
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = JarvisSpacing.sm)
-                    .height(56.dp),
-            ) {
-                IconButton(onClick = onClose, modifier = Modifier.align(Alignment.CenterStart)) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, "back", tint = MaterialTheme.colorScheme.onSurface)
-                }
-                Text(
-                    "Help Center",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-            }
+            NeoTopBar("Help", onBack = onClose)
 
             Box(Modifier.weight(1f)) {
                 when (tab) {
@@ -95,9 +82,9 @@ fun HelpScreen(onClose: () -> Unit) {
             }
 
             // Help's own bottom tab strip
-            Surface(color = MaterialTheme.colorScheme.surfaceContainerLowest) {
+            Surface(color = Neo.Bar) {
                 Column(Modifier.navigationBarsPadding()) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    HorizontalDivider(color = Neo.Divider, thickness = 1.dp)
                     Row(
                         Modifier
                             .fillMaxWidth()
@@ -106,7 +93,7 @@ fun HelpScreen(onClose: () -> Unit) {
                     ) {
                         HelpTab.entries.forEach { t ->
                             val active = t == tab
-                            val tint = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            val tint = if (active) Neo.Cyan else Neo.Muted
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(JarvisSpacing.xs),
@@ -137,11 +124,11 @@ private fun HubPage(onPick: (HelpTab) -> Unit) {
             Spacer(Modifier.height(JarvisSpacing.sm))
             Card(
                 shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                colors = CardDefaults.cardColors(containerColor = Neo.Card), border = NeoStroke,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(Modifier.padding(JarvisSpacing.lg), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
-                    SectionLabel("Ethereal Sentinel", icon = Icons.Outlined.Lightbulb)
+                    SectionLabel("Start here", icon = Icons.Outlined.Lightbulb)
                     Text("How JARVIS Works", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
                     Text(
                         "Your glasses are the eyes and ears; the phone is the brain. Capture a photo or " +
@@ -168,7 +155,7 @@ private fun HubPage(onPick: (HelpTab) -> Unit) {
             // Pro tip
             Card(
                 shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = Neo.Card), border = NeoStroke,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(Modifier.padding(JarvisSpacing.lg), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
@@ -189,7 +176,7 @@ private fun HubPage(onPick: (HelpTab) -> Unit) {
 private fun HelpCategory(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
     Card(
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = Neo.Card), border = NeoStroke,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
@@ -200,7 +187,7 @@ private fun HelpCategory(title: String, subtitle: String, icon: ImageVector, onC
             horizontalArrangement = Arrangement.spacedBy(JarvisSpacing.md),
         ) {
             Box(
-                Modifier.size(44.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
+                Modifier.size(44.dp).background(Neo.Cyan.copy(alpha = 0.12f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) { Icon(icon, null, tint = MaterialTheme.colorScheme.primaryContainer) }
             Column(Modifier.weight(1f)) {
@@ -240,7 +227,7 @@ private fun GesturesPage() {
             val (gesture, native, ours) = gestures[i]
             Card(
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = Neo.Card), border = NeoStroke,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(Modifier.padding(JarvisSpacing.md), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.xs)) {
@@ -259,7 +246,7 @@ private fun GesturesPage() {
 private fun TutorialsPage() {
     val tutorials = listOf(
         Triple("Ask your memory", listOf("Tap the mic or say “Jarvis”", "Ask a question", "Hear the answer from your memories"), "Works offline too — JARVIS searches on-device when there's no signal."),
-        Triple("Find my glasses", listOf("Device screen → Find my glasses → Turn on (allow location “All the time”)", "When the glasses disconnect, JARVIS notes where your phone is", "Ask “Jarvis, where are my glasses?” or tap Show on map"), "It's where the link dropped — good to a room or a car park."),
+        Triple("Find my glasses", listOf("Home → Find glasses → Turn on (allow location “All the time”)", "When the glasses disconnect, JARVIS notes where your phone is", "Ask “Jarvis, where are my glasses?” or tap Show on map"), "It's where the link dropped — good to a room or a car park."),
         Triple("Remember a person", listOf("Say “Jarvis, remember this person: Mr Ade, supplier, met at the yard”", "JARVIS saves their name, role and where you met (and a picture if the glasses are on)", "Later ask “who was the supplier I met last week?”"), "Memories → People lists everyone you've saved. Or tap Remember on Home and type it. Just a picture for you — no face recognition."),
         Triple("Look & Ask", listOf("Say “what am I looking at?” — or tap Look on Home", "JARVIS captures the frame", "It describes what you're seeing, out loud"), "Great for “what is this?” moments — works mid-conversation."),
         Triple("Look & research", listOf("Look at the thing — or tap Research → “Research what I'm looking at”", "Say “Jarvis, how much is this?” or “research this”", "It says what it sees, then gives prices, where to buy and sources"), "Takes ~15–25 s. Prices are for Nigeria unless you name a place. Saved to your memory with the photo."),
@@ -286,7 +273,7 @@ private fun TutorialsPage() {
             val (title, steps, note) = tutorials[i]
             Card(
                 shape = MaterialTheme.shapes.extraLarge,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                colors = CardDefaults.cardColors(containerColor = Neo.Card), border = NeoStroke,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(Modifier.padding(JarvisSpacing.lg), verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
@@ -363,7 +350,7 @@ private fun CommandsPage() {
             items(phrases.size) { i ->
                 Card(
                     shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    colors = CardDefaults.cardColors(containerColor = Neo.Card), border = NeoStroke,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(

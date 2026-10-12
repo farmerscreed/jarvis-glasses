@@ -62,7 +62,7 @@ fun OnboardingScreen(vm: HomeViewModel, onFinish: () -> Unit) {
     val back: () -> Unit = { if (step > 0) step -= 1 }
     BackHandler(enabled = step > 0) { back() }
 
-    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+    Surface(color = com.echo.app.ui.components.Neo.Ground, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             // Top bar
             Box(
@@ -229,7 +229,7 @@ private fun PermissionsStep(onNext: () -> Unit) {
 private fun PermissionRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, desc: String) {
     androidx.compose.material3.Card(
         shape = MaterialTheme.shapes.large,
-        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = com.echo.app.ui.components.Neo.Card), border = com.echo.app.ui.components.NeoStroke,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(

@@ -26,16 +26,8 @@ fun JarvisPrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        enabled = enabled,
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-        ),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge) }
+    // Redesign 2026-10: every legacy primary button renders as the Neo glow pill.
+    GlowButton(text, onClick = onClick, modifier = modifier, enabled = enabled, height = 52.dp)
 }
 
 /** Secondary action: dark pill with hairline border ("Secondary", "Keep Searching"). */
@@ -46,14 +38,8 @@ fun JarvisSecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier,
-        enabled = enabled,
-        shape = CircleShape,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge) }
+    // Redesign 2026-10: legacy secondary buttons render as the Neo ghost pill.
+    GhostButton(text, onClick = onClick, modifier = modifier, enabled = enabled, height = 48.dp)
 }
 
 /** Inline text link. */

@@ -153,7 +153,7 @@ nothing is removed, only moved (see the "Backed by" lines).
 | 4 Settings | ✅ | `ui/screens/SettingsScreen.kt` (header, groups, sub-pages: Gmail & Calendar, Notifications, Personality & memory, Your data, Advanced) |
 | 5 Memories | ✅ | `ui/screens/MemoriesScreen.kt` (search, filters, person/photo/research/note cards, photo grid → PhotoDetailScreen). `TimelineScreen.kt` + `GalleryScreen.kt` removed |
 | 6 Research | ✅ | `ui/screens/ResearchScreen.kt` + `HomeViewModel.researchUi/startResearch/researchWhatImLookingAt/researchByVoice`; `research` function returns `headline` (deployed) |
-| 7 Ask / Device / Help / onboarding | 🟡 partial | new top bar + dark ground; their inner cards still use the older card style — restyle after Law's review |
+| 7 Ask / Device / Help / onboarding | ✅ 2026-10-12 | Ask JARVIS rewritten (Neo cards per kind, idea chips, composer); Glasses screen rewritten (battery hero + ring, Find my glasses, buttons map, Fix connection); Help + onboarding cards/top bar/tab strip restyled; legacy `JarvisPrimaryButton`/`JarvisSecondaryButton` now render as `GlowButton`/`GhostButton` everywhere |
 
 New ViewModel entry points: `lookNow()` (fresh glasses photo → spoken description), `rememberPersonTyped()`,
 `researchUi` + research functions above. Help + `USER_GUIDE.md` updated for the new navigation.
