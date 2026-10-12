@@ -253,4 +253,12 @@ Not yet screenshotted: the phone was locked (screenshots only taken while JARVIS
   `finish` after stop; delete queues a cloud delete (`recordings/.deleted`); SyncWorker drains as a backstop.
   Library cards: On phone / Uploading n/m / Backed up. Installed on the Pixel. **Untested end to end** until the
   function exists. Commit `47882c7`.
+- **Unblocked:** Law created `meeting` as a placeholder in the dashboard; the real code then deployed with the CLI.
+- **M2 test:** the 7-min recording uploaded on opening the library (2/2, bytes + sha256 match). A 26.5-min meeting
+  (6 chunks) uploaded chunks 1–3 within ~5 s of each closing — during the meeting — then **stalled**: Storage
+  answers an expired JWT with **HTTP 400** (`"statusCode":"403"`, `"exp" claim timestamp check failed`), not 401,
+  so the refresh never fired (photo uploads had the same latent bug). Fixed in `EchoBackend.authExpired()`
+  (`207b200`); after install chunks 4–6 went up in 4 s and the recording finished: cloud 6/6 chunks, 6,468,272 bytes
+  = phone, 1589 s of chunks vs 1591 s recorded. The airplane-mode moment didn't clearly coincide with a chunk
+  closing, so offline resume is shown by the stall → recovery rather than by airplane mode as such.
 
