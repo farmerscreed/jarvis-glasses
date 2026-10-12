@@ -22,7 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.RadioButtonChecked
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.PersonAddAlt
 import androidx.compose.material.icons.outlined.Search
@@ -89,6 +89,7 @@ fun LiveConsoleScreen(
     onOpenTranslate: () -> Unit = {},
     onOpenResearch: () -> Unit = {},
     onOpenDevice: () -> Unit = {},
+    onOpenMeeting: () -> Unit = {},
     onHelp: () -> Unit = {},
 ) {
     if (!vm.loggedIn) {
@@ -184,7 +185,7 @@ fun LiveConsoleScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 FeatureTile(Icons.Outlined.Search, "Research", onClick = onOpenResearch, modifier = Modifier.weight(1f))
                 FeatureTile(Icons.Outlined.PersonAddAlt, "Remember", onClick = { showRemember = true }, modifier = Modifier.weight(1f))
-                FeatureTile(Icons.Outlined.LocationOn, "Find glasses", onClick = onOpenDevice, modifier = Modifier.weight(1f))
+                FeatureTile(Icons.Outlined.RadioButtonChecked, "Meeting", onClick = onOpenMeeting, accent = androidx.compose.ui.graphics.Color(0xFFFF7A7A), modifier = Modifier.weight(1f))
             }
         }
 

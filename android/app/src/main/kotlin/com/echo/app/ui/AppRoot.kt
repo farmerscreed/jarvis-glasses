@@ -43,6 +43,7 @@ import com.echo.app.ui.onboarding.OnboardingScreen
 import com.echo.app.ui.screens.AskJarvisScreen
 import com.echo.app.ui.screens.DeviceScreen
 import com.echo.app.ui.screens.LiveConsoleScreen
+import com.echo.app.ui.screens.MeetingScreen
 import com.echo.app.ui.screens.MemoriesScreen
 import com.echo.app.ui.screens.ResearchScreen
 import com.echo.app.ui.screens.SettingsScreen
@@ -63,6 +64,7 @@ fun AppRoot() {
     var device by rememberSaveable { mutableStateOf(false) }
     var ask by rememberSaveable { mutableStateOf(false) }
     var research by rememberSaveable { mutableStateOf(false) }
+    var meeting by rememberSaveable { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
 
     // Restart the background companion on app launch if the user enabled it and is signed in.
@@ -72,6 +74,14 @@ fun AppRoot() {
     // Voice / glasses can open Translate ("Jarvis, translate to French", double-tap): jump to its tab.
     LaunchedEffect(vm.translateOpen) {
         if (vm.translateOpen) { tab = JarvisTab.Translate; ask = false; research = false; device = false; vm.translateOpen = false }
+    }
+
+    // Meeting screen: opened by voice ("record this meeting") or by tapping the recording notification.
+    LaunchedEffect(vm.meetingOpen, com.echo.app.meeting.MeetingNav.openRequested) {
+        if (vm.meetingOpen || com.echo.app.meeting.MeetingNav.openRequested) {
+            meeting = true; ask = false; research = false; device = false
+            vm.meetingOpen = false; com.echo.app.meeting.MeetingNav.openRequested = false
+        }
     }
 
     if (!onboarded) {
@@ -101,8 +111,8 @@ fun AppRoot() {
         )
     }
 
-    val fullScreen = devConsole || device || ask || research
-    if (fullScreen) BackHandler { devConsole = false; device = false; ask = false; research = false }
+    val fullScreen = devConsole || device || ask || research || meeting
+    if (fullScreen) BackHandler { devConsole = false; device = false; ask = false; research = false; meeting = false }
     else if (tab != JarvisTab.Home) BackHandler { tab = JarvisTab.Home }
 
     Scaffold(
@@ -116,6 +126,7 @@ fun AppRoot() {
         },
         bottomBar = {
             if (!fullScreen) Column {
+                if (vm.meetingUi.active) RecordingBar(vm.meetingUi.elapsedMs) { meeting = true }
                 if (vm.translateUi.active && tab != JarvisTab.Translate) TranslatingBar(vm.translateUi.theirLang) { tab = JarvisTab.Translate }
                 JarvisBottomBar(current = tab, onSelect = { tab = it })
             }
@@ -127,12 +138,14 @@ fun AppRoot() {
                 device -> DeviceScreen(vm)
                 ask -> AskJarvisScreen(vm)
                 research -> ResearchScreen(vm, onBack = { research = false }, onVoice = vm::researchByVoice)
+                meeting -> MeetingScreen(vm, onBack = { meeting = false })
                 tab == JarvisTab.Home -> LiveConsoleScreen(
                     vm,
                     onOpenAsk = { vm.clearAskPhoto(); ask = true },
                     onOpenTranslate = { tab = JarvisTab.Translate },
                     onOpenResearch = { research = true },
                     onOpenDevice = { device = true },
+                    onOpenMeeting = { meeting = true },
                     onHelp = { showHelp = true },
                 )
                 tab == JarvisTab.Translate -> TranslateScreen(vm)
@@ -163,5 +176,20 @@ private fun TranslatingBar(lang: String, onOpen: () -> Unit) {
             style = Neo.body.copy(fontSize = 14.sp, color = Neo.CyanPale),
         )
         Box(Modifier.fillMaxWidth())
+    }
+}
+
+/** Slim red bar above the tabs while a meeting records — tap to open it. */
+@Composable
+private fun RecordingBar(elapsedMs: Long, onOpen: () -> Unit) {
+    val red = androidx.compose.ui.graphics.Color(0xFFFF5C5C)
+    Row(
+        Modifier.fillMaxWidth().background(Neo.Bar).padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(50)).background(red.copy(alpha = 0.12f)).clickable(onClick = onOpen).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.padding(2.dp).clip(RoundedCornerShape(50)).background(red).padding(4.dp))
+        Text("Recording · ${com.echo.app.meeting.MeetingRecorder.clock(elapsedMs)} — tap to open", style = Neo.body.copy(fontSize = 14.sp, color = Neo.Danger))
     }
 }

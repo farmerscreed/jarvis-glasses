@@ -30,11 +30,24 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.NEARBY_WIFI_DEVICES,
             ),
         )
+        consumeOpenMeeting(intent)
         enableEdgeToEdge()
         setContent {
             JarvisTheme {
                 AppRoot()
             }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        consumeOpenMeeting(intent)
+    }
+
+    /** The recording notification was tapped → show the meeting screen. */
+    private fun consumeOpenMeeting(i: android.content.Intent?) {
+        if (i?.getBooleanExtra(com.echo.app.meeting.MeetingRecorderService.EXTRA_OPEN_MEETING, false) == true) {
+            com.echo.app.meeting.MeetingNav.openRequested = true
         }
     }
 }

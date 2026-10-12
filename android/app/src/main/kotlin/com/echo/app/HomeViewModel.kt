@@ -73,6 +73,8 @@ class HomeViewModel @Inject constructor(
     private val phrases: com.echo.app.translate.PhraseSpeaker,
     /** Find my glasses — read by the Device screen. */
     val glassesLocator: GlassesLocator,
+    /** Phase 2: meeting recording (phone mic). */
+    val meetings: com.echo.app.meeting.MeetingRecorder,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -172,6 +174,10 @@ class HomeViewModel @Inject constructor(
     /** Last "say it" phrase (shown big on screen so you can also just show the phone). */
     var lastPhrase by mutableStateOf<com.echo.memory.PhraseResult?>(null); private set
     private var pendingTranslate: Pair<com.echo.app.translate.TranslateMode, String?>? = null
+    /** Meeting recording state for the screens (Phase 2 · M1). */
+    var meetingUi by mutableStateOf(com.echo.app.meeting.MeetingUi()); private set
+    /** Set by the voice loop ("record this meeting"); the recording starts once the loop has released the mic. */
+    private var pendingMeeting: String? = null
 
     init {
         // Restore sign-in from the persisted session token (survives app restarts).
@@ -230,6 +236,18 @@ class HomeViewModel @Inject constructor(
             }
         }
         viewModelScope.launch { reactor.working.collect { syncing = it; if (!it) refreshLibrary() } }
+        viewModelScope.launch {
+            var wasActive = false
+            meetings.ui.collect { m ->
+                meetingUi = m
+                // Recording just ended (button, notification or voice) → wake word back on if it was.
+                if (wasActive && !m.active) {
+                    m.lastSaved?.let { tts.speak("Stopped. I saved ${spokenDuration(it.durationS)} of the meeting.") }
+                    if (handsFree && !translator.isActive) micActive = startWake()
+                }
+                wasActive = m.active
+            }
+        }
         viewModelScope.launch { reactor.status.collect { if (!busy) status = it } }
         // Glasses-triggered Look & Ask (double-click BACK) speaks; also show it on screen.
         viewModelScope.launch { reactor.lastAnswer.collect { if (it.isNotEmpty()) answer = it } }
@@ -858,6 +876,30 @@ class HomeViewModel @Inject constructor(
                 continue
             }
 
+            // ── Meetings (Phase 2) ─────────────────────────────────────────────────────────────────
+            if (meetings.isActive && com.echo.app.meeting.MeetingCommands.isStatus(heard)) {
+                val said = "Yes — ${spokenDuration((meetings.elapsedMs() / 1000).toInt())} so far."
+                answer = said; transcript.add(TurnLine(false, said)); tts.speak(said)
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+            if (meetings.isActive && com.echo.app.meeting.MeetingCommands.isMark(heard)) {
+                meetings.mark(com.echo.app.meeting.MeetingCommands.markLabel(heard))
+                tts.speak("Marked.")
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+            if (meetings.isActive && com.echo.app.meeting.MeetingCommands.isStop(heard)) {
+                meetings.stop() // the collector says "Stopped. I saved…"
+                if (!continuous) break
+                status = "Listening…"; continue
+            }
+            if (!meetings.isActive && com.echo.app.meeting.MeetingCommands.isStart(heard)) {
+                pendingMeeting = com.echo.app.meeting.MeetingCommands.title(heard)
+                status = "Starting the recording…"
+                break // free the mic first; the recording starts after the voice loop ends
+            }
+
             // ── Translation (checked BEFORE vision: "read this"/"what does this say" are translation-
             // aware here, and "translate" must never fall through to chat) ──────────────────────
             // (a) Live speech translation — conversation or listen mode. Leaves the voice loop (the
@@ -1164,12 +1206,56 @@ class HomeViewModel @Inject constructor(
             pendingTranslate = null
             beginTranslation(mode, target)
         }
+        pendingMeeting?.let { title ->
+            pendingMeeting = null
+            beginMeeting(title)
+        }
     }
+
+    // ── Meetings (Phase 2 · M1) ──────────────────────────────────────────────────────────────────
+    /** Start recording a meeting from the UI. */
+    fun startMeeting(title: String) {
+        if (meetings.isActive) return
+        if (inConversation) { pendingMeeting = title; endConversation(); return }
+        withRecordingConsent { viewModelScope.launch { beginMeeting(title) } }
+    }
+
+    private suspend fun beginMeeting(title: String) {
+        if (translator.isActive) { translator.stop(save = true); kotlinx.coroutines.delay(800) }
+        wake.stop() // the recorder needs the phone mic
+        tts.speak("Recording. Remember to tell everyone.")
+        if (!meetings.start(title)) {
+            status = meetings.ui.value.error.ifBlank { "Couldn't start recording" }
+            tts.speak(status)
+            if (handsFree) micActive = startWake()
+            return
+        }
+        micActive = true
+        status = "Recording"
+        meetingOpen = true
+    }
+
+    fun stopMeeting() { meetings.stop() }
+    fun markMeeting(label: String = "") { meetings.mark(label) }
+    fun pauseMeeting() { meetings.pause() }
+    fun resumeMeeting() { meetings.resume() }
+    fun clearMeetingSaved() { meetings.clearSaved() }
+
+    /** The UI shows the meeting screen when this is set (voice start, notification tap). */
+    var meetingOpen by mutableStateOf(false)
+
+    private fun spokenDuration(s: Int): String = when {
+        s < 60 -> "$s seconds"
+        s < 3600 -> "${s / 60} minute" + (if (s / 60 == 1) "" else "s")
+        else -> "${s / 3600} hour" + (if (s / 3600 == 1) "" else "s") + (if ((s / 60) % 60 > 0) " ${(s / 60) % 60} minutes" else "")
+    }
+
 
     // ── Translation entry points ────────────────────────────────────────────────────────────────
     /** Start live translation from the UI (Translate screen buttons). */
     fun startTranslation(mode: com.echo.app.translate.TranslateMode, target: String? = null) {
         if (translator.isActive) return
+        if (meetings.isActive) { status = "Stop the meeting recording first — both need the microphone."; viewModelScope.launch { tts.speak(status) }; return }
         if (inConversation) { // leave the voice loop first; it hands over when it exits
             pendingTranslate = mode to target
             endConversation()
@@ -1784,7 +1870,7 @@ class HomeViewModel @Inject constructor(
         wake.stop()
         run("Heard “Jarvis” — listening…") {
             converse(continuous = true)
-            if (handsFree && !translator.isActive) startWake()
+            if (handsFree && !translator.isActive && !meetings.isActive) startWake()
         }
     }
 

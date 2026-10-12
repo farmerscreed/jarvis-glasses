@@ -52,6 +52,12 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Phase 2: meeting recording with the screen off (phone mic). -->
+        <service
+            android:name=".meeting.MeetingRecorderService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
