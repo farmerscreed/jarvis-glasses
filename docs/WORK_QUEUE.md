@@ -148,10 +148,15 @@ session log.** Only then start P1.
 3. 🟡 **Done 2026-10-11, limited by the glasses** (they drop Wi-Fi ~30 s after a download; −2.3 s per look from removed waits; §9). **Keep the Wi-Fi Direct link warm** between photos (each look re-negotiates ~6–8 s) — makes
    look-and-research and reading signs much faster.
 
-## P2.5 — UI redesign — ✅ BUILT + APPROVED on the phone 2026-10-12 (steps 1–6 done; step 7 — Ask/Device/Help/onboarding inner cards — still to restyle)
+## P2.5 — UI redesign — ✅ BUILT + APPROVED on the phone 2026-10-12 (all 7 steps done 2026-10-12)
 Build `docs/UI_REDESIGN.md` in its build order: theme + shared components → Translate → navigation/Home →
 Settings → Memories → Research (+ `headline` from the research function) → Ask/Device/Help/onboarding.
 Install + screenshot each step for Law. Nothing removed, only moved.
+
+## P4 — Phase 2: Meetings — NEXT (designed 2026-10-12)
+Build `docs/PHASE2_DESIGN.md` milestone by milestone: M1 recording engine → M2 upload/storage → M3 chunk
+transcription → M4 summary + memory + push → M5 library UI → M6 retention (M6b Drive after Google) → M7 model
+router + eval → M8 glasses test session. Each ends on the phone with Law (acceptance table in the doc).
 
 ## P3 — Planned upgrades carried from earlier docs (not yet scheduled; confirm with Law)
 - **Assistant roadmap** (`docs/ASSISTANT_ROADMAP.md`): v2.1 skills via tool-use in the chat path;

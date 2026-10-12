@@ -25,8 +25,10 @@ and tested on the Pixel (§7). Next after Google: Phase 2 (meeting capture) per 
 (−2.3 s per look; the glasses drop Wi-Fi ~30 s after a download so a warm link rarely helps; §9).
 **UI redesign BUILT, installed and APPROVED by Law 2026-10-12 ("I love the new look")** — §11–12; spec + status
 table in **`docs/UI_REDESIGN.md`**; every new screen uses `ui/components/Neo.kt`.
-**NEXT:** restyle Ask / Device / Help / onboarding inner cards (redesign step 7); then Phase 2 (meeting capture —
-recordings library first) per `PRODUCT_PLAN.md`. Open Law items: Google Cloud setup, `STT_VOCAB`, confirm test push. Law decided: same email for Google
+Redesign fully finished 2026-10-12 (§13). `agent_tasks` applied on prod. Push confirmed working end to end.
+**NEXT: build Phase 2 — `docs/PHASE2_DESIGN.md`** (meeting capture → recordings library + smart storage → model
+router; milestones M1–M8, start with M1 recording engine). Open Law items: OpenRouter key, `STT_VOCAB`,
+Google Cloud setup, a glasses test session, retry the in-app test notification. Law decided: same email for Google
 and JARVIS; drafts + contacts, inbox reading later. **Waiting on Law:** Google Cloud setup (Internal
 consent screen; Gmail, Calendar, People APIs; Web + Android clients) + Supabase Google provider — steps
 in the session log §5. Still pending: `STT_VOCAB`. (P1 quick re-verification of the 10-10 features

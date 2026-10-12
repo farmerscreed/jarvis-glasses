@@ -71,7 +71,7 @@ always confirm before sending or adding.
 Phone saves its location the moment the glasses disconnect; "where are my glasses?" shows it on a
 map. Small.
 
-### Meeting capture (Phase 2)
+### Meeting capture (Phase 2) — full build design: `docs/PHASE2_DESIGN.md` (12 Oct)
 "Jarvis, record this meeting" (voice-activated) → full recording → transcript → summary, decisions,
 action items, numbers quoted → memory. In-person meetings only. Consent reminder before recording.
 

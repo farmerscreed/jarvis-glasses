@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Recording</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#3DDCFF}a:hover{color:#BBEFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0A0E13; color: #E0E2EA; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; position: relative; overflow: hidden;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 0;">
+    <div style="display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border-radius: 18px; background: rgba(255,92,92,0.12); border: 1px solid rgba(255,92,92,0.35); font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #FFB4AB; letter-spacing: 0.5px;">
+      <span style="width: 8px; height: 8px; border-radius: 4px; background: #FF5C5C; box-shadow: 0 0 10px #FF5C5C;"></span>
+      RECORDING · PHONE
+    </div>
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6F7D82;">14 MB · 92% battery</span>
+  </div>
+
+  <!-- timer ring -->
+  <div style="display: flex; flex-direction: column; align-items: center; padding-top: 26px;">
+    <div style="width: 236px; height: 236px; border-radius: 50%; border: 1px solid rgba(255,92,92,0.18); display: flex; align-items: center; justify-content: center;">
+      <div style="width: 204px; height: 204px; border-radius: 50%; border: 2px solid rgba(255,92,92,0.55); box-shadow: 0 0 46px rgba(255,92,92,0.22), inset 0 0 30px rgba(255,92,92,0.10); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
+        <span style="font-family: 'Space Grotesk', sans-serif; font-size: 52px; font-weight: 600; color: #FFFFFF; letter-spacing: 1px;">23:41</span>
+        <span style="font-size: 13px; color: #8E9CA1;">Site meeting with Mr Ade</span>
+      </div>
+    </div>
+    <div aria-hidden="true" style="display: flex; align-items: center; gap: 4px; height: 40px; margin-top: 18px;">
+      <span style="width: 4px; height: 8px; border-radius: 2px; background: #3A2323;"></span>
+      <span style="width: 4px; height: 18px; border-radius: 2px; background: #7A3333;"></span>
+      <span style="width: 4px; height: 30px; border-radius: 2px; background: #FF5C5C;"></span>
+      <span style="width: 4px; height: 22px; border-radius: 2px; background: #FF5C5C;"></span>
+      <span style="width: 4px; height: 36px; border-radius: 2px; background: #FF9A9A;"></span>
+      <span style="width: 4px; height: 16px; border-radius: 2px; background: #FF5C5C;"></span>
+      <span style="width: 4px; height: 26px; border-radius: 2px; background: #FF5C5C;"></span>
+      <span style="width: 4px; height: 12px; border-radius: 2px; background: #7A3333;"></span>
+      <span style="width: 4px; height: 6px; border-radius: 2px; background: #3A2323;"></span>
+    </div>
+  </div>
+
+  <!-- live notes -->
+  <div style="margin: 18px 20px 0; padding: 16px; border-radius: 22px; background: #12161B; border: 1px solid #1F262B; display: flex; flex-direction: column; gap: 10px; flex-grow: 1; min-height: 0;">
+    <div style="display: flex; justify-content: space-between;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; color: #3DDCFF;">AS YOU GO</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #6F7D82;">updated 2 min ago</span></div>
+    <div style="font-size: 14px; line-height: 21px; color: #9AA8AD;"><span style="color: #3DDCFF;">Mr Ade:</span> We can deliver 400 bags on Thursday if the payment clears by Wednesday.</div>
+    <div style="font-size: 14px; line-height: 21px; color: #9AA8AD;"><span style="color: #BBEFFF;">You:</span> What's the price per bag for 400?</div>
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #FFB454;"><svg width="14" height="14" viewBox="0 0 24 24" fill="#FFB454" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Marked at 18:02 — “price agreed”</div>
+  </div>
+
+  <!-- controls -->
+  <div style="display: flex; align-items: center; justify-content: center; gap: 22px; padding: 20px 20px 30px;">
+    <button aria-label="Mark this moment" style="width: 60px; height: 60px; border-radius: 30px; border: 1px solid #262A30; background: #12161B; color: #FFB454; display: flex; align-items: center; justify-content: center; padding: 0;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+    </button>
+    <button aria-label="Stop and summarise" style="width: 84px; height: 84px; border-radius: 42px; border: 3px solid rgba(255,92,92,0.45); background: transparent; display: flex; align-items: center; justify-content: center; padding: 0;">
+      <span style="width: 34px; height: 34px; border-radius: 8px; background: #FF5C5C; box-shadow: 0 0 24px rgba(255,92,92,0.5); display: block;"></span>
+    </button>
+    <button aria-label="Pause" style="width: 60px; height: 60px; border-radius: 30px; border: 1px solid #262A30; background: #12161B; color: #BBC9CE; display: flex; align-items: center; justify-content: center; padding: 0;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+    </button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

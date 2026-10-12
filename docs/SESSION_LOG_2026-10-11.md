@@ -204,3 +204,18 @@ Not yet screenshotted: the phone was locked (screenshots only taken while JARVIS
 - **Still open:** step 7 restyle (Ask JARVIS, Device/Glasses, Help, onboarding inner cards); Law to confirm
   the test notification; Google Cloud setup for Gmail & Calendar; `STT_VOCAB`; whether to delete the Firebase
   key file from `android/app/` (gitignored); whether to apply June's `agent_tasks` migration on prod.
+
+## 13. 2026-10-12 — redesign finished, agent_tasks on prod, push confirmed, Phase 2 designed
+
+- **Redesign step 7 done:** Ask JARVIS + Glasses screen rewritten (Neo), Help + onboarding restyled; the
+  legacy `JarvisPrimaryButton`/`JarvisSecondaryButton` now render as `GlowButton`/`GhostButton` everywhere.
+  Installed on the Pixel (new adb address 192.168.0.143:33677 — the phone's IP changed).
+- **`agent_tasks` on prod** (Law asked): RLS policy tightened to `to authenticated` + `(select auth.uid())`,
+  applied alone + repaired; migration history now complete (local = remote).
+- **Push works end to end:** a message sent from the PC through FCM to the registered token was received
+  ("can you see this?"). The earlier in-app test likely ran while the phone was offline (registration had
+  failed with "Unable to resolve host"); Law to retry the in-app button.
+- **Phase 2 designed in full:** `docs/PHASE2_DESIGN.md` (architecture, data model, phone recorder, cloud
+  transcription + summary, library + smart storage, model router, screens, 8 milestones with acceptance
+  tests, risks, Law's to-dos) + 5 mockups (row 3 of the canvas; `docs/design/redesign-2026-10/Meeting*`,
+  `Recordings`).

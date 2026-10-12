@@ -13,12 +13,18 @@
     "Memories.dc.html": {"x": 0, "y": 1264, "w": 390, "h": 844, "title": "Memories"},
     "Settings.dc.html": {"x": 470, "y": 1264, "w": 390, "h": 844, "title": "Settings"},
     "Research.dc.html": {"x": 940, "y": 1264, "w": 390, "h": 844, "title": "Research — ask"},
-    "ResearchAnswer.dc.html": {"x": 1410, "y": 1264, "w": 390, "h": 844, "title": "Research — answer"}
+    "ResearchAnswer.dc.html": {"x": 1410, "y": 1264, "w": 390, "h": 844, "title": "Research — answer"},
+    "MeetingStart.dc.html": {"x": 0, "y": 2528, "w": 390, "h": 844, "title": "Phase 2 — start a meeting"},
+    "MeetingLive.dc.html": {"x": 470, "y": 2528, "w": 390, "h": 844, "title": "Phase 2 — recording"},
+    "Recordings.dc.html": {"x": 940, "y": 2528, "w": 390, "h": 844, "title": "Phase 2 — recordings library"},
+    "MeetingSummary.dc.html": {"x": 1410, "y": 2528, "w": 390, "h": 844, "title": "Phase 2 — meeting summary"},
+    "MeetingTranscript.dc.html": {"x": 1880, "y": 2528, "w": 390, "h": 844, "title": "Phase 2 — transcript + audio"}
   },
-  "order": ["Home.dc.html", "Main.dc.html", "Listening.dc.html", "Conversation.dc.html", "Phrase.dc.html", "Memories.dc.html", "Settings.dc.html", "Research.dc.html", "ResearchAnswer.dc.html"],
+  "order": ["Home.dc.html", "Main.dc.html", "Listening.dc.html", "Conversation.dc.html", "Phrase.dc.html", "Memories.dc.html", "Settings.dc.html", "Research.dc.html", "ResearchAnswer.dc.html", "MeetingStart.dc.html", "MeetingLive.dc.html", "Recordings.dc.html", "MeetingSummary.dc.html", "MeetingTranscript.dc.html"],
   "notes": {
     "row1": {"x": 0, "y": -300, "text": "Home + Translate", "kind": "title1", "maxW": 2270},
-    "row2": {"x": 0, "y": 964, "text": "Memories, Settings + Research", "kind": "title1", "maxW": 1800}
+    "row2": {"x": 0, "y": 964, "text": "Memories, Settings + Research", "kind": "title1", "maxW": 1800},
+    "row3": {"x": 0, "y": 2228, "text": "Phase 2 — meetings & recordings", "kind": "title1", "maxW": 2270}
   },
   "designSystems": []
 }

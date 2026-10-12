@@ -4,6 +4,7 @@
 > `docs/PRODUCT_PLAN.md` (Phase 1 = email + calendar in the cloud, people memory, find my glasses).
 > WORK_QUEUE §0 has the Claude Code on the PC setup (wireless adb, live logcat, build/install).
 > **UI work:** follow `docs/UI_REDESIGN.md` (approved redesign spec, mockups in `docs/design/redesign-2026-10/`).
+> **Phase 2 (meetings) build plan:** `docs/PHASE2_DESIGN.md`.
 
 **Then read `docs/SESSION_HANDOFF.md`** (the "LATEST" block at the top), then the
 newest `docs/SESSION_LOG_*.md`. They hold the current state, settled decisions, verified API facts and
