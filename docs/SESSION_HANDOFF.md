@@ -5,7 +5,14 @@ know exactly where we are, how to run/verify, what not to relitigate, and what t
 *Last updated: 2026-10-12. Keep this current at the end of every working session.*
 
 ---
-### ▶ LATEST (2026-10-11) — start here next session
+### ▶ LATEST (2026-10-12) — start here next session
+**Phase 2 · M1 (meeting recording) built and device-tested**, plus an early **Memories → Recordings** library
+(play / jump to marks / delete) — session log §14, status in `docs/PHASE2_DESIGN.md`. **NEXT: M2** (upload +
+storage), then M3 transcription, M4 summary. Ask Law: did he tap Mark in the first test (marks came back
+empty)? Push M1 + library when he says so. Law's to-dos unchanged (OpenRouter key, `STT_VOCAB`, Google setup,
+glasses test session, in-app test notification, delete the Firebase admin key file in `android/app/`?).
+
+### ◀ 2026-10-11 block
 Full record: **`docs/SESSION_LOG_2026-10-11.md`**. Work order: **`docs/WORK_QUEUE.md`** + **`docs/PRODUCT_PLAN.md`**.
 
 **First Claude Code session on the PC.** Git synced to `origin/master` (no files lost). Builds, unit

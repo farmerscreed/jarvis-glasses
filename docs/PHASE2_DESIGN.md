@@ -215,6 +215,10 @@ create table public.recording_segments (     -- the transcript, speaker-labelled
 | **M7** | Model router + eval + cost view | all jobs through `llm()`; eval run; Law picks models; monthly cost visible |
 | **M8** | Glasses test session + glasses recordings in the pipeline | longest recording/video, size, sync time, battery, heat measured; BACK-hold .opus > 2 min becomes a recording with summary; deletion-trigger understood |
 
+**Status (2026-10-12):** **M1 built + device-tested** (430 s with the screen locked → 2 valid chunks, Gemini
+transcribed the audio cleanly; voice marks + notification Mark/Stop). **Early M5 slice built:** Memories →
+Recordings (local list, sequential-chunk player with ±15 s / drag / jump-to-mark, delete). Next: M2.
+
 Order rationale: M1–M4 give Law a working "record → summary" loop fast; M5 makes it browsable; M6/M7 cut
 cost; M8 depends on a hands-on session with the glasses.
 

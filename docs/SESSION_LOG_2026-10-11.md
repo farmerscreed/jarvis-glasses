@@ -219,3 +219,20 @@ Not yet screenshotted: the phone was locked (screenshots only taken while JARVIS
   transcription + summary, library + smart storage, model router, screens, 8 milestones with acceptance
   tests, risks, Law's to-dos) + 5 mockups (row 3 of the canvas; `docs/design/redesign-2026-10/Meeting*`,
   `Recordings`).
+
+## 14. 2026-10-12 — Phase 2 · M1 recording engine + a first Recordings library
+
+- **M1 built** (`meeting/MeetingRecorder.kt`, `MeetingRecorderService.kt`, `MeetingCommands.kt` + tests,
+  `ui/screens/MeetingScreen.kt`): phone mic (`AudioSource.MIC`), AAC 32 kbps mono 16 kHz, ~5-min chunks
+  (`CHUNK_BYTES` 1.2 MB, `setNextOutputFile`) in `filesDir/recordings/<id>/NNN.m4a` + `meta.json`; pause/resume,
+  marks, restart on error; foreground service (type microphone) + wake lock; notification Mark/Stop, tap →
+  meeting screen. Wake word paused while recording; translation and recording are mutually exclusive.
+  Home tile **Meeting** replaced "Find glasses" (still in the status line, by voice and in Settings).
+- **Device test passed:** 430 s with the phone locked → 2 chunks (293.2 s + 136.1 s), both valid MP4s;
+  Gemini transcribed 360 words from the 136 s chunk. **Marks were empty** — unknown whether Law tapped Mark;
+  marks are now logged (`EchoMeeting`) and shown in the notification for 5 s ("Marked at 3:12"). Re-check.
+- **Law asked where finished recordings are** (the mockups showed a library the app didn't have). Brought
+  forward a slice of M5: **Memories → Recordings** lists local recordings; tap → `RecordingDetail` with
+  `meeting/RecordingPlayer.kt` (MediaPlayer chaining the chunks as one timeline; drag, ±15 s, jump to a mark)
+  and delete-with-confirm. Summary/transcript tabs come with M3–M4.
+- Commits `06ed5e4`, `5fa1771`, `d8a243d` (+ docs). Not pushed yet — waiting for Law.

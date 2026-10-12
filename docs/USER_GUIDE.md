@@ -111,6 +111,20 @@ phone says the phrase out loud for them, and **Show them** puts it on screen in 
 and remembers it for next time. Translation needs internet. For privacy, your glasses should be
 connected for sound; if not, the app warns you and your English plays from the phone.
 
+## Record a meeting
+- **Start:** Home → **Meeting** → **Start recording**, or say *"Jarvis, record this meeting (with Mr Ade)"*.
+  Start it while the phone is unlocked; after that you can lock the phone and put it on the table — it keeps
+  recording (a "JARVIS is recording" notification with **Mark** and **Stop** stays up).
+- It uses the **phone's microphone** (it hears the whole room; the glasses mic only hears you well).
+- **During:** say *"mark that — price agreed"* (or tap **Mark**) to flag a moment; *"am I still recording?"*;
+  **Pause/Resume** on the meeting screen. A red **"Recording · 12:34"** bar shows on every tab — tap it to open.
+- **Stop:** *"stop recording"*, the notification's **Stop**, or the Stop button.
+- **Find it later:** **Memories → Recordings.** Each recording shows its date, length and size. Tap it to
+  play (drag the bar, **−15 s / +15 s**, or tap a **marked moment** to jump there) or **Delete** it.
+- **Coming next:** the recording is sent to the cloud, written out as a transcript and summarised (decisions,
+  who said what, to-dos), with a notification when it's ready. Until then recordings stay on the phone only.
+- While recording, the wake word is off (the recorder uses the mic) and translation can't run at the same time.
+
 ## Find my glasses
 Device screen → **Find my glasses** → **Turn on**, and allow location (then **"All the time"**, so it
 works with the app closed). From then on, the moment your glasses disconnect, JARVIS notes where your
