@@ -26,7 +26,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** How far a recording has got to the cloud (from its `upload.json`). */
-data class UploadState(val uploaded: Set<String> = emptySet(), val finished: Boolean = false)
+data class UploadState(val uploaded: Set<String> = emptySet(), val finished: Boolean = false, val v: Int = 0)
 
 /**
  * Phase 2 · M2 — sends each finished ~5-minute chunk to the cloud while the meeting is still going, and
@@ -46,11 +46,11 @@ class MeetingUploader @Inject constructor(
     fun state(dir: File): UploadState = runCatching {
         val o = JSONObject(File(dir, STATE).readText())
         val a = o.optJSONArray("uploaded") ?: JSONArray()
-        UploadState((0 until a.length()).map { a.getString(it) }.toSet(), o.optBoolean("finished"))
+        UploadState((0 until a.length()).map { a.getString(it) }.toSet(), o.optBoolean("finished"), o.optInt("v"))
     }.getOrDefault(UploadState())
 
     private fun save(dir: File, s: UploadState) = runCatching {
-        File(dir, STATE).writeText(JSONObject().put("uploaded", JSONArray(s.uploaded.sorted())).put("finished", s.finished).toString())
+        File(dir, STATE).writeText(JSONObject().put("uploaded", JSONArray(s.uploaded.sorted())).put("finished", s.finished).put("v", s.v).toString())
     }
 
     /** Remember to delete [id] from the cloud too, then try now. */
@@ -73,7 +73,8 @@ class MeetingUploader @Inject constructor(
     private suspend fun drainOne(dir: File): Boolean {
         val id = dir.name
         var st = state(dir)
-        if (st.finished) return true
+        // v < CLOUD_V: finished before the cloud could transcribe → send "finish" once more (it re-kicks the work).
+        if (st.finished && st.v >= CLOUD_V) return true
         val meta = JSONObject(File(dir, "meta.json").readText())
         val open = recorder.openChunk(id)              // the file still being written (never upload it)
         val recording = recorder.isActive && recorder.ui.value.id == id
@@ -101,7 +102,7 @@ class MeetingUploader @Inject constructor(
         if (recording) return true                      // up to date for now; the next chunk close enqueues again
         val names = files.map { it.name }.toSet()
         if (!st.uploaded.containsAll(names)) return false
-        if (names.isEmpty()) { save(dir, st.copy(finished = true)); return true }
+        if (names.isEmpty()) { save(dir, st.copy(finished = true, v = CLOUD_V)); return true }
         val (code, txt) = backend.meeting(
             JSONObject().put("op", "finish").put("client_id", id).put("chunks_total", names.size)
                 .put("duration_s", meta.optInt("duration_s")).put("title", meta.optString("title"))
@@ -109,7 +110,7 @@ class MeetingUploader @Inject constructor(
                 .put("bookmarks", meta.optJSONArray("bookmarks") ?: JSONArray()).toString(),
         )
         if (code !in 200..299) error("finish: HTTP $code ${txt.take(160)}")
-        save(dir, st.copy(finished = true))
+        save(dir, st.copy(finished = true, v = CLOUD_V))
         Log.i(TAG, "recording $id complete in the cloud: $txt")
         return true
     }
@@ -135,6 +136,8 @@ class MeetingUploader @Inject constructor(
     companion object {
         private const val TAG = "EchoMeeting"
         const val STATE = "upload.json"
+        /** Bump when the cloud learns to do more with a finished recording (3 = M3 transcription). */
+        private const val CLOUD_V = 3
         private const val DELETED = ".deleted"
     }
 }

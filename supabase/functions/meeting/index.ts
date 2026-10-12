@@ -5,10 +5,22 @@
 //   { op: "finish", client_id, chunks_total, duration_s, ended_at, bookmarks, title }
 //        → the meeting has stopped and every chunk is up.                     → { status, uploaded }
 //   { op: "delete", client_id }  → audio + rows removed from the cloud.       → { ok }
-// M3 adds transcription after "chunk"; M4 adds the summary after "finish".
+// M3: every verified chunk is transcribed in the background (EdgeRuntime.waitUntil) into recording_segments;
+// "finish" re-kicks anything pending/failed. When all chunks are done the recording becomes "transcribed".
+// M4 adds the summary after that.
+import { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/http.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClient.ts";
 import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
+import { transcribeChunk } from "../_shared/meetingStt.ts";
+
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
+
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const STT_MODELS = [...new Set([Deno.env.get("GEMINI_MEETING_MODEL") ?? "gemini-2.5-flash", "gemini-2.5-flash-lite"])];
+const VOCAB = Deno.env.get("STT_VOCAB") ?? "";
+const MAX_ATTEMPTS = 3;
+const STALE_MS = 10 * 60_000; // a "transcribing" chunk older than this is assumed dead and retried
 
 const BUCKET = "recordings";
 const CLIENT_ID = /^rec-[A-Za-z0-9-]{4,60}$/;
@@ -17,6 +29,77 @@ const CHUNK_NAME = /^\d{3}\.m4a$/;
 async function sha256Hex(buf: ArrayBuffer): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", buf);
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Claim one chunk (so two triggers never transcribe it twice), transcribe it, store its lines.
+ * [audio] is passed when we already have the bytes (just verified); otherwise it's downloaded.
+ */
+async function transcribeOne(db: SupabaseClient, recId: string, seq: number, userId: string, audio?: Uint8Array) {
+  const staleBefore = new Date(Date.now() - STALE_MS).toISOString();
+  const { data: claimed } = await db.from("recording_chunks")
+    .update({ status: "transcribing", started_at: new Date().toISOString() })
+    .eq("recording_id", recId).eq("seq", seq).lt("attempts", MAX_ATTEMPTS)
+    .or(`status.in.(uploaded,failed),and(status.eq.transcribing,started_at.lt.${staleBefore})`)
+    .select("path,attempts");
+  if (!claimed?.length) return;
+  const chunk = claimed[0];
+  await db.from("recording_chunks").update({ attempts: (chunk.attempts ?? 0) + 1 }).eq("recording_id", recId).eq("seq", seq);
+  try {
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
+    let bytes = audio;
+    if (!bytes) {
+      const { data: blob, error } = await db.storage.from(BUCKET).download(chunk.path);
+      if (error || !blob) throw new Error(`download: ${error?.message ?? "missing"}`);
+      bytes = new Uint8Array(await blob.arrayBuffer());
+    }
+    // Speaker labels already used earlier in the meeting help keep them consistent.
+    const { data: prev } = await db.from("recording_segments").select("speaker").eq("recording_id", recId).lt("seq", seq).limit(2000);
+    const known = [...new Set((prev ?? []).map((r) => r.speaker as string))].filter((s) => s && s !== "Media").slice(0, 12);
+    const r = await transcribeChunk(bytes, { apiKey: GEMINI_API_KEY, models: STT_MODELS, vocab: VOCAB, knownSpeakers: known });
+    await db.from("recording_segments").delete().eq("recording_id", recId).eq("seq", seq);
+    if (r.segments.length) {
+      const { error } = await db.from("recording_segments").insert(r.segments.map((x, idx) => ({
+        recording_id: recId, seq, idx, user_id: userId, t_start_s: x.start, t_end_s: x.end, speaker: x.speaker, text: x.text,
+      })));
+      if (error) throw new Error(`segments: ${error.message}`);
+    }
+    await db.from("recording_chunks").update({ status: "done", error: null, model: r.model, transcribed_at: new Date().toISOString() })
+      .eq("recording_id", recId).eq("seq", seq);
+    console.log(`meeting stt ${recId}/${seq}: ${r.segments.length} lines, ${r.model}, ${r.ms} ms, ${r.tokens ?? "?"} tokens`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`meeting stt ${recId}/${seq} failed: ${msg}`);
+    await db.from("recording_chunks").update({ status: "failed", error: msg.slice(0, 500) }).eq("recording_id", recId).eq("seq", seq);
+  }
+  await maybeTranscribed(db, recId);
+}
+
+/** Once the meeting has stopped and every chunk is done (or gave up), the transcript is complete. */
+async function maybeTranscribed(db: SupabaseClient, recId: string) {
+  const { data: rec } = await db.from("recordings").select("status,chunks_total").eq("id", recId).maybeSingle();
+  if (!rec || rec.chunks_total == null || !["uploaded", "transcribing"].includes(rec.status)) return;
+  const { data: chunks } = await db.from("recording_chunks").select("status,attempts").eq("recording_id", recId);
+  const settled = (chunks ?? []).filter((c) => c.status === "done" || (c.status === "failed" && c.attempts >= MAX_ATTEMPTS));
+  if ((chunks?.length ?? 0) < rec.chunks_total || settled.length < rec.chunks_total) {
+    if (rec.status !== "transcribing") await db.from("recordings").update({ status: "transcribing" }).eq("id", recId);
+    return;
+  }
+  const failed = settled.filter((c) => c.status === "failed").length;
+  await db.from("recordings").update({
+    status: "transcribed", error: failed ? `${failed} part(s) couldn't be transcribed` : null, updated_at: new Date().toISOString(),
+  }).eq("id", recId).in("status", ["uploaded", "transcribing"]);
+  // M4: summary, memory and push start here.
+}
+
+/** Transcribe every chunk that still needs it, a few at a time. */
+async function processPending(db: SupabaseClient, recId: string, userId: string) {
+  const { data: chunks } = await db.from("recording_chunks").select("seq,status,attempts").eq("recording_id", recId).order("seq");
+  const todo = (chunks ?? []).filter((c) => c.status !== "done" && c.attempts < MAX_ATTEMPTS).map((c) => c.seq as number);
+  for (let i = 0; i < todo.length; i += 3) {
+    await Promise.all(todo.slice(i, i + 3).map((seq) => transcribeOne(db, recId, seq, userId)));
+  }
+  await maybeTranscribed(db, recId);
 }
 
 const iso = (ms: unknown) => {
@@ -83,6 +166,7 @@ Deno.serve(async (req) => {
           audio_bytes: total, updated_at: new Date().toISOString(),
           ...(rec!.status === "recording" || rec!.status === "uploading" ? { status: done ? "uploaded" : "uploading" } : {}),
         }).eq("id", rec!.id);
+        EdgeRuntime.waitUntil(transcribeOne(db, rec!.id, seq, user.id, new Uint8Array(buf)));
         return json({ ok: true, recording_id: rec!.id });
       }
 
@@ -92,7 +176,7 @@ Deno.serve(async (req) => {
         const total = Math.max(0, parseInt(String(body.chunks_total ?? 0), 10) || 0);
         const { count } = await db.from("recording_chunks").select("seq", { count: "exact", head: true }).eq("recording_id", rec.id);
         const uploaded = count ?? 0;
-        const status = uploaded >= total ? "uploaded" : "uploading";
+        let status = uploaded >= total ? "uploaded" : "uploading";
         const bookmarks = Array.isArray(body.bookmarks)
           ? body.bookmarks.slice(0, 500).map((b: { t_s?: unknown; label?: unknown }) => ({ t_s: Number(b.t_s) || 0, label: String(b.label ?? "").slice(0, 200) }))
           : [];
@@ -104,6 +188,10 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }).eq("id", rec.id);
         if (error) return json({ error: error.message }, 500);
+        if (status === "uploaded") {
+          status = "transcribing";
+          EdgeRuntime.waitUntil(processPending(db, rec.id, user.id));
+        }
         return json({ status, uploaded });
       }
 
