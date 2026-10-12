@@ -57,6 +57,9 @@ data class SavedRecording(
     val dir: File,
     val startedAt: Long = 0,
     val bookmarks: List<Bookmark> = emptyList(),
+    /** Chunks the cloud has confirmed (size + sha256), and whether the whole recording is up. */
+    val uploadedChunks: Int = 0,
+    val inCloud: Boolean = false,
 ) {
     /** The playable pieces, in order. */
     fun files(): List<File> = dir.listFiles { f -> f.extension == "m4a" && f.length() > 0 }?.sortedBy { it.name }.orEmpty()
@@ -85,6 +88,10 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
     private var runStartedAt = 0L      // when the current un-paused stretch began
     private var accumulatedMs = 0L     // recorded time before the current stretch
     @Volatile private var lastMarkAt = 0L // the notification shows "Marked at…" for a few seconds
+    @Volatile private var openName: String? = null // the chunk file still being written
+
+    /** The chunk of [id] that is still being written (null when it isn't recording) — never upload it. */
+    fun openChunk(id: String): String? = if (_ui.value.active && _ui.value.id == id) openName else null
 
     val isActive: Boolean get() = _ui.value.active
 
@@ -110,7 +117,7 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
             return false
         }
         return try {
-            recorder = newRecorder(nextFile()).also { it.start() }
+            recorder = newRecorder(nextFile().also { openName = it.name }).also { it.start() }
             runStartedAt = now; accumulatedMs = 0
             writeMeta(ended = false)
             startTicker()
@@ -164,6 +171,8 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
         runCatching { recorder?.stop() }.onFailure { Log.w(TAG, "stop: ${it.message}") }
         cleanupRecorder()
         MeetingRecorderService.stop(context)
+        openName = null
+        MeetingUploadWorker.enqueue(context)
         val d = dir ?: return null
         val files = chunkFiles(d)
         val saved = SavedRecording(_ui.value.id, _ui.value.title, (dur / 1000).toInt(), files.size, files.sumOf { it.length() }, d)
@@ -194,7 +203,11 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
         val meta = runCatching { JSONObject(File(d, "meta.json").readText()) }.getOrNull() ?: return@mapNotNull null
         val files = chunkFiles(d)
         val marks = meta.optJSONArray("bookmarks")?.let { a -> (0 until a.length()).map { i -> a.getJSONObject(i).let { Bookmark(it.optInt("t_s"), it.optString("label")) } } }.orEmpty()
-        SavedRecording(d.name, meta.optString("title"), meta.optInt("duration_s"), files.size, files.sumOf { it.length() }, d, meta.optLong("started_at"), marks)
+        val up = runCatching { JSONObject(File(d, MeetingUploader.STATE).readText()) }.getOrNull()
+        SavedRecording(
+            d.name, meta.optString("title"), meta.optInt("duration_s"), files.size, files.sumOf { it.length() }, d, meta.optLong("started_at"), marks,
+            uploadedChunks = up?.optJSONArray("uploaded")?.length() ?: 0, inCloud = up?.optBoolean("finished") == true,
+        )
     }?.sortedByDescending { it.startedAt }.orEmpty()
 
     /** Delete a recording from this phone (not the one in progress). */
@@ -230,7 +243,13 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
                 // ~5 minutes in: hand the recorder the next file; it switches seamlessly.
                 MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_APPROACHING ->
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) runCatching { mr.setNextOutputFile(nextFile()) }.onFailure { Log.e(TAG, "next file", it) }
-                MediaRecorder.MEDIA_RECORDER_INFO_NEXT_OUTPUT_FILE_STARTED -> { Log.i(TAG, "chunk ${seq - 1} started"); writeMeta(ended = false) }
+                MediaRecorder.MEDIA_RECORDER_INFO_NEXT_OUTPUT_FILE_STARTED -> {
+                    // The previous chunk is now closed and complete → send it to the cloud.
+                    openName = "%03d.m4a".format(seq - 1)
+                    Log.i(TAG, "chunk ${seq - 1} started")
+                    writeMeta(ended = false)
+                    MeetingUploadWorker.enqueue(context)
+                }
                 MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED -> { Log.w(TAG, "max size reached without next file — restarting"); restartAfterError() }
             }
         }
@@ -246,7 +265,8 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
             runCatching { recorder?.stop() }
             cleanupRecorder()
             accumulatedMs = elapsedMs(); runStartedAt = System.currentTimeMillis()
-            recorder = runCatching { newRecorder(nextFile()).also { it.start() } }.getOrNull()
+            recorder = runCatching { newRecorder(nextFile().also { openName = it.name }).also { it.start() } }.getOrNull()
+            MeetingUploadWorker.enqueue(context)
             if (recorder == null) _ui.value = _ui.value.copy(error = "The recording stopped unexpectedly — what was recorded so far is saved.")
         }
     }

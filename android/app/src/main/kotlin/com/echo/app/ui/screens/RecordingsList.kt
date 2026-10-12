@@ -83,7 +83,16 @@ fun RecordingCard(r: SavedRecording, onOpen: () -> Unit) {
                 style = Neo.body.copy(fontSize = 13.sp, color = Neo.Muted),
             )
         }
+        val (label, color) = cloudLabel(r)
+        MonoLabel(label, color = color)
     }
+}
+
+/** Where the recording is: only on this phone, on its way up, or safely in the cloud. */
+fun cloudLabel(r: SavedRecording) = when {
+    r.inCloud -> "Backed up" to Neo.Cyan
+    r.uploadedChunks > 0 -> "Uploading ${r.uploadedChunks}/${r.chunks}" to Neo.Amber
+    else -> "On phone" to Neo.Muted
 }
 
 /** A recording opened from Memories: play it (±15 s, drag, jump to a mark) or delete it. */
@@ -106,6 +115,8 @@ fun RecordingDetail(vm: HomeViewModel, r: SavedRecording, onBack: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(recordingTitle(r), style = Neo.display.copy(fontSize = 24.sp))
             Text(recordingWhen(r) + " · " + MeetingRecorder.clock(r.durationS * 1000L), style = Neo.mono.copy(fontSize = 12.sp, letterSpacing = 0.sp))
+            val (label, color) = cloudLabel(r)
+            MonoLabel(label, color = color)
         }
 
         // Player
@@ -165,7 +176,7 @@ fun RecordingDetail(vm: HomeViewModel, r: SavedRecording, onBack: () -> Unit) {
             onDismissRequest = { confirmDelete = false },
             containerColor = Neo.Card,
             title = { Text("Delete this recording?", style = Neo.display.copy(fontSize = 20.sp)) },
-            text = { Text("The audio is removed from this phone for good.", style = Neo.body.copy(color = Neo.TextSoft)) },
+            text = { Text("The audio is removed from this phone and from the cloud, for good.", style = Neo.body.copy(color = Neo.TextSoft)) },
             confirmButton = { TextButton(onClick = { confirmDelete = false; vm.deleteRecording(r.id); onBack() }) { Text("Delete", color = Neo.Danger) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Keep it", color = Neo.Text) } },
         )

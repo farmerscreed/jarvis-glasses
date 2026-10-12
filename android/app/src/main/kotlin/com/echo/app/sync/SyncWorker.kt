@@ -22,12 +22,14 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
     @InstallIn(SingletonComponent::class)
     interface SyncEntryPoint {
         fun memoryStore(): MemoryStore
+        fun meetingUploader(): com.echo.app.meeting.MeetingUploader
     }
 
     override suspend fun doWork(): Result {
-        val store = EntryPointAccessors
-            .fromApplication(applicationContext, SyncEntryPoint::class.java)
-            .memoryStore()
+        val ep = EntryPointAccessors.fromApplication(applicationContext, SyncEntryPoint::class.java)
+        val store = ep.memoryStore()
+        // Backstop for meeting chunks the upload worker hasn't managed yet (Phase 2 · M2).
+        runCatching { ep.meetingUploader().drain() }.onFailure { Log.w("EchoSync", "meeting upload: ${it.message}") }
         return try {
             val drained = store.syncAll(force = true) // deferred AI re-run + outbox drain
             Log.i("EchoSync", "background sync: fullyDrained=$drained")

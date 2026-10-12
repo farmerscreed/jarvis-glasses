@@ -84,7 +84,12 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var selected by remember { mutableStateOf<Memory?>(null) }
     var openRec by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(filter) { if (filter == "recordings") vm.refreshRecordings() }
+    LaunchedEffect(filter) {
+        if (filter == "recordings") {
+            vm.kickRecordingUploads()
+            while (true) { vm.refreshRecordings(); kotlinx.coroutines.delay(5_000) } // live upload status
+        }
+    }
     vm.recordings.firstOrNull { it.id == openRec }?.let { rec ->
         BackHandler { openRec = null }
         RecordingDetail(vm, rec, onBack = { openRec = null })

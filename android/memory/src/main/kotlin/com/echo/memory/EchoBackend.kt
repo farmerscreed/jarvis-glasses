@@ -180,6 +180,32 @@ class EchoBackend(
             key
         }
 
+    /**
+     * Upload one meeting chunk to the private `recordings` bucket at `<uid>/<clientId>/<name>` (upsert, so a
+     * retry just overwrites). Throws on failure. Phase 2 · M2.
+     */
+    suspend fun uploadRecordingChunk(clientId: String, name: String, bytes: ByteArray): Unit = withContext(Dispatchers.IO) {
+        val uid = session.userId ?: error("not signed in")
+        fun attempt(): Pair<Int, String> {
+            val req = Request.Builder()
+                .url("${session.baseUrl}/storage/v1/object/recordings/$uid/$clientId/$name")
+                .addHeader("apikey", session.anonKey)
+                .addHeader("Authorization", "Bearer ${session.accessToken}")
+                .addHeader("x-upsert", "true")
+                .post(bytes.toRequestBody("audio/mp4".toMediaType()))
+                .build()
+            http.newCall(req).execute().use { resp -> return resp.code to resp.body?.string().orEmpty() }
+        }
+        var r = attempt()
+        if (r.first == 401 && refreshSession()) r = attempt()
+        if (r.first !in 200..299) error("chunk upload failed: HTTP ${r.first}: ${r.second.take(200)}")
+    }
+
+    /** POST a JSON body to the `meeting` function; returns (HTTP code, body) so callers can react to 409. */
+    suspend fun meeting(body: String): Pair<Int, String> = withContext(Dispatchers.IO) {
+        postAuthed("/functions/v1/meeting", body, http)
+    }
+
     /** Short-lived signed URL for a private storage object (the read path for `media_path`). */
     suspend fun signedMediaUrl(path: String, expiresInSec: Int = 3600): String = withContext(Dispatchers.IO) {
         val body = json.encodeToString(SignUrlRequest.serializer(), SignUrlRequest(expiresInSec))

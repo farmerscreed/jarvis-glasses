@@ -76,6 +76,7 @@ class HomeViewModel @Inject constructor(
     /** Phase 2: meeting recording (phone mic). */
     val meetings: com.echo.app.meeting.MeetingRecorder,
     val player: com.echo.app.meeting.RecordingPlayer,
+    private val uploader: com.echo.app.meeting.MeetingUploader,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -1245,9 +1246,12 @@ class HomeViewModel @Inject constructor(
     /** Finished recordings on this phone, newest first (Memories → Recordings). */
     var recordings by mutableStateOf<List<com.echo.app.meeting.SavedRecording>>(emptyList()); private set
     fun refreshRecordings() { viewModelScope.launch(Dispatchers.IO) { val r = meetings.saved().filterNot { meetingUi.active && it.id == meetingUi.id }; withContext(Dispatchers.Main) { recordings = r } } }
+    /** Try to send any recording chunks still on the phone (runs when there's a network). */
+    fun kickRecordingUploads() = com.echo.app.meeting.MeetingUploadWorker.enqueue(appContext)
     fun deleteRecording(id: String) {
         if (player.ui.value.recordingId == id) player.release()
         meetings.delete(id)
+        uploader.queueCloudDelete(id) // removes the cloud copy too (now, or when back online)
         refreshRecordings()
     }
 
