@@ -326,4 +326,6 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
 /** Set when the recording notification is tapped; AppRoot opens the meeting screen and clears it. */
 object MeetingNav {
     var openRequested by androidx.compose.runtime.mutableStateOf(false)
+    /** A recording to open in Memories → Recordings (from a "summary ready" notification). */
+    var openRecording by androidx.compose.runtime.mutableStateOf<String?>(null)
 }

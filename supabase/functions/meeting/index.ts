@@ -7,12 +7,15 @@
 //   { op: "delete", client_id }  → audio + rows removed from the cloud.       → { ok }
 // M3: every verified chunk is transcribed in the background (EdgeRuntime.waitUntil) into recording_segments;
 // "finish" re-kicks anything pending/failed. When all chunks are done the recording becomes "transcribed".
-// M4 adds the summary after that.
+// M4: then the summary (Claude), the meeting memory (searchable), and a push: "‹title› — summary ready".
 import { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/http.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClient.ts";
 import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
 import { transcribeChunk } from "../_shared/meetingStt.ts";
+import { Line, memoryText, pushBody, summarise } from "../_shared/meetingSummary.ts";
+import { embed } from "../_shared/embeddings.ts";
+import { pushConfigured, sendPush } from "../_shared/fcm.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
@@ -75,10 +78,14 @@ async function transcribeOne(db: SupabaseClient, recId: string, seq: number, use
   await maybeTranscribed(db, recId);
 }
 
-/** Once the meeting has stopped and every chunk is done (or gave up), the transcript is complete. */
+/** Once the meeting has stopped and every chunk is done (or gave up), the transcript is complete → summary. */
 async function maybeTranscribed(db: SupabaseClient, recId: string) {
-  const { data: rec } = await db.from("recordings").select("status,chunks_total").eq("id", recId).maybeSingle();
-  if (!rec || rec.chunks_total == null || !["uploaded", "transcribing"].includes(rec.status)) return;
+  const { data: rec } = await db.from("recordings").select("status,chunks_total,updated_at").eq("id", recId).maybeSingle();
+  if (!rec || rec.chunks_total == null) return;
+  // A summary that failed earlier, or got stuck, is retried whenever this runs again (e.g. a repeated "finish").
+  const stuck = rec.status === "summarising" && Date.parse(rec.updated_at) < Date.now() - STALE_MS;
+  if (rec.status === "transcribed" || stuck) return await summariseRecording(db, recId);
+  if (!["uploaded", "transcribing"].includes(rec.status)) return;
   const { data: chunks } = await db.from("recording_chunks").select("status,attempts").eq("recording_id", recId);
   const settled = (chunks ?? []).filter((c) => c.status === "done" || (c.status === "failed" && c.attempts >= MAX_ATTEMPTS));
   if ((chunks?.length ?? 0) < rec.chunks_total || settled.length < rec.chunks_total) {
@@ -89,7 +96,72 @@ async function maybeTranscribed(db: SupabaseClient, recId: string) {
   await db.from("recordings").update({
     status: "transcribed", error: failed ? `${failed} part(s) couldn't be transcribed` : null, updated_at: new Date().toISOString(),
   }).eq("id", recId).in("status", ["uploaded", "transcribing"]);
-  // M4: summary, memory and push start here.
+  await summariseRecording(db, recId);
+}
+
+const AUDIO_KEEP_DAYS = 90;
+
+/** M4: summary → meeting memory → push. Claimed (transcribed → summarising) so it runs once. */
+async function summariseRecording(db: SupabaseClient, recId: string) {
+  const staleBefore = new Date(Date.now() - STALE_MS).toISOString();
+  const { data: claimed } = await db.from("recordings")
+    .update({ status: "summarising", updated_at: new Date().toISOString() })
+    .eq("id", recId)
+    .or(`status.eq.transcribed,and(status.eq.summarising,updated_at.lt.${staleBefore})`)
+    .select("id,user_id,client_id,title,started_at,duration_s,bookmarks,memory_id,starred,error");
+  const rec = claimed?.[0];
+  if (!rec) return;
+  try {
+    // The whole meeting as one timeline: each chunk's lines shifted by the length of the chunks before it.
+    const { data: chunks } = await db.from("recording_chunks").select("seq,duration_s").eq("recording_id", recId).order("seq");
+    const offset = new Map<number, number>();
+    let acc = 0;
+    for (const c of chunks ?? []) { offset.set(c.seq, acc); acc += c.duration_s ?? 0; }
+    const { data: segs } = await db.from("recording_segments").select("seq,idx,t_start_s,speaker,text")
+      .eq("recording_id", recId).order("seq").order("idx").limit(20000);
+    const lines: Line[] = (segs ?? []).map((x) => ({ t: (offset.get(x.seq) ?? 0) + Number(x.t_start_s), speaker: x.speaker, text: x.text }));
+
+    const date = new Date(rec.started_at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Lagos" });
+    const t0 = Date.now();
+    const s = await summarise(lines, { title: rec.title, date, durationS: rec.duration_s, bookmarks: rec.bookmarks ?? [] });
+    const title = (rec.title?.trim() || s.title || "Meeting").slice(0, 200);
+    s.title = title;
+    const speakers = Object.fromEntries(s.speakers.filter((x) => x.label && x.name).map((x) => [x.label, x.name]));
+
+    // The searchable memory (recall/chat find meetings through it). Updated in place on a re-run.
+    let memoryId: string | null = rec.memory_id ?? null;
+    if (s.is_meeting) {
+      const text = memoryText(s, date);
+      const row = { text, embedding: await embed(text), tags: ["meeting"], metadata: { recording_id: recId, client_id: rec.client_id } };
+      if (memoryId) {
+        await db.from("memories").update(row).eq("id", memoryId).eq("user_id", rec.user_id);
+      } else {
+        const { data: m, error } = await db.from("memories")
+          .insert({ ...row, user_id: rec.user_id, type: "meeting", created_at: rec.started_at, client_id: `meeting-${rec.client_id}` })
+          .select("id").single();
+        if (error) throw new Error(`memory: ${error.message}`);
+        memoryId = m.id;
+      }
+    }
+
+    await db.from("recordings").update({
+      status: "ready", summary: s, title, speakers, memory_id: memoryId,
+      audio_expires_at: rec.starred ? null : new Date(Date.now() + AUDIO_KEEP_DAYS * 86_400_000).toISOString(),
+      error: rec.error?.includes("part(s)") ? rec.error : null, updated_at: new Date().toISOString(),
+    }).eq("id", recId);
+    console.log(`meeting summary ${recId}: ${Date.now() - t0} ms, meeting=${s.is_meeting}, ${s.action_items.length} actions`);
+
+    if (pushConfigured()) {
+      await sendPush(rec.user_id, title, pushBody(s), { kind: "meeting", id: rec.client_id })
+        .catch((e) => console.warn(`meeting push: ${e instanceof Error ? e.message : e}`));
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`meeting summary ${recId} failed: ${msg}`);
+    // Back to "transcribed" so the next finish/retry tries again; the transcript itself is safe.
+    await db.from("recordings").update({ status: "transcribed", error: `summary: ${msg.slice(0, 400)}`, updated_at: new Date().toISOString() })
+      .eq("id", recId);
+  }
 }
 
 /** Transcribe every chunk that still needs it, a few at a time. */
@@ -189,8 +261,8 @@ Deno.serve(async (req) => {
         }).eq("id", rec.id);
         if (error) return json({ error: error.message }, 500);
         if (status === "uploaded") {
-          status = "transcribing";
-          EdgeRuntime.waitUntil(processPending(db, rec.id, user.id));
+          status = rec.status === "ready" ? "ready" : "transcribing";
+          EdgeRuntime.waitUntil(processPending(db, rec.id, user.id)); // also retries a failed summary
         }
         return json({ status, uploaded });
       }

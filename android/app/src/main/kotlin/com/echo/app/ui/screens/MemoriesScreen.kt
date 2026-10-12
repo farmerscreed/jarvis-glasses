@@ -84,6 +84,9 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var selected by remember { mutableStateOf<Memory?>(null) }
     var openRec by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(com.echo.app.meeting.MeetingNav.openRecording) {
+        com.echo.app.meeting.MeetingNav.openRecording?.let { filter = "recordings"; openRec = it; com.echo.app.meeting.MeetingNav.openRecording = null }
+    }
     LaunchedEffect(filter) {
         if (filter == "recordings") {
             vm.kickRecordingUploads()

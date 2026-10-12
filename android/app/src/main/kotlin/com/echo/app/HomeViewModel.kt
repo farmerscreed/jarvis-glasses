@@ -1246,6 +1246,10 @@ class HomeViewModel @Inject constructor(
     /** Finished recordings on this phone, newest first (Memories → Recordings). */
     var recordings by mutableStateOf<List<com.echo.app.meeting.SavedRecording>>(emptyList()); private set
     fun refreshRecordings() { viewModelScope.launch(Dispatchers.IO) { val r = meetings.saved().filterNot { meetingUi.active && it.id == meetingUi.id }; withContext(Dispatchers.Main) { recordings = r } } }
+    /** The recording's cloud status + summary (null when offline or not uploaded yet). */
+    suspend fun recordingCloud(id: String): org.json.JSONObject? =
+        runCatching { backend.recordingCloud(id)?.let { org.json.JSONObject(it) } }.getOrNull()
+
     /** Try to send any recording chunks still on the phone (runs when there's a network). */
     fun kickRecordingUploads() = com.echo.app.meeting.MeetingUploadWorker.enqueue(appContext)
     fun deleteRecording(id: String) {

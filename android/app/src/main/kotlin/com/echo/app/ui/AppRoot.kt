@@ -84,6 +84,10 @@ fun AppRoot() {
         }
     }
 
+    LaunchedEffect(com.echo.app.meeting.MeetingNav.openRecording) {
+        if (com.echo.app.meeting.MeetingNav.openRecording != null) { tab = JarvisTab.Memories; meeting = false; ask = false; research = false; device = false }
+    }
+
     if (!onboarded) {
         OnboardingScreen(vm, onFinish = { onboarded = true })
         return

@@ -49,5 +49,10 @@ class MainActivity : ComponentActivity() {
         if (i?.getBooleanExtra(com.echo.app.meeting.MeetingRecorderService.EXTRA_OPEN_MEETING, false) == true) {
             com.echo.app.meeting.MeetingNav.openRequested = true
         }
+        // "‹title› — summary ready" push tapped → open that recording in Memories → Recordings.
+        if (i?.getStringExtra("push_kind") == "meeting") {
+            i.getStringExtra("push_id")?.let { com.echo.app.meeting.MeetingNav.openRecording = it }
+            i.removeExtra("push_kind")
+        }
     }
 }

@@ -201,6 +201,12 @@ class EchoBackend(
         if (r.first !in 200..299) error("chunk upload failed: HTTP ${r.first}: ${r.second.take(200)}")
     }
 
+    /** The cloud row of a recording (status, title, summary, speakers, error) as JSON, or null if not there yet. */
+    suspend fun recordingCloud(clientId: String): String? = withContext(Dispatchers.IO) {
+        val txt = get("/rest/v1/recordings?client_id=eq.$clientId&select=status,title,summary,speakers,error,chunks_total")
+        txt.trim().removePrefix("[").removeSuffix("]").trim().takeIf { it.startsWith("{") }
+    }
+
     /** POST a JSON body to the `meeting` function; returns (HTTP code, body) so callers can react to 409. */
     suspend fun meeting(body: String): Pair<Int, String> = withContext(Dispatchers.IO) {
         postAuthed("/functions/v1/meeting", body, http)

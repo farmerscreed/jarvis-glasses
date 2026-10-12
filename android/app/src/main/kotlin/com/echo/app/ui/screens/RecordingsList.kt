@@ -88,6 +88,52 @@ fun RecordingCard(r: SavedRecording, onOpen: () -> Unit) {
     }
 }
 
+/** The meeting notes from the cloud (M4): status while it works, then the summary. */
+@Composable
+private fun CloudNotes(r: SavedRecording, cloud: org.json.JSONObject?) {
+    val status = cloud?.optString("status").orEmpty()
+    val s = cloud?.optJSONObject("summary")
+    if (status != "ready" || s == null) {
+        val msg = when (status) {
+            "" -> if (r.uploadedChunks > 0) "Uploading — the notes come once it's all up." else "Waiting to upload — the notes come once it's in the cloud."
+            "recording", "uploading" -> "Uploading — the notes come once it's all up."
+            "uploaded", "transcribing" -> "Writing the transcript…"
+            "transcribed", "summarising" -> "Writing the summary…"
+            else -> "Couldn't make the notes: " + cloud?.optString("error").orEmpty()
+        }
+        Text(msg, style = Neo.body.copy(fontSize = 14.sp, lineHeight = 20.sp, color = Neo.Muted))
+        return
+    }
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        Modifier.fillMaxWidth().clip(shape).background(Neo.Card).border(1.dp, Neo.Border, shape).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        MonoLabel("Summary", color = Neo.Cyan)
+        Text(s.optString("in_short"), style = Neo.body.copy(fontSize = 15.sp, lineHeight = 22.sp))
+        fun list(name: String) = s.optJSONArray(name)?.let { a -> (0 until a.length()).map { a.get(it) } }.orEmpty()
+        Section("Decisions", list("decisions").map { it.toString() })
+        Section("Action items", list("action_items").map { a ->
+            val o = a as org.json.JSONObject
+            o.optString("task") + listOf(o.optString("owner"), o.optString("due")).filter { it.isNotBlank() }.joinToString(" · ").let { if (it.isBlank()) "" else " — $it" }
+        })
+        Section("Numbers", list("numbers").map { n -> (n as org.json.JSONObject).let { it.optString("label") + ": " + it.optString("value") } })
+        Section("Follow-ups", list("follow_ups").map { it.toString() })
+        Section("Open questions", list("open_questions").map { it.toString() })
+        val err = cloud.optString("error")
+        if (err.isNotBlank() && err != "null") Text(err, style = Neo.body.copy(fontSize = 12.sp, color = Neo.Amber))
+    }
+}
+
+@Composable
+private fun Section(title: String, items: List<String>) {
+    if (items.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        MonoLabel(title)
+        items.forEach { Text("•  $it", style = Neo.body.copy(fontSize = 14.sp, lineHeight = 20.sp)) }
+    }
+}
+
 /** Where the recording is: only on this phone, on its way up, or safely in the cloud. */
 fun cloudLabel(r: SavedRecording) = when {
     r.inCloud -> "Backed up" to Neo.Cyan
@@ -102,6 +148,14 @@ fun RecordingDetail(vm: HomeViewModel, r: SavedRecording, onBack: () -> Unit) {
     var confirmDelete by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf<Float?>(null) }
     LaunchedEffect(r.id) { vm.player.load(r) }
+    var cloud by remember { mutableStateOf<org.json.JSONObject?>(null) }
+    LaunchedEffect(r.id) { // follow the cloud until the summary is ready
+        while (true) {
+            vm.recordingCloud(r.id)?.let { cloud = it }
+            if (cloud?.optString("status") in setOf("ready", "failed")) break
+            kotlinx.coroutines.delay(10_000)
+        }
+    }
     DisposableEffect(r.id) { onDispose { vm.player.release() } }
 
     Column(
@@ -113,7 +167,7 @@ fun RecordingDetail(vm: HomeViewModel, r: SavedRecording, onBack: () -> Unit) {
             MonoLabel("Recording")
         }
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(recordingTitle(r), style = Neo.display.copy(fontSize = 24.sp))
+            Text(cloud?.optString("title")?.takeIf { it.isNotBlank() && r.title.isBlank() } ?: recordingTitle(r), style = Neo.display.copy(fontSize = 24.sp))
             Text(recordingWhen(r) + " · " + MeetingRecorder.clock(r.durationS * 1000L), style = Neo.mono.copy(fontSize = 12.sp, letterSpacing = 0.sp))
             val (label, color) = cloudLabel(r)
             MonoLabel(label, color = color)
@@ -164,10 +218,7 @@ fun RecordingDetail(vm: HomeViewModel, r: SavedRecording, onBack: () -> Unit) {
             }
         }
 
-        Text(
-            "The written transcript and summary will appear here once meeting notes are switched on (coming next).",
-            style = Neo.body.copy(fontSize = 13.sp, lineHeight = 19.sp, color = Neo.Muted),
-        )
+        CloudNotes(r, cloud)
         GhostButton("Delete recording", onClick = { confirmDelete = true }, icon = Icons.Outlined.Delete, color = Neo.Danger, modifier = Modifier.fillMaxWidth())
     }
 
