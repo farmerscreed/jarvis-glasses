@@ -172,7 +172,7 @@ class EchoBackend(
                 }
             }
             var (code, err) = attempt()
-            if (code == 401 && refreshSession()) {
+            if (authExpired(code, err) && refreshSession()) {
                 val retry = attempt()
                 code = retry.first; err = retry.second
             }
@@ -197,7 +197,7 @@ class EchoBackend(
             http.newCall(req).execute().use { resp -> return resp.code to resp.body?.string().orEmpty() }
         }
         var r = attempt()
-        if (r.first == 401 && refreshSession()) r = attempt()
+        if (authExpired(r.first, r.second) && refreshSession()) r = attempt()
         if (r.first !in 200..299) error("chunk upload failed: HTTP ${r.first}: ${r.second.take(200)}")
     }
 
@@ -205,6 +205,13 @@ class EchoBackend(
     suspend fun meeting(body: String): Pair<Int, String> = withContext(Dispatchers.IO) {
         postAuthed("/functions/v1/meeting", body, http)
     }
+
+    /**
+     * Storage reports an expired token as HTTP 400 with `"statusCode":"403"` / `"exp" claim timestamp check
+     * failed` — not 401 — so the usual refresh-on-401 never fired and uploads retried forever with a dead token.
+     */
+    private fun authExpired(code: Int, body: String): Boolean =
+        code == 401 || (code in setOf(400, 403) && (body.contains("\"exp\"") || body.contains("jwt", ignoreCase = true) || body.contains("Unauthorized")))
 
     /** Short-lived signed URL for a private storage object (the read path for `media_path`). */
     suspend fun signedMediaUrl(path: String, expiresInSec: Int = 3600): String = withContext(Dispatchers.IO) {
