@@ -6,6 +6,11 @@ know exactly where we are, how to run/verify, what not to relitigate, and what t
 
 ---
 ### ▶ LATEST (2026-10-12) — start here next session
+**M2 (upload) built + installed; migration applied — but the `meeting` Edge Function could not be CREATED**
+(Supabase returns 500 for any new function; updates work). Once it exists (dashboard placeholder named `meeting`,
+or Law approves the Management-API create), run `supabase functions deploy meeting --use-api`, then test: record
+>5 min, watch Memories → Recordings go Uploading → Backed up, check `recording_chunks` sha256 + airplane-mode
+resume (session log §15). Then M3.
 **Phase 2 · M1 (meeting recording) built and device-tested**, plus an early **Memories → Recordings** library
 (play / jump to marks / delete) — session log §14, status in `docs/PHASE2_DESIGN.md`. **NEXT: M2** (upload +
 storage), then M3 transcription, M4 summary. Ask Law: did he tap Mark in the first test (marks came back

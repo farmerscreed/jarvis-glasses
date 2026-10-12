@@ -217,7 +217,10 @@ create table public.recording_segments (     -- the transcript, speaker-labelled
 
 **Status (2026-10-12):** **M1 built + device-tested** (430 s with the screen locked → 2 valid chunks, Gemini
 transcribed the audio cleanly; voice marks + notification Mark/Stop). **Early M5 slice built:** Memories →
-Recordings (local list, sequential-chunk player with ±15 s / drag / jump-to-mark, delete). Next: M2.
+Recordings (local list, sequential-chunk player with ±15 s / drag / jump-to-mark, delete). **M2 built** (migration
+applied to prod; phone uploader installed) — the `meeting` function is written but **not deployed**: creating a
+new Edge Function returns HTTP 500 (2026-10-12, CLI 2.98 and 2.120; updating existing functions works). M2 status
+value `uploaded` added. Upload progress is kept per recording in `upload.json` (not Room, as first planned).
 
 Order rationale: M1–M4 give Law a working "record → summary" loop fast; M5 makes it browsable; M6/M7 cut
 cost; M8 depends on a hands-on session with the glasses.

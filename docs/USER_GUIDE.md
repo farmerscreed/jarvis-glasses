@@ -121,9 +121,11 @@ connected for sound; if not, the app warns you and your English plays from the p
 - **Stop:** *"stop recording"*, the notification's **Stop**, or the Stop button.
 - **Find it later:** **Memories → Recordings.** Each recording shows its date, length and size. Tap it to
   play (drag the bar, **−15 s / +15 s**, or tap a **marked moment** to jump there) or **Delete** it.
-- **Coming next:** the recording is sent to the cloud, written out as a transcript and summarised (decisions,
-  who said what, to-dos), with a notification when it's ready. Until then recordings stay on the phone only.
-- While recording, the wake word is off (the recorder uses the mic) and translation can't run at the same time.
+- **Backup:** each 5-minute piece is sent to your private cloud storage as soon as it's finished — even during
+  the meeting, and later if you had no signal. The card shows **On phone**, **Uploading 2/5** or **Backed up**.
+  Deleting a recording removes the cloud copy too.
+- **Coming next:** the recording is written out as a transcript and summarised (decisions,
+  who said what, to-dos), with a notification when it's ready. - While recording, the wake word is off (the recorder uses the mic) and translation can't run at the same time.
 
 ## Find my glasses
 Device screen → **Find my glasses** → **Turn on**, and allow location (then **"All the time"**, so it

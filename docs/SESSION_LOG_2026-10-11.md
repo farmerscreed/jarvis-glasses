@@ -236,3 +236,21 @@ Not yet screenshotted: the phone was locked (screenshots only taken while JARVIS
   `meeting/RecordingPlayer.kt` (MediaPlayer chaining the chunks as one timeline; drag, ±15 s, jump to a mark)
   and delete-with-confirm. Summary/transcript tabs come with M3–M4.
 - Commits `06ed5e4`, `5fa1771`, `d8a243d` (+ docs). Not pushed yet — waiting for Law.
+
+## 15. 2026-10-12 — pushed; Phase 2 · M2 (upload) built, cloud function blocked
+
+- Pushed `06ed5e4…3deac76` to GitHub at Law's request (diff scanned: no keys/logs/private files).
+- **Migration `20261012190058_meeting_recordings`** applied to prod + repaired: `recordings`, `recording_chunks`
+  (owner SELECT only; writes via the function), private bucket `recordings` (`<uid>/<client_id>/<seq>.m4a`,
+  owner-only object policies, 20 MiB cap, audio/mp4).
+- **`supabase/functions/meeting`** (ops `chunk` — download + size/sha256 check, 409 = re-send; `finish`; `delete`).
+  `deno check` passes. **Deploy fails: `unexpected deploy status 500: Function deploy failed due to an internal
+  error`** for ANY new function name (even a one-liner; CLI 2.98.1 and 2.120.0), while redeploying `push` works.
+  Supabase status page shows no incident. Creating it via the Management API create endpoint was blocked by the
+  session's permission guard (production deploy) — **needs Law** (see handoff).
+- **Phone:** `meeting/MeetingUploader.kt` (+ `MeetingUploadWorker`): uploads each closed chunk (recorder exposes
+  `openChunk(id)`; the chunk is closed at `NEXT_OUTPUT_FILE_STARTED`), server-verified, progress in `upload.json`,
+  `finish` after stop; delete queues a cloud delete (`recordings/.deleted`); SyncWorker drains as a backstop.
+  Library cards: On phone / Uploading n/m / Backed up. Installed on the Pixel. **Untested end to end** until the
+  function exists. Commit `47882c7`.
+
