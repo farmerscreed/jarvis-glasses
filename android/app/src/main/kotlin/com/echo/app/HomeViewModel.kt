@@ -75,6 +75,7 @@ class HomeViewModel @Inject constructor(
     val glassesLocator: GlassesLocator,
     /** Phase 2: meeting recording (phone mic). */
     val meetings: com.echo.app.meeting.MeetingRecorder,
+    val player: com.echo.app.meeting.RecordingPlayer,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -1240,6 +1241,15 @@ class HomeViewModel @Inject constructor(
     fun pauseMeeting() { meetings.pause() }
     fun resumeMeeting() { meetings.resume() }
     fun clearMeetingSaved() { meetings.clearSaved() }
+
+    /** Finished recordings on this phone, newest first (Memories → Recordings). */
+    var recordings by mutableStateOf<List<com.echo.app.meeting.SavedRecording>>(emptyList()); private set
+    fun refreshRecordings() { viewModelScope.launch(Dispatchers.IO) { val r = meetings.saved().filterNot { meetingUi.active && it.id == meetingUi.id }; withContext(Dispatchers.Main) { recordings = r } } }
+    fun deleteRecording(id: String) {
+        if (player.ui.value.recordingId == id) player.release()
+        meetings.delete(id)
+        refreshRecordings()
+    }
 
     /** The UI shows the meeting screen when this is set (voice start, notification tap). */
     var meetingOpen by mutableStateOf(false)

@@ -68,7 +68,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private val FILTERS = listOf("all" to "All", "photos" to "Photos", "people" to "People", "research" to "Research", "notes" to "Notes")
+private val FILTERS = listOf("all" to "All", "recordings" to "Recordings", "photos" to "Photos", "people" to "People", "research" to "Research", "notes" to "Notes")
 private val TIME = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
 private val DAY = DateTimeFormatter.ofPattern("EEE d MMM").withZone(ZoneId.systemDefault())
 
@@ -83,6 +83,13 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
     var filter by rememberSaveable { mutableStateOf("all") }
     var query by rememberSaveable { mutableStateOf("") }
     var selected by remember { mutableStateOf<Memory?>(null) }
+    var openRec by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(filter) { if (filter == "recordings") vm.refreshRecordings() }
+    vm.recordings.firstOrNull { it.id == openRec }?.let { rec ->
+        BackHandler { openRec = null }
+        RecordingDetail(vm, rec, onBack = { openRec = null })
+        return
+    }
     selected?.let { mem ->
         BackHandler { selected = null }
         PhotoDetailScreen(vm, mem, onBack = { selected = null }, onAskAboutPhoto = { onAskAboutPhoto(mem) })
@@ -126,6 +133,7 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     MonoLabel(
                         when {
+                            filter == "recordings" -> "On this phone"
                             vm.searching -> "Searching…"
                             vm.searchHits != null -> "Results"
                             else -> "Latest"
@@ -139,7 +147,17 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
                 }
             }
         }
-        if (shown.isEmpty()) {
+        if (filter == "recordings") {
+            if (vm.recordings.isEmpty()) item(span = { GridItemSpan(3) }) {
+                Text(
+                    "No recordings yet — tap Meeting on Home, or say “Jarvis, record this meeting”. Finished recordings land here.",
+                    style = Neo.body.copy(fontSize = 15.sp, lineHeight = 22.sp, color = Neo.Muted),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 30.dp),
+                )
+            }
+            items(vm.recordings, key = { "rec-" + it.id }, span = { GridItemSpan(3) }) { r -> RecordingCard(r, onOpen = { openRec = r.id }) }
+        } else if (shown.isEmpty()) {
             item(span = { GridItemSpan(3) }) {
                 Column(Modifier.padding(top = 30.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Text(

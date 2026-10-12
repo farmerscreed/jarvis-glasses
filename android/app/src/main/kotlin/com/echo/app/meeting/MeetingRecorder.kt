@@ -48,7 +48,19 @@ data class MeetingUi(
     val lastSaved: SavedRecording? = null,
 )
 
-data class SavedRecording(val id: String, val title: String, val durationS: Int, val chunks: Int, val bytes: Long, val dir: File)
+data class SavedRecording(
+    val id: String,
+    val title: String,
+    val durationS: Int,
+    val chunks: Int,
+    val bytes: Long,
+    val dir: File,
+    val startedAt: Long = 0,
+    val bookmarks: List<Bookmark> = emptyList(),
+) {
+    /** The playable pieces, in order. */
+    fun files(): List<File> = dir.listFiles { f -> f.extension == "m4a" && f.length() > 0 }?.sortedBy { it.name }.orEmpty()
+}
 
 /**
  * Phase 2 · M1 — records a meeting with the PHONE's microphone (on the table it hears the whole room; the
@@ -181,8 +193,15 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
     fun saved(): List<SavedRecording> = root().listFiles()?.filter { it.isDirectory }?.mapNotNull { d ->
         val meta = runCatching { JSONObject(File(d, "meta.json").readText()) }.getOrNull() ?: return@mapNotNull null
         val files = chunkFiles(d)
-        SavedRecording(d.name, meta.optString("title"), meta.optInt("duration_s"), files.size, files.sumOf { it.length() }, d)
-    }?.sortedByDescending { it.id }.orEmpty()
+        val marks = meta.optJSONArray("bookmarks")?.let { a -> (0 until a.length()).map { i -> a.getJSONObject(i).let { Bookmark(it.optInt("t_s"), it.optString("label")) } } }.orEmpty()
+        SavedRecording(d.name, meta.optString("title"), meta.optInt("duration_s"), files.size, files.sumOf { it.length() }, d, meta.optLong("started_at"), marks)
+    }?.sortedByDescending { it.startedAt }.orEmpty()
+
+    /** Delete a recording from this phone (not the one in progress). */
+    fun delete(id: String): Boolean {
+        if (_ui.value.active && _ui.value.id == id) return false
+        return File(root(), id).takeIf { it.isDirectory }?.deleteRecursively() ?: false
+    }
 
     // ── internals ────────────────────────────────────────────────────────────────────────────────
 
