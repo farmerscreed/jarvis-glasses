@@ -72,6 +72,7 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
     private var tickJob: Job? = null
     private var runStartedAt = 0L      // when the current un-paused stretch began
     private var accumulatedMs = 0L     // recorded time before the current stretch
+    @Volatile private var lastMarkAt = 0L // the notification shows "Marked at…" for a few seconds
 
     val isActive: Boolean get() = _ui.value.active
 
@@ -137,6 +138,10 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
         val b = Bookmark((elapsedMs() / 1000).toInt(), label.trim())
         _ui.value = _ui.value.copy(bookmarks = _ui.value.bookmarks + b)
         writeMeta(ended = false)
+        Log.i(TAG, "marked at ${b.tS}s ${b.label}")
+        lastMarkAt = System.currentTimeMillis()
+        // Visible confirmation (the notification is often where Mark was tapped).
+        MeetingRecorderService.update(context, "Marked at ${clock(b.tS * 1000L)} · recording ${clock(elapsedMs())}")
     }
 
     /** Stop and keep everything. Returns what was saved (null if nothing was recording). */
@@ -245,7 +250,8 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
                     chunks = files?.size ?: _ui.value.chunks,
                     bytes = files?.sumOf { it.length() } ?: _ui.value.bytes,
                 )
-                if (n % 5 == 0 && !_ui.value.paused) MeetingRecorderService.update(context, "Recording · ${clock(_ui.value.elapsedMs)}")
+                val markShowing = System.currentTimeMillis() - lastMarkAt < 5_000
+                if (n % 5 == 0 && !_ui.value.paused && !markShowing) MeetingRecorderService.update(context, "Recording · ${clock(_ui.value.elapsedMs)}")
                 n++
                 delay(200)
             }
