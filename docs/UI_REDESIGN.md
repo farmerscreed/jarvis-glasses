@@ -144,7 +144,7 @@ Follow-ups pass the previous Q/A as `history` (already supported).
 Each step: build, install on the Pixel, screenshot, Law reviews. Keep every existing function reachable;
 nothing is removed, only moved (see the "Backed by" lines).
 
-## Build status (2026-10-11, built + installed on the Pixel; not yet reviewed on screen by Law)
+## Build status (built 2026-10-11 · approved by Law on the phone 2026-10-12: "I love the new look of the app")
 | Step | State | Where |
 |---|---|---|
 | 1 Theme + shared components | ✅ | `ui/components/Neo.kt` (Neo tokens, GlowButton, GhostButton, RoundButton, NeoTopBar, NeoCard, FeatureTile, SettingsGroup/Row, FilterChips/NeoChip, LiveBars, StatusDot, SourceCard, LivePill); background → `#0A0E13` in `Theme.kt` |

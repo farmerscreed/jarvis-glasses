@@ -192,3 +192,15 @@ feature grid, Memories (Timeline + Gallery merged and removed), Settings with su
 (+ `headline` from the deployed `research` function). Builds clean, 17 unit tests pass, installed on the Pixel.
 Not yet screenshotted: the phone was locked (screenshots only taken while JARVIS is the focused app — see
 `safecap` approach in §10's note). Step 7 (Ask / Device / Help / onboarding inner cards) is partly done.
+
+## 12. 2026-10-12 — Law approves the redesign on the phone
+
+- **Law: "I love the new look of the app."** The redesign (§11) is accepted as the app's look going forward.
+  Any new screen follows `docs/UI_REDESIGN.md` and uses the `ui/components/Neo.kt` building blocks.
+- **Glasses look timing after the speed-up (log 2026-10-11 22:51):** a full look now takes **≈7.2 s**
+  (was 8–8.8 s) — the removed waits are real. The warm link wasn't used (looks > 25 s apart; it dropped idle
+  as designed). One 20 s look with no photo happened while the phone had no internet ("Unable to resolve
+  host"); push registration also failed then and simply retries on the next sign-in / app open.
+- **Still open:** step 7 restyle (Ask JARVIS, Device/Glasses, Help, onboarding inner cards); Law to confirm
+  the test notification; Google Cloud setup for Gmail & Calendar; `STT_VOCAB`; whether to delete the Firebase
+  key file from `android/app/` (gitignored); whether to apply June's `agent_tasks` migration on prod.

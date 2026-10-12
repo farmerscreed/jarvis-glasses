@@ -148,7 +148,7 @@ session log.** Only then start P1.
 3. 🟡 **Done 2026-10-11, limited by the glasses** (they drop Wi-Fi ~30 s after a download; −2.3 s per look from removed waits; §9). **Keep the Wi-Fi Direct link warm** between photos (each look re-negotiates ~6–8 s) — makes
    look-and-research and reading signs much faster.
 
-## P2.5 — UI redesign (approved 2026-10-11) — 🟡 BUILT 2026-10-11, awaiting Law's review (steps 1–6 done, 7 partial)
+## P2.5 — UI redesign — ✅ BUILT + APPROVED on the phone 2026-10-12 (steps 1–6 done; step 7 — Ask/Device/Help/onboarding inner cards — still to restyle)
 Build `docs/UI_REDESIGN.md` in its build order: theme + shared components → Translate → navigation/Home →
 Settings → Memories → Research (+ `headline` from the research function) → Ask/Device/Help/onboarding.
 Install + screenshot each step for Law. Nothing removed, only moved.
@@ -170,6 +170,8 @@ Install + screenshot each step for Law. Nothing removed, only moved.
 ---
 
 ## Done
+- 2026-10-12 — **UI redesign** built and approved by Law ("I love the new look"). See `UI_REDESIGN.md`, session log §11–12.
+- 2026-10-11 — Phase 1 built: email + calendar (awaiting Google setup), people memory ✅, find my glasses ✅, push notifications (configured), faster glasses looks (≈7.2 s).
 - 2026-10-11 — **P0 translation echo/loop fixed**, T1–T8 passed on the Pixel with Law. See `SESSION_LOG_2026-10-11.md`.
 - 2026-10-10 — cloud research, look & research, live translation (listen/talk/type), screen-off
   service, script-based language labels, cloud-first STT, docs + Help. See `SESSION_LOG_2026-10-10.md`.

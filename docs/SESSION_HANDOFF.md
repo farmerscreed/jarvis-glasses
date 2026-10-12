@@ -2,7 +2,7 @@
 
 *The single-source handover between sessions. A new session should be able to read only this and
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
-*Last updated: 2026-10-11. Keep this current at the end of every working session.*
+*Last updated: 2026-10-12. Keep this current at the end of every working session.*
 
 ---
 ### ▶ LATEST (2026-10-11) — start here next session
@@ -23,8 +23,10 @@ and tested on the Pixel (§7). Next after Google: Phase 2 (meeting capture) per 
 **Also 2026-10-11 evening:** push notifications built + configured (Firebase `jarvis-47d18`, secret
 `FCM_SERVICE_ACCOUNT`, phone registered — Law to confirm the test notification arrived; §8); faster glasses looks
 (−2.3 s per look; the glasses drop Wi-Fi ~30 s after a download so a warm link rarely helps; §9).
-**UI redesign BUILT + installed (§11)** — all main screens per **`docs/UI_REDESIGN.md`** (status table at its end).
-**NEXT:** Law reviews it on the phone → fixes; then restyle Ask / Device / Help / onboarding inner cards (step 7). Law decided: same email for Google
+**UI redesign BUILT, installed and APPROVED by Law 2026-10-12 ("I love the new look")** — §11–12; spec + status
+table in **`docs/UI_REDESIGN.md`**; every new screen uses `ui/components/Neo.kt`.
+**NEXT:** restyle Ask / Device / Help / onboarding inner cards (redesign step 7); then Phase 2 (meeting capture —
+recordings library first) per `PRODUCT_PLAN.md`. Open Law items: Google Cloud setup, `STT_VOCAB`, confirm test push. Law decided: same email for Google
 and JARVIS; drafts + contacts, inbox reading later. **Waiting on Law:** Google Cloud setup (Internal
 consent screen; Gmail, Calendar, People APIs; Web + Android clients) + Supabase Google provider — steps
 in the session log §5. Still pending: `STT_VOCAB`. (P1 quick re-verification of the 10-10 features

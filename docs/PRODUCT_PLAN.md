@@ -41,7 +41,7 @@ add next and what to leave out.
 | People memory | "Jarvis, remember this person…" → recall later; Timeline → People | Working (11 Oct) |
 | Find my glasses | Location noted when the glasses disconnect; "where are my glasses?" + map | Working (11 Oct) |
 | Push notifications | JARVIS can reach Law without the app open | Built + Firebase configured 11 Oct; test push to confirm |
-| UI redesign | Futuristic, simpler screens; every feature one tap from Home | Approved 11 Oct — `docs/UI_REDESIGN.md`; building next |
+| UI redesign | Futuristic, simpler screens; every feature one tap from Home | Built + approved on the phone 12 Oct — `docs/UI_REDESIGN.md` |
 
 ## What we will not build (for now)
 
