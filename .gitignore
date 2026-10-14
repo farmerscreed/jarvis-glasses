@@ -52,3 +52,6 @@ voice_system.log
 
 # Firebase service-account private keys (push sender) — never commit
 *firebase-adminsdk*.json
+
+# Model evals contain private meeting transcripts
+docs/eval/

@@ -1,7 +1,7 @@
 // Phase 2 · M4 — turn a meeting transcript into a structured summary (+ speaker names), and (M5) answer
 // questions about one meeting. Models come from the switchboard (M7, _shared/llm.ts): jobs "meeting_summary"
 // and "meeting_ask" in the model_routes table.
-import { llmJson } from "./llm.ts";
+import { llmJson, RouteEntry } from "./llm.ts";
 
 export type Line = { t: number; speaker: string; text: string };
 export type Summary = {
@@ -67,7 +67,7 @@ export function transcriptText(lines: Line[], bookmarks: { t_s: number; label: s
 
 export async function summarise(
   lines: Line[],
-  ctx: { title?: string; date?: string; durationS?: number; bookmarks?: { t_s: number; label: string }[]; userId?: string },
+  ctx: { title?: string; date?: string; durationS?: number; bookmarks?: { t_s: number; label: string }[]; userId?: string; routes?: RouteEntry[] },
 ): Promise<Summary> {
   // ~2 h of talk is ~150k characters; beyond that keep the start and the end (rare; block-summaries later).
   let text = transcriptText(lines, ctx.bookmarks ?? []);
@@ -79,7 +79,7 @@ export async function summarise(
     ctx.durationS ? `Length: ${Math.round(ctx.durationS / 60)} minutes` : "",
   ].filter(Boolean).join("\n");
   const s = await llmJson<Summary>(
-    "meeting_summary", SYSTEM, `${header}\n\nTranscript:\n${text || "(no speech was transcribed)"}`, SCHEMA, { userId: ctx.userId },
+    "meeting_summary", SYSTEM, `${header}\n\nTranscript:\n${text || "(no speech was transcribed)"}`, SCHEMA, { userId: ctx.userId, routes: ctx.routes },
   );
   delete s._model;
   return s;
