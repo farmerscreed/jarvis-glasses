@@ -89,7 +89,9 @@ fun SettingsScreen(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onOpenDevice
         "notifications" -> NotificationsPage(vm) { page = "main" }
         "personality" -> PersonalityPage(vm) { page = "main" }
         "data" -> DataPage(vm) { page = "main" }
-        "advanced" -> AdvancedPage(vm, onOpenDevConsole) { page = "main" }
+        "advanced" -> AdvancedPage(vm, onOpenDevConsole, onOpen = { page = it }) { page = "main" }
+        "audio" -> AudioKeepPage(vm) { page = "advanced" }
+        "costs" -> AiCostsPage(vm) { page = "advanced" }
         else -> MainPage(vm, onOpen = { page = it }, onOpenDevice = onOpenDevice, onHelp = onHelp)
     }
 }
@@ -268,9 +270,85 @@ private fun DataPage(vm: HomeViewModel, onBack: () -> Unit) {
     )
 }
 
+private fun keepLabel(days: Int) = when (days) { 0 -> "Forever"; 365 -> "1 year"; else -> "$days days" }
+
+/** Settings → Advanced → Keep meeting audio (M6): 30 / 90 / 365 days / forever. */
 @Composable
-private fun AdvancedPage(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onBack: () -> Unit) {
+private fun AudioKeepPage(vm: HomeViewModel, onBack: () -> Unit) {
+    LaunchedEffect(Unit) { vm.loadAudioKeepDays() }
+    SubPage("Keep meeting audio", onBack) {
+        Explain(
+            "Meeting audio is kept in your private cloud storage for this long after the meeting, then deleted to save space. " +
+                "The summary, transcript and memory are kept forever. Starred meetings keep their audio forever. " +
+                "The phone keeps its own copy for a week after it's backed up.",
+        )
+        SettingsGroup(null) {
+            listOf(30, 90, 365, 0).forEachIndexed { i, d ->
+                SettingsRow(
+                    null, keepLabel(d) + if (d == 90) " (recommended)" else "",
+                    value = if (vm.audioKeepDays == d) "✓" else null, valueColor = Neo.Cyan,
+                    divider = i < 3, onClick = { vm.setAudioKeepDays(d) },
+                )
+            }
+        }
+        if (vm.audioKeepDays == null) Explain("Couldn't load the setting — you need to be online.")
+    }
+}
+
+/** Settings → Advanced → AI models & cost (M7): this month's AI use per job and which models are used. */
+@Composable
+private fun AiCostsPage(vm: HomeViewModel, onBack: () -> Unit) {
+    LaunchedEffect(Unit) { vm.loadAiCosts() }
+    val c = vm.aiCosts
+    SubPage("AI models & cost", onBack) {
+        if (c == null) { Explain("Loading… (you need to be online)"); return@SubPage }
+        val jobs = c.optJSONObject("jobs") ?: org.json.JSONObject()
+        Text("$" + "%.2f".format(c.optDouble("total_usd", 0.0)) + " this month", style = Neo.display.copy(fontSize = 28.sp))
+        Explain("Estimated from the tokens each call used (meetings so far; other features join later). Bills come from each provider.")
+        val names = mapOf("meeting_stt" to "Meeting transcripts", "meeting_summary" to "Meeting summaries", "meeting_ask" to "Questions about meetings")
+        SettingsGroup("This month") {
+            val keys = jobs.keys().asSequence().toList()
+            if (keys.isEmpty()) SettingsRow(null, "No AI calls logged yet this month", divider = false)
+            keys.forEachIndexed { i, k ->
+                val j = jobs.getJSONObject(k)
+                val models = j.optJSONObject("models")?.keys()?.asSequence()?.joinToString(", ").orEmpty()
+                SettingsRow(
+                    null, names[k] ?: k,
+                    sub = "${j.optInt("calls")} calls" + (if (j.optInt("failed") > 0) " · ${j.optInt("failed")} failed" else "") + (if (models.isNotBlank()) " · $models" else ""),
+                    value = "$" + "%.3f".format(j.optDouble("usd", 0.0)), divider = i < keys.size - 1,
+                )
+            }
+        }
+        val routes = c.optJSONArray("routes") ?: org.json.JSONArray()
+        SettingsGroup("Models used, in order") {
+            for (i in 0 until routes.length()) {
+                val r = routes.getJSONObject(i)
+                val list = r.optJSONArray("routes") ?: org.json.JSONArray()
+                val chain = (0 until list.length()).map { list.getJSONObject(it) }.joinToString(" → ") { e ->
+                    e.optString("provider") + "/" + e.optString("model").let { if (it == "default") "Claude (default)" else it }
+                }
+                SettingsRow(null, names[r.optString("job")] ?: r.optString("job"), sub = chain, divider = i < routes.length() - 1)
+            }
+        }
+        Explain(
+            if (c.optBoolean("openrouter")) "OpenRouter is connected — cheaper models can be switched on per job."
+            else "Cheaper models (DeepSeek, Kimi, Qwen… via OpenRouter) switch on once the OpenRouter key is added on the server.",
+        )
+    }
+}
+
+@Composable
+private fun AdvancedPage(vm: HomeViewModel, onOpenDevConsole: () -> Unit, onOpen: (String) -> Unit, onBack: () -> Unit) {
+    LaunchedEffect(Unit) { vm.loadAudioKeepDays() }
     SubPage("Advanced", onBack) {
+        SettingsGroup("Meetings") {
+            SettingsRow(
+                Icons.Outlined.GraphicEq, "Keep meeting audio",
+                sub = "The notes and transcript are always kept",
+                value = vm.audioKeepDays?.let { keepLabel(it) } ?: "…", onClick = { onOpen("audio") },
+            )
+            SettingsRow(Icons.Outlined.AutoAwesome, "AI models & cost", sub = "Which AI does each job, and this month's cost", divider = false, onClick = { onOpen("costs") })
+        }
         SettingsGroup(null) {
             SettingsRow(Icons.Outlined.RecordVoiceOver, "Voice recognition", sub = vm.voiceEngineSummary)
             SettingsRow(Icons.Outlined.WifiOff, "Offline", sub = "Answers from memory on the phone when there's no connection")

@@ -90,10 +90,10 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
     LaunchedEffect(filter) {
         if (filter == "recordings") {
             vm.kickRecordingUploads()
-            while (true) { vm.refreshRecordings(); kotlinx.coroutines.delay(5_000) } // live upload status
+            while (true) { vm.refreshRecordings(); kotlinx.coroutines.delay(15_000) } // live status (uploading → ready)
         }
     }
-    vm.recordings.firstOrNull { it.id == openRec }?.let { rec ->
+    vm.library.firstOrNull { it.id == openRec }?.let { rec ->
         BackHandler { openRec = null }
         RecordingDetail(vm, rec, onBack = { openRec = null })
         return
@@ -141,7 +141,7 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     MonoLabel(
                         when {
-                            filter == "recordings" -> "On this phone"
+                            filter == "recordings" -> "Meetings & recordings"
                             vm.searching -> "Searching…"
                             vm.searchHits != null -> "Results"
                             else -> "Latest"
@@ -156,7 +156,8 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
             }
         }
         if (filter == "recordings") {
-            if (vm.recordings.isEmpty()) item(span = { GridItemSpan(3) }) {
+            item(span = { GridItemSpan(3) }) { LibraryStrip(vm.libraryInfo, vm.libraryOffline) }
+            if (vm.library.isEmpty()) item(span = { GridItemSpan(3) }) {
                 Text(
                     "No recordings yet — tap Meeting on Home, or say “Jarvis, record this meeting”. Finished recordings land here.",
                     style = Neo.body.copy(fontSize = 15.sp, lineHeight = 22.sp, color = Neo.Muted),
@@ -164,7 +165,9 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
                     modifier = Modifier.fillMaxWidth().padding(top = 30.dp),
                 )
             }
-            items(vm.recordings, key = { "rec-" + it.id }, span = { GridItemSpan(3) }) { r -> RecordingCard(r, onOpen = { openRec = r.id }) }
+            items(vm.library, key = { "rec-" + it.id }, span = { GridItemSpan(3) }) { r ->
+                RecordingCard(r, onOpen = { openRec = r.id }, onStar = { starred -> vm.starRecording(r.id, starred) })
+            }
         } else if (shown.isEmpty()) {
             item(span = { GridItemSpan(3) }) {
                 Column(Modifier.padding(top = 30.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -192,7 +195,7 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
                     item(span = { GridItemSpan(3) }, key = "day-$day") { MonoLabel(dayLabel(day), modifier = Modifier.padding(top = 8.dp)) }
                 }
                 item(span = { GridItemSpan(3) }, key = m.id ?: m.clientId ?: m.hashCode().toString()) {
-                    MemoryRow(m, onOpenPhoto = { selected = m })
+                    MemoryRow(m, onOpenPhoto = { selected = m }, onOpenMeeting = { id -> filter = "recordings"; openRec = id })
                 }
             }
         }
@@ -219,7 +222,7 @@ private fun PhotoTile(m: Memory, onClick: () -> Unit) {
 
 /** One memory, styled by kind: person, research, photo, or a plain note/voice note/answer. */
 @Composable
-private fun MemoryRow(m: Memory, onOpenPhoto: () -> Unit) {
+private fun MemoryRow(m: Memory, onOpenPhoto: () -> Unit, onOpenMeeting: (String) -> Unit = {}) {
     var open by rememberSaveable(m.id ?: m.clientId ?: m.text) { mutableStateOf(false) }
     val shape = RoundedCornerShape(20.dp)
     val base = Modifier.fillMaxWidth().clip(shape).background(Neo.Card).border(1.dp, Neo.Border, shape)
@@ -266,14 +269,16 @@ private fun MemoryRow(m: Memory, onOpenPhoto: () -> Unit) {
             }
         }
         else -> {
+            val meetingId = m.metadata["client_id"]?.takeIf { m.type == MemoryType.MEETING && it.startsWith("rec-") }
             val tag = when {
+                m.type == MemoryType.MEETING -> "Meeting"
                 m.type == MemoryType.VOICE_NOTE -> "Voice note"
                 m.type == MemoryType.QA -> "Answer"
                 "translation" in m.tags -> "Translation"
                 "email" in m.tags -> "Email"
                 else -> "Note"
             }
-            Column(base.clickable { open = !open }.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(base.clickable { if (meetingId != null) onOpenMeeting(meetingId) else open = !open }.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (m.type == MemoryType.VOICE_NOTE) Icon(Icons.Outlined.Mic, contentDescription = null, tint = Neo.Muted, modifier = Modifier.size(14.dp).padding(end = 4.dp))
                     Text(time, style = Neo.mono.copy(fontSize = 12.sp, letterSpacing = 0.sp), modifier = Modifier.weight(1f))

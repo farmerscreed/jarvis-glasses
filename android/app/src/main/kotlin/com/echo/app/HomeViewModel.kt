@@ -77,6 +77,7 @@ class HomeViewModel @Inject constructor(
     val meetings: com.echo.app.meeting.MeetingRecorder,
     val player: com.echo.app.meeting.RecordingPlayer,
     private val uploader: com.echo.app.meeting.MeetingUploader,
+    val meetingLib: com.echo.app.meeting.MeetingLibrary,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -1243,20 +1244,74 @@ class HomeViewModel @Inject constructor(
     fun resumeMeeting() { meetings.resume() }
     fun clearMeetingSaved() { meetings.clearSaved() }
 
-    /** Finished recordings on this phone, newest first (Memories → Recordings). */
-    var recordings by mutableStateOf<List<com.echo.app.meeting.SavedRecording>>(emptyList()); private set
-    fun refreshRecordings() { viewModelScope.launch(Dispatchers.IO) { val r = meetings.saved().filterNot { meetingUi.active && it.id == meetingUi.id }; withContext(Dispatchers.Main) { recordings = r } } }
-    /** The recording's cloud status + summary (null when offline or not uploaded yet). */
-    suspend fun recordingCloud(id: String): org.json.JSONObject? =
-        runCatching { backend.recordingCloud(id)?.let { org.json.JSONObject(it) } }.getOrNull()
+    /**
+     * Memories → Recordings (M5): everything on this phone merged with everything in the cloud, newest first.
+     * Offline it still lists what's on the phone; [libraryOffline] says the cloud part is missing.
+     */
+    var library by mutableStateOf<List<com.echo.app.meeting.LibraryItem>>(emptyList()); private set
+    var libraryInfo by mutableStateOf(com.echo.app.meeting.LibraryInfo()); private set
+    var libraryOffline by mutableStateOf(false); private set
+    fun refreshRecordings() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val local = meetings.saved().filterNot { meetingUi.active && it.id == meetingUi.id }
+            val cloud = if (backend.isLoggedIn) runCatching { meetingLib.list() }.getOrNull() else null
+            val byId = LinkedHashMap<String, com.echo.app.meeting.LibraryItem>()
+            local.forEach { byId[it.id] = com.echo.app.meeting.LibraryItem(it.id, it, null) }
+            cloud?.first?.forEach { c ->
+                if (meetingUi.active && c.clientId == meetingUi.id) return@forEach
+                byId[c.clientId] = com.echo.app.meeting.LibraryItem(c.clientId, byId[c.clientId]?.local, c)
+            }
+            val items = byId.values.sortedByDescending { it.startedAt }
+            withContext(Dispatchers.Main) {
+                library = items
+                cloud?.second?.let { libraryInfo = it }
+                libraryOffline = cloud == null
+            }
+        }
+    }
 
     /** Try to send any recording chunks still on the phone (runs when there's a network). */
     fun kickRecordingUploads() = com.echo.app.meeting.MeetingUploadWorker.enqueue(appContext)
-    fun deleteRecording(id: String) {
+
+    /** Delete a recording: [audioOnly] keeps the transcript, summary and memory (cloud + phone audio go). */
+    fun deleteRecording(id: String, audioOnly: Boolean = false) {
         if (player.ui.value.recordingId == id) player.release()
-        meetings.delete(id)
-        uploader.queueCloudDelete(id) // removes the cloud copy too (now, or when back online)
-        refreshRecordings()
+        if (audioOnly) {
+            meetings.deleteLocalAudio(id)
+            viewModelScope.launch {
+                runCatching { meetingLib.deleteAudio(id) }.onFailure { status = "Couldn't delete the cloud audio: ${it.message}" }
+                refreshRecordings()
+            }
+        } else {
+            meetings.delete(id)
+            uploader.queueCloudDelete(id) // removes the cloud copy too (now, or when back online)
+            library = library.filterNot { it.id == id }
+            refreshRecordings()
+        }
+    }
+
+    /** Star = keep this recording's audio forever (unstar → it expires with the others). */
+    fun starRecording(id: String, starred: Boolean) {
+        library = library.map { if (it.id == id && it.cloud != null) it.copy(cloud = it.cloud.copy(starred = starred)) else it }
+        viewModelScope.launch {
+            runCatching { meetingLib.star(id, starred) }.onFailure { status = "Couldn't star it — are you online?" }
+            refreshRecordings()
+        }
+    }
+
+    /** This month's AI use per job + the model routes (Settings → AI models & cost). */
+    var aiCosts by mutableStateOf<org.json.JSONObject?>(null); private set
+    fun loadAiCosts() { viewModelScope.launch { aiCosts = runCatching { meetingLib.costs() }.getOrNull() } }
+
+    /** How long meeting audio is kept in the cloud (30/90/365 days, 0 = forever). */
+    var audioKeepDays by mutableStateOf<Int?>(null); private set
+    fun loadAudioKeepDays() { viewModelScope.launch { audioKeepDays = runCatching { meetingLib.keepDays() }.getOrNull() } }
+    fun setAudioKeepDays(days: Int) {
+        val before = audioKeepDays
+        audioKeepDays = days
+        viewModelScope.launch {
+            runCatching { meetingLib.keepDays(days) }.onFailure { audioKeepDays = before; status = "Couldn't save that — are you online?" }
+        }
     }
 
     /** The UI shows the meeting screen when this is set (voice start, notification tap). */

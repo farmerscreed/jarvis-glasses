@@ -74,7 +74,7 @@ class MeetingUploader @Inject constructor(
         val id = dir.name
         var st = state(dir)
         // v < CLOUD_V: finished before the cloud could transcribe → send "finish" once more (it re-kicks the work).
-        if (st.finished && st.v >= CLOUD_V) return true
+        if (st.finished && st.v >= CLOUD_V) { cleanUpLocal(dir); return true }
         val meta = JSONObject(File(dir, "meta.json").readText())
         val open = recorder.openChunk(id)              // the file still being written (never upload it)
         val recording = recorder.isActive && recorder.ui.value.id == id
@@ -115,6 +115,22 @@ class MeetingUploader @Inject constructor(
         return true
     }
 
+    /**
+     * M6: once every piece is confirmed in the cloud (size + sha256) and the meeting is more than
+     * [KEEP_LOCAL_DAYS] old, remove the phone's copy of the audio. meta.json stays, so the library still lists
+     * it; playback then streams from the cloud (until the cloud audio expires — the text stays forever).
+     */
+    private fun cleanUpLocal(dir: File) {
+        val audio = dir.listFiles { f -> f.extension == "m4a" }.orEmpty()
+        if (audio.isEmpty()) return
+        val st = state(dir)
+        if (!audio.all { it.name in st.uploaded }) return
+        val started = runCatching { JSONObject(File(dir, "meta.json").readText()).optLong("started_at") }.getOrDefault(0L)
+        if (started <= 0 || System.currentTimeMillis() - started < KEEP_LOCAL_DAYS * 86_400_000L) return
+        audio.forEach { it.delete() }
+        Log.i(TAG, "freed ${audio.size} local audio piece(s) of ${dir.name} (backed up, older than $KEEP_LOCAL_DAYS days)")
+    }
+
     private suspend fun drainDeletes(): Boolean {
         val f = File(recorder.root(), DELETED)
         val ids = runCatching { f.readLines().map { it.trim() }.filter { it.isNotEmpty() }.distinct() }.getOrDefault(emptyList())
@@ -138,6 +154,8 @@ class MeetingUploader @Inject constructor(
         const val STATE = "upload.json"
         /** Bump when the cloud learns to do more with a finished recording (3 = M3 transcription). */
         private const val CLOUD_V = 3
+        /** The phone keeps the newest week of meeting audio for offline playback. */
+        private const val KEEP_LOCAL_DAYS = 7
         private const val DELETED = ".deleted"
     }
 }

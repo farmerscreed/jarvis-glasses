@@ -216,6 +216,12 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
         return File(root(), id).takeIf { it.isDirectory }?.deleteRecursively() ?: false
     }
 
+    /** Remove only the audio from this phone (meta stays, so the library still lists it from the cloud). */
+    fun deleteLocalAudio(id: String) {
+        if (_ui.value.active && _ui.value.id == id) return
+        File(root(), id).listFiles { f -> f.extension == "m4a" }?.forEach { it.delete() }
+    }
+
     // ── internals ────────────────────────────────────────────────────────────────────────────────
 
     private fun nextFile(): File = File(dir, "%03d.m4a".format(seq++))
