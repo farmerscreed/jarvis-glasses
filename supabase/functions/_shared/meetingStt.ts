@@ -3,7 +3,7 @@
 // Private vocabulary (names etc.) lives in the STT_VOCAB secret, not in this public repo.
 
 export type Segment = { start: number; end: number; speaker: string; text: string };
-export type SttResult = { segments: Segment[]; model: string; ms: number; tokens?: number };
+export type SttResult = { segments: Segment[]; model: string; ms: number; tokens?: number; tokensIn?: number; tokensOut?: number };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -97,7 +97,8 @@ export async function transcribeChunk(
             text: String(s.text ?? "").trim(),
           }))
           .filter((s) => s.text.length > 0);
-        return { segments, model, ms: Date.now() - t0, tokens: data.usageMetadata?.totalTokenCount };
+        const u = data.usageMetadata ?? {};
+        return { segments, model, ms: Date.now() - t0, tokens: u.totalTokenCount, tokensIn: u.promptTokenCount, tokensOut: u.candidatesTokenCount };
       }
       lastErr = `${model} ${res.status}: ${(await res.text()).slice(0, 300)}`;
       if (res.status === 503 || res.status === 429 || res.status >= 500) {

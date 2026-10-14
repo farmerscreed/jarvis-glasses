@@ -1,7 +1,7 @@
-// Phase 2 · M4 — turn a meeting transcript into a structured summary (+ speaker names) with Claude.
-// Pure function of (transcript, context) → summary, so it can be tested alone. The model router (M7)
-// will later pick a cheaper model; MEETING_SUMMARY_MODEL overrides today (falls back to CLAUDE_MODEL).
-import { claudeJson } from "./anthropic.ts";
+// Phase 2 · M4 — turn a meeting transcript into a structured summary (+ speaker names), and (M5) answer
+// questions about one meeting. Models come from the switchboard (M7, _shared/llm.ts): jobs "meeting_summary"
+// and "meeting_ask" in the model_routes table.
+import { llmJson } from "./llm.ts";
 
 export type Line = { t: number; speaker: string; text: string };
 export type Summary = {
@@ -67,7 +67,7 @@ export function transcriptText(lines: Line[], bookmarks: { t_s: number; label: s
 
 export async function summarise(
   lines: Line[],
-  ctx: { title?: string; date?: string; durationS?: number; bookmarks?: { t_s: number; label: string }[] },
+  ctx: { title?: string; date?: string; durationS?: number; bookmarks?: { t_s: number; label: string }[]; userId?: string },
 ): Promise<Summary> {
   // ~2 h of talk is ~150k characters; beyond that keep the start and the end (rare; block-summaries later).
   let text = transcriptText(lines, ctx.bookmarks ?? []);
@@ -78,12 +78,31 @@ export async function summarise(
     ctx.date ? `Date: ${ctx.date}` : "",
     ctx.durationS ? `Length: ${Math.round(ctx.durationS / 60)} minutes` : "",
   ].filter(Boolean).join("\n");
-  return await claudeJson<Summary>(
-    SYSTEM,
-    `${header}\n\nTranscript:\n${text || "(no speech was transcribed)"}`,
-    SCHEMA,
-    { model: Deno.env.get("MEETING_SUMMARY_MODEL") ?? undefined, maxTokens: 4000 },
+  const s = await llmJson<Summary>(
+    "meeting_summary", SYSTEM, `${header}\n\nTranscript:\n${text || "(no speech was transcribed)"}`, SCHEMA, { userId: ctx.userId },
   );
+  delete s._model;
+  return s;
+}
+
+const ASK_SCHEMA = obj({ answer: str, moments: arr(obj({ t: { type: "number" }, quote: str })) });
+
+/** M5 "Ask about this meeting": an answer from THIS meeting's transcript only, with the moments it used. */
+export async function askMeeting(
+  lines: Line[],
+  question: string,
+  ctx: { title?: string; date?: string; speakers?: Record<string, string>; userId?: string },
+): Promise<{ answer: string; moments: { t: number; quote: string }[] }> {
+  let text = transcriptText(lines);
+  if (text.length > 300_000) text = text.slice(0, 150_000) + "\n[…]\n" + text.slice(-150_000);
+  const names = Object.entries(ctx.speakers ?? {}).map(([k, v]) => `${k} = ${v}`).join(", ");
+  const system = `You answer the owner's question about ONE recorded meeting, using only its transcript (Nigeria; translations in [brackets]; "Media" lines are a TV/radio, not people).
+- Answer in 1–4 plain sentences, quoting amounts, dates and names exactly as said.
+- If the transcript doesn't say, answer "The meeting doesn't say." — never guess.
+- moments: up to 3 lines that support the answer: t = the [mm:ss] time in seconds, quote = the words.`;
+  const user = `Meeting: ${ctx.title || "Meeting"}${ctx.date ? ` (${ctx.date})` : ""}${names ? `\nSpeaker names: ${names}` : ""}\n\nTranscript:\n${text}\n\nQuestion: ${question}`;
+  const r = await llmJson<{ answer: string; moments: { t: number; quote: string }[] }>("meeting_ask", system, user, ASK_SCHEMA, { userId: ctx.userId });
+  return { answer: r.answer, moments: r.moments ?? [] };
 }
 
 /** The meeting memory: what recall/chat search over ("what did Mr Ade say about delivery?"). */

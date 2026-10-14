@@ -1,36 +1,62 @@
-// POST /functions/v1/meeting   (Phase 2 — docs/PHASE2_DESIGN.md §5)
-//   { op: "chunk", client_id, name: "003.m4a", seq, bytes, sha256, duration_s, title, started_at, kind? }
-//        → the phone has uploaded recordings/<uid>/<client_id>/<name>; we download it, check size + sha256,
-//          and record it. 409 { error: "mismatch" } means "upload it again".          → { ok, recording_id }
-//   { op: "finish", client_id, chunks_total, duration_s, ended_at, bookmarks, title }
-//        → the meeting has stopped and every chunk is up.                     → { status, uploaded }
-//   { op: "delete", client_id }  → audio + rows removed from the cloud.       → { ok }
-// M3: every verified chunk is transcribed into recording_segments; when all are done the recording becomes
-// "transcribed". M4: then the summary (Claude), the meeting memory (searchable), and a push "summary ready".
+// POST /functions/v1/meeting   (Phase 2 — docs/PHASE2_DESIGN.md §5–7)
 //
-// Long work never runs inside the caller's request: each chunk and each summary is its own invocation of this
-// function ("work-chunk" / "work-summary", authorised by MEETING_INTERNAL_SECRET), so each gets the full
-// time budget (~150 s). A pg_cron job posts { op: "sweep" } every 5 minutes and re-kicks anything stuck,
-// failed or never started, so the pipeline heals itself without the phone. Deployed with --no-verify-jwt:
-// user ops verify the JWT here (auth.getUser), internal ops check the secret.
+// Phone → cloud (user JWT):
+//   { op: "chunk", client_id, name: "003.m4a", bytes, sha256, duration_s, title, started_at, kind? }
+//        → the phone uploaded recordings/<uid>/<client_id>/<name>; we check size + sha256 and record it.
+//          409 { error: "mismatch" } means "upload it again".                          → { ok, recording_id }
+//   { op: "finish", client_id, chunks_total, duration_s, ended_at, bookmarks, title }   → { status, uploaded }
+//   { op: "delete", client_id }        → audio, transcript, summary and the meeting memory removed.  → { ok }
+// Library (M5):
+//   { op: "list" }                     → { recordings: [...] } every recording (newest first) + storage totals
+//   { op: "get", client_id }           → { recording, lines: [{t,end,speaker,text,seq}], chunks: [{seq,duration_s}] }
+//   { op: "audio-urls", client_id }    → { urls: [{seq, url, duration_s}] } (1 h signed links; audio not on phone)
+//   { op: "star", client_id, starred } · { op: "title", client_id, title } · { op: "speaker", client_id, label, name }
+//   { op: "tick", client_id, index, done } · { op: "delete-audio", client_id } (keeps all the text)
+//   { op: "ask", client_id, question } → { answer, moments: [{t, quote}] }  (from this meeting's transcript)
+//   { op: "settings", audio_keep_days? } → { audio_keep_days }  (30 | 90 | 365 | 0 = forever)
+//   { op: "costs" }                    → this month's AI calls per job ($ estimates) + the model routes
+//
+// Background (header x-meeting-secret = MEETING_INTERNAL_SECRET; deployed with verify_jwt = false):
+//   work-chunk / work-summary (one job per invocation → full time budget each), sweep (pg_cron, every 5 min:
+//   restarts anything stuck/failed/unstarted), retention (pg_cron, daily: deletes expired unstarred audio).
+// M3: each verified chunk → Gemini transcript lines (recording_segments). M4: all chunks done → summary (model
+// switchboard, job meeting_summary) → searchable `meeting` memory → push "‹title› — Summary ready".
 import { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/http.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClient.ts";
 import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
 import { transcribeChunk } from "../_shared/meetingStt.ts";
-import { Line, memoryText, pushBody, summarise } from "../_shared/meetingSummary.ts";
+import { askMeeting, Line, memoryText, pushBody, Summary, summarise } from "../_shared/meetingSummary.ts";
+import { estimateUsd, logCall, routesFor } from "../_shared/llm.ts";
 import { embed } from "../_shared/embeddings.ts";
 import { pushConfigured, sendPush } from "../_shared/fcm.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-const STT_MODELS = [...new Set([Deno.env.get("GEMINI_MEETING_MODEL") ?? "gemini-2.5-flash", "gemini-2.5-flash-lite"])];
+const STT_FALLBACK = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
 const VOCAB = Deno.env.get("STT_VOCAB") ?? "";
 const MAX_ATTEMPTS = 3;
 const STALE_MS = 5 * 60_000; // a "transcribing"/"summarising" job older than this is assumed dead and retried
+const DEFAULT_KEEP_DAYS = 90;
 const INTERNAL_SECRET = Deno.env.get("MEETING_INTERNAL_SECRET") ?? "";
 const SELF_URL = `${Deno.env.get("SUPABASE_URL")}/functions/v1/meeting`;
+
+const BUCKET = "recordings";
+const CLIENT_ID = /^rec-[A-Za-z0-9-]{4,60}$/;
+const CHUNK_NAME = /^\d{3}\.m4a$/;
+const LIST_FIELDS =
+  "id,client_id,kind,source,title,started_at,ended_at,duration_s,status,chunks_total,bookmarks,speakers,summary,action_done,audio_bytes,starred,audio_expires_at,audio_deleted_at,error";
+
+const now = () => new Date().toISOString();
+const iso = (ms: unknown) => {
+  const n = Number(ms);
+  return Number.isFinite(n) && n > 0 ? new Date(n).toISOString() : null;
+};
+const lagosDate = (ts: string) =>
+  new Date(ts).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Lagos" });
+
+// ── background plumbing ──────────────────────────────────────────────────────────────────────────
 
 /** Start [body.op] in a fresh invocation of this function (its own time budget). Fire-and-forget. */
 function kick(body: Record<string, unknown>) {
@@ -52,29 +78,36 @@ function secretOk(got: string | null): boolean {
   return d === 0;
 }
 
-const BUCKET = "recordings";
-const CLIENT_ID = /^rec-[A-Za-z0-9-]{4,60}$/;
-const CHUNK_NAME = /^\d{3}\.m4a$/;
-
 async function sha256Hex(buf: ArrayBuffer): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", buf);
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Claim one chunk (so two triggers never transcribe it twice), transcribe it, store its lines.
- * [audio] is passed when we already have the bytes (just verified); otherwise it's downloaded.
- */
+async function keepDays(db: SupabaseClient, userId: string): Promise<number> {
+  const { data } = await db.from("profile").select("audio_keep_days").eq("user_id", userId).maybeSingle();
+  return data?.audio_keep_days ?? DEFAULT_KEEP_DAYS;
+}
+
+/** When this recording's audio should go (null = keep: starred, or "forever"). Counted from the meeting's end. */
+function expiryFor(endedAt: string | null, days: number, starred: boolean): string | null {
+  if (starred || days === 0) return null;
+  return new Date((endedAt ? Date.parse(endedAt) : Date.now()) + days * 86_400_000).toISOString();
+}
+
+// ── M3: transcription ────────────────────────────────────────────────────────────────────────────
+
+/** Claim one chunk (so two triggers never transcribe it twice), transcribe it, store its lines. */
 async function transcribeOne(db: SupabaseClient, recId: string, seq: number) {
   const staleBefore = new Date(Date.now() - STALE_MS).toISOString();
   const { data: claimed } = await db.from("recording_chunks")
-    .update({ status: "transcribing", started_at: new Date().toISOString() })
+    .update({ status: "transcribing", started_at: now() })
     .eq("recording_id", recId).eq("seq", seq).lt("attempts", MAX_ATTEMPTS)
     .or(`status.in.(uploaded,failed),and(status.eq.transcribing,started_at.lt.${staleBefore})`)
     .select("path,attempts,user_id");
   if (!claimed?.length) return;
   const chunk = claimed[0];
   await db.from("recording_chunks").update({ attempts: (chunk.attempts ?? 0) + 1 }).eq("recording_id", recId).eq("seq", seq);
+  const t0 = Date.now();
   try {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
     const { data: blob, error: dlErr } = await db.storage.from(BUCKET).download(chunk.path);
@@ -83,7 +116,9 @@ async function transcribeOne(db: SupabaseClient, recId: string, seq: number) {
     // Speaker labels already used earlier in the meeting help keep them consistent.
     const { data: prev } = await db.from("recording_segments").select("speaker").eq("recording_id", recId).lt("seq", seq).limit(2000);
     const known = [...new Set((prev ?? []).map((r) => r.speaker as string))].filter((s) => s && s !== "Media").slice(0, 12);
-    const r = await transcribeChunk(bytes, { apiKey: GEMINI_API_KEY, models: STT_MODELS, vocab: VOCAB, knownSpeakers: known });
+    const route = (await routesFor("meeting_stt", db)).filter((r) => r.provider === "gemini");
+    const models = route.length ? route.map((r) => r.model) : STT_FALLBACK;
+    const r = await transcribeChunk(bytes, { apiKey: GEMINI_API_KEY, models, vocab: VOCAB, knownSpeakers: known });
     await db.from("recording_segments").delete().eq("recording_id", recId).eq("seq", seq);
     if (r.segments.length) {
       const { error } = await db.from("recording_segments").insert(r.segments.map((x, idx) => ({
@@ -91,13 +126,19 @@ async function transcribeOne(db: SupabaseClient, recId: string, seq: number) {
       })));
       if (error) throw new Error(`segments: ${error.message}`);
     }
-    await db.from("recording_chunks").update({ status: "done", error: null, model: r.model, transcribed_at: new Date().toISOString() })
+    await db.from("recording_chunks").update({ status: "done", error: null, model: r.model, transcribed_at: now() })
       .eq("recording_id", recId).eq("seq", seq);
+    const entry = route.find((x) => x.model === r.model);
+    await logCall({
+      userId: chunk.user_id, job: "meeting_stt", provider: "gemini", model: r.model, tokensIn: r.tokensIn, tokensOut: r.tokensOut,
+      usd: estimateUsd(r.model, r.tokensIn ?? 0, r.tokensOut ?? 0, entry), ms: r.ms, ok: true,
+    }, db);
     console.log(`meeting stt ${recId}/${seq}: ${r.segments.length} lines, ${r.model}, ${r.ms} ms, ${r.tokens ?? "?"} tokens`);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`meeting stt ${recId}/${seq} failed: ${msg}`);
     await db.from("recording_chunks").update({ status: "failed", error: msg.slice(0, 500) }).eq("recording_id", recId).eq("seq", seq);
+    await logCall({ userId: chunk.user_id, job: "meeting_stt", provider: "gemini", model: "?", ms: Date.now() - t0, ok: false, error: msg }, db);
   }
   await maybeTranscribed(db, recId);
 }
@@ -106,7 +147,7 @@ async function transcribeOne(db: SupabaseClient, recId: string, seq: number) {
 async function maybeTranscribed(db: SupabaseClient, recId: string) {
   const { data: rec } = await db.from("recordings").select("status,chunks_total,updated_at").eq("id", recId).maybeSingle();
   if (!rec || rec.chunks_total == null) return;
-  // A summary that failed earlier, or got stuck, is retried whenever this runs again (e.g. a repeated "finish").
+  // A summary that failed earlier, or got stuck, is retried whenever this runs again (sweep, repeated finish).
   const stuck = rec.status === "summarising" && Date.parse(rec.updated_at) < Date.now() - STALE_MS;
   if (rec.status === "transcribed" || stuck) return kick({ op: "work-summary", recording_id: recId });
   if (!["uploaded", "transcribing"].includes(rec.status)) return;
@@ -118,63 +159,55 @@ async function maybeTranscribed(db: SupabaseClient, recId: string) {
   }
   const failed = settled.filter((c) => c.status === "failed").length;
   await db.from("recordings").update({
-    status: "transcribed", error: failed ? `${failed} part(s) couldn't be transcribed` : null, updated_at: new Date().toISOString(),
+    status: "transcribed", error: failed ? `${failed} part(s) couldn't be transcribed` : null, updated_at: now(),
   }).eq("id", recId).in("status", ["uploaded", "transcribing"]);
   kick({ op: "work-summary", recording_id: recId });
 }
 
-const AUDIO_KEEP_DAYS = 90;
+/** The whole meeting as one timeline: each chunk's lines shifted by the length of the chunks before it. */
+async function meetingLines(db: SupabaseClient, recId: string) {
+  const { data: chunks } = await db.from("recording_chunks").select("seq,duration_s").eq("recording_id", recId).order("seq");
+  const offset = new Map<number, number>();
+  let acc = 0;
+  for (const c of chunks ?? []) { offset.set(c.seq, acc); acc += c.duration_s ?? 0; }
+  const { data: segs } = await db.from("recording_segments").select("seq,idx,t_start_s,t_end_s,speaker,text")
+    .eq("recording_id", recId).order("seq").order("idx").limit(20000);
+  const lines = (segs ?? []).map((x) => {
+    const o = offset.get(x.seq) ?? 0;
+    return { t: o + Number(x.t_start_s), end: o + Number(x.t_end_s), speaker: x.speaker as string, text: x.text as string, seq: x.seq as number };
+  });
+  return { lines, chunks: chunks ?? [] };
+}
 
-/** M4: summary → meeting memory → push. Claimed (transcribed → summarising) so it runs once. */
+// ── M4: summary, memory, push ────────────────────────────────────────────────────────────────────
+
+/** Claimed (transcribed → summarising) so it runs once. */
 async function summariseRecording(db: SupabaseClient, recId: string) {
   const staleBefore = new Date(Date.now() - STALE_MS).toISOString();
   const { data: claimed } = await db.from("recordings")
-    .update({ status: "summarising", updated_at: new Date().toISOString() })
+    .update({ status: "summarising", updated_at: now() })
     .eq("id", recId)
     .or(`status.eq.transcribed,and(status.eq.summarising,updated_at.lt.${staleBefore})`)
-    .select("id,user_id,client_id,title,started_at,duration_s,bookmarks,memory_id,starred,error");
+    .select("id,user_id,client_id,title,started_at,ended_at,duration_s,bookmarks,speakers,memory_id,starred,error,audio_deleted_at");
   const rec = claimed?.[0];
   if (!rec) return;
   try {
-    // The whole meeting as one timeline: each chunk's lines shifted by the length of the chunks before it.
-    const { data: chunks } = await db.from("recording_chunks").select("seq,duration_s").eq("recording_id", recId).order("seq");
-    const offset = new Map<number, number>();
-    let acc = 0;
-    for (const c of chunks ?? []) { offset.set(c.seq, acc); acc += c.duration_s ?? 0; }
-    const { data: segs } = await db.from("recording_segments").select("seq,idx,t_start_s,speaker,text")
-      .eq("recording_id", recId).order("seq").order("idx").limit(20000);
-    const lines: Line[] = (segs ?? []).map((x) => ({ t: (offset.get(x.seq) ?? 0) + Number(x.t_start_s), speaker: x.speaker, text: x.text }));
-
-    const date = new Date(rec.started_at).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Lagos" });
+    const { lines } = await meetingLines(db, recId);
+    const date = lagosDate(rec.started_at);
     const t0 = Date.now();
-    const s = await summarise(lines, { title: rec.title, date, durationS: rec.duration_s, bookmarks: rec.bookmarks ?? [] });
+    const s = await summarise(lines as Line[], { title: rec.title, date, durationS: rec.duration_s, bookmarks: rec.bookmarks ?? [], userId: rec.user_id });
     const title = (rec.title?.trim() || s.title || "Meeting").slice(0, 200);
     s.title = title;
-    const speakers = Object.fromEntries(s.speakers.filter((x) => x.label && x.name).map((x) => [x.label, x.name]));
-
-    // The searchable memory (recall/chat find meetings through it). Updated in place on a re-run.
-    let memoryId: string | null = rec.memory_id ?? null;
-    if (s.is_meeting) {
-      const text = memoryText(s, date);
-      const row = { text, embedding: await embed(text), tags: ["meeting"], metadata: { recording_id: recId, client_id: rec.client_id } };
-      if (memoryId) {
-        await db.from("memories").update(row).eq("id", memoryId).eq("user_id", rec.user_id);
-      } else {
-        const { data: m, error } = await db.from("memories")
-          .insert({ ...row, user_id: rec.user_id, type: "meeting", created_at: rec.started_at, client_id: `meeting-${rec.client_id}` })
-          .select("id").single();
-        if (error) throw new Error(`memory: ${error.message}`);
-        memoryId = m.id;
-      }
-    }
-
+    // Names Law typed himself win over the model's guesses.
+    const speakers = { ...Object.fromEntries(s.speakers.filter((x) => x.label && x.name).map((x) => [x.label, x.name])), ...(rec.speakers ?? {}) };
+    const memoryId = await saveMemory(db, rec, s, date);
+    const days = await keepDays(db, rec.user_id);
     await db.from("recordings").update({
       status: "ready", summary: s, title, speakers, memory_id: memoryId,
-      audio_expires_at: rec.starred ? null : new Date(Date.now() + AUDIO_KEEP_DAYS * 86_400_000).toISOString(),
-      error: rec.error?.includes("part(s)") ? rec.error : null, updated_at: new Date().toISOString(),
+      audio_expires_at: rec.audio_deleted_at ? null : expiryFor(rec.ended_at, days, rec.starred),
+      error: rec.error?.includes("part(s)") ? rec.error : null, updated_at: now(),
     }).eq("id", recId);
     console.log(`meeting summary ${recId}: ${Date.now() - t0} ms, meeting=${s.is_meeting}, ${s.action_items.length} actions`);
-
     if (pushConfigured()) {
       await sendPush(rec.user_id, title, pushBody(s), { kind: "meeting", id: rec.client_id })
         .catch((e) => console.warn(`meeting push: ${e instanceof Error ? e.message : e}`));
@@ -182,19 +215,59 @@ async function summariseRecording(db: SupabaseClient, recId: string) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`meeting summary ${recId} failed: ${msg}`);
-    // Back to "transcribed" so the next finish/retry tries again; the transcript itself is safe.
-    await db.from("recordings").update({ status: "transcribed", error: `summary: ${msg.slice(0, 400)}`, updated_at: new Date().toISOString() })
-      .eq("id", recId);
+    // Back to "transcribed" so the sweep tries again; the transcript itself is safe.
+    await db.from("recordings").update({ status: "transcribed", error: `summary: ${msg.slice(0, 400)}`, updated_at: now() }).eq("id", recId);
   }
 }
 
-/** Start a transcription for every chunk of [recId] that still needs one; then check whether it's complete. */
-async function processPending(db: SupabaseClient, recId: string) {
-  const { data: chunks } = await db.from("recording_chunks").select("seq,status,attempts").eq("recording_id", recId).order("seq");
-  for (const c of chunks ?? []) {
-    if (c.status !== "done" && c.attempts < MAX_ATTEMPTS) kick({ op: "work-chunk", recording_id: recId, seq: c.seq });
+/** The searchable memory (recall/chat find meetings through it). Updated in place; none for "no meeting". */
+async function saveMemory(
+  db: SupabaseClient,
+  rec: { id: string; user_id: string; client_id: string; started_at: string; memory_id?: string | null },
+  s: Summary,
+  date: string,
+): Promise<string | null> {
+  let memoryId: string | null = rec.memory_id ?? null;
+  if (!s.is_meeting) {
+    if (memoryId) await db.from("memories").delete().eq("id", memoryId).eq("user_id", rec.user_id);
+    return null;
   }
-  await maybeTranscribed(db, recId);
+  const text = memoryText(s, date);
+  const row = { text, embedding: await embed(text), tags: ["meeting"], metadata: { recording_id: rec.id, client_id: rec.client_id } };
+  const memClientId = `meeting-${rec.client_id}`;
+  if (!memoryId) { // a previous run may have saved it before failing (memories.client_id is unique when set)
+    const { data: existing } = await db.from("memories").select("id").eq("client_id", memClientId).eq("user_id", rec.user_id).maybeSingle();
+    memoryId = existing?.id ?? null;
+  }
+  if (memoryId) {
+    await db.from("memories").update(row).eq("id", memoryId).eq("user_id", rec.user_id);
+  } else {
+    const { data: m, error } = await db.from("memories")
+      .insert({ ...row, user_id: rec.user_id, type: "meeting", created_at: rec.started_at, client_id: memClientId })
+      .select("id").single();
+    if (error) throw new Error(`memory: ${error.message}`);
+    memoryId = m.id;
+  }
+  return memoryId;
+}
+
+// ── M6: storage ──────────────────────────────────────────────────────────────────────────────────
+
+/** Remove a recording's audio from storage; the transcript, summary and memory stay. */
+async function deleteAudio(db: SupabaseClient, userId: string, clientId: string, recId?: string) {
+  const prefix = `${userId}/${clientId}`;
+  const { data: objs } = await db.storage.from(BUCKET).list(prefix, { limit: 1000 });
+  if (objs?.length) await db.storage.from(BUCKET).remove(objs.map((o) => `${prefix}/${o.name}`));
+  if (recId) await db.from("recordings").update({ audio_deleted_at: now(), audio_expires_at: null, audio_bytes: 0, updated_at: now() }).eq("id", recId);
+}
+
+/** Daily (pg_cron): delete audio whose time is up (not starred). */
+async function retention(db: SupabaseClient) {
+  const { data: due } = await db.from("recordings").select("id,user_id,client_id")
+    .lt("audio_expires_at", now()).is("audio_deleted_at", null).eq("starred", false).limit(200);
+  for (const r of due ?? []) await deleteAudio(db, r.user_id, r.client_id, r.id);
+  if (due?.length) console.log(`meeting retention: audio deleted for ${due.length} recording(s)`);
+  return { deleted: due?.length ?? 0 };
 }
 
 /** Every 5 minutes (pg_cron): restart anything stuck, failed or never started, for every user. */
@@ -218,15 +291,12 @@ async function sweep(db: SupabaseClient): Promise<Record<string, number>> {
   return { chunks: chunks?.length ?? 0, recordings: recs?.length ?? 0 };
 }
 
-const iso = (ms: unknown) => {
-  const n = Number(ms);
-  return Number.isFinite(n) && n > 0 ? new Date(n).toISOString() : null;
-};
+// ── request handling ─────────────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    // Internal work (self-kicks and the pg_cron sweep): answer at once, do the work in this invocation.
+    // Internal work (self-kicks and pg_cron): answer at once, do the work in this invocation.
     if (req.headers.get("x-meeting-secret") != null) {
       if (!secretOk(req.headers.get("x-meeting-secret"))) return json({ error: "unauthorized" }, 401);
       const b = await req.json();
@@ -240,6 +310,8 @@ Deno.serve(async (req) => {
           return json({ accepted: true }, 202);
         case "sweep":
           return json(await sweep(db));
+        case "retention":
+          return json(await retention(db));
         default:
           return json({ error: "unknown internal op" }, 400);
       }
@@ -251,10 +323,58 @@ Deno.serve(async (req) => {
     if (!await checkRateLimit(supabase, "meeting", 600, HOURLY)) return json({ error: "Too many requests." }, 429);
     const body = await req.json();
     const op = String(body.op ?? "");
-    const clientId = String(body.client_id ?? "");
-    if (!CLIENT_ID.test(clientId)) return json({ error: "bad client_id" }, 400);
     const db = serviceClient();
 
+    // Ops that aren't about one recording.
+    if (op === "list") {
+      const { data, error } = await db.from("recordings").select(LIST_FIELDS).eq("user_id", user.id).order("started_at", { ascending: false }).limit(500);
+      if (error) return json({ error: error.message }, 500);
+      const recs = data ?? [];
+      return json({
+        recordings: recs,
+        keep_days: await keepDays(db, user.id),
+        starred: recs.filter((r) => r.starred).length,
+        audio_bytes: recs.filter((r) => !r.audio_deleted_at).reduce((a, r) => a + Number(r.audio_bytes ?? 0), 0),
+      });
+    }
+    if (op === "settings") {
+      let days = await keepDays(db, user.id);
+      if (body.audio_keep_days != null) {
+        const d = Number(body.audio_keep_days);
+        if (![0, 30, 90, 365].includes(d)) return json({ error: "audio_keep_days must be 30, 90, 365 or 0 (forever)" }, 400);
+        const { error } = await db.from("profile").upsert({ user_id: user.id, audio_keep_days: d, updated_at: now() }, { onConflict: "user_id" });
+        if (error) return json({ error: error.message }, 500);
+        days = d;
+        // Re-date every finished recording whose audio is still there (starred ones keep theirs anyway).
+        const { data: recs } = await db.from("recordings").select("id,ended_at,starred")
+          .eq("user_id", user.id).eq("status", "ready").is("audio_deleted_at", null);
+        for (const r of recs ?? []) {
+          await db.from("recordings").update({ audio_expires_at: expiryFor(r.ended_at, d, r.starred) }).eq("id", r.id);
+        }
+      }
+      return json({ audio_keep_days: days });
+    }
+    if (op === "costs") {
+      const start = new Date();
+      start.setUTCDate(1); start.setUTCHours(0, 0, 0, 0);
+      const { data: calls } = await db.from("llm_calls").select("job,provider,model,usd_est,ok,tokens_in,tokens_out")
+        .eq("user_id", user.id).gte("created_at", start.toISOString()).limit(20000);
+      const byJob: Record<string, { calls: number; failed: number; usd: number; models: Record<string, number> }> = {};
+      for (const c of calls ?? []) {
+        const j = byJob[c.job] ??= { calls: 0, failed: 0, usd: 0, models: {} };
+        j.calls++; if (!c.ok) j.failed++;
+        j.usd += Number(c.usd_est ?? 0);
+        if (c.ok) j.models[`${c.provider}/${c.model}`] = (j.models[`${c.provider}/${c.model}`] ?? 0) + 1;
+      }
+      const { data: routes } = await db.from("model_routes").select("job,routes,note");
+      return json({
+        since: start.toISOString(), jobs: byJob, total_usd: Object.values(byJob).reduce((a, j) => a + j.usd, 0), routes: routes ?? [],
+        openrouter: !!Deno.env.get("OPENROUTER_API_KEY"),
+      });
+    }
+
+    const clientId = String(body.client_id ?? "");
+    if (!CLIENT_ID.test(clientId)) return json({ error: "bad client_id" }, 400);
     const findRec = async () =>
       (await db.from("recordings").select("id,status,chunks_total").eq("user_id", user.id).eq("client_id", clientId).maybeSingle()).data;
 
@@ -265,10 +385,10 @@ Deno.serve(async (req) => {
         const seq = parseInt(name, 10);
         const path = `${user.id}/${clientId}/${name}`;
 
-        // 1. The recording row (created by the first chunk; title/start refreshed each time).
+        // 1. The recording row (created by the first chunk).
         let rec = await findRec();
         if (!rec) {
-          const startedAt = iso(body.started_at) ?? new Date().toISOString();
+          const startedAt = iso(body.started_at) ?? now();
           const { data, error } = await db.from("recordings").upsert({
             user_id: user.id, client_id: clientId, title: String(body.title ?? "").slice(0, 200),
             kind: String(body.kind ?? "meeting"), source: "phone", started_at: startedAt, status: "uploading",
@@ -298,7 +418,7 @@ Deno.serve(async (req) => {
         const total = (sizes ?? []).reduce((a, r) => a + (r.bytes ?? 0), 0);
         const done = rec!.chunks_total != null && (sizes?.length ?? 0) >= rec!.chunks_total;
         await db.from("recordings").update({
-          audio_bytes: total, updated_at: new Date().toISOString(),
+          audio_bytes: total, updated_at: now(),
           ...(rec!.status === "recording" || rec!.status === "uploading" ? { status: done ? "uploaded" : "uploading" } : {}),
         }).eq("id", rec!.id);
         kick({ op: "work-chunk", recording_id: rec!.id, seq });
@@ -317,10 +437,10 @@ Deno.serve(async (req) => {
           : [];
         const { error } = await db.from("recordings").update({
           chunks_total: total, duration_s: Math.max(0, Math.round(Number(body.duration_s) || 0)),
-          ended_at: iso(body.ended_at) ?? new Date().toISOString(), bookmarks,
-          ...(body.title != null ? { title: String(body.title).slice(0, 200) } : {}),
+          ended_at: iso(body.ended_at) ?? now(), bookmarks,
+          ...(body.title ? { title: String(body.title).slice(0, 200) } : {}),
           ...(rec.status === "recording" || rec.status === "uploading" || rec.status === "uploaded" ? { status } : {}),
-          updated_at: new Date().toISOString(),
+          updated_at: now(),
         }).eq("id", rec.id);
         if (error) return json({ error: error.message }, 500);
         if (status === "uploaded") {
@@ -330,19 +450,111 @@ Deno.serve(async (req) => {
         return json({ status, uploaded });
       }
 
+      case "get": {
+        const { data: rec } = await db.from("recordings").select(LIST_FIELDS).eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
+        if (!rec) return json({ error: "not found" }, 404);
+        const { lines, chunks } = await meetingLines(db, rec.id);
+        return json({ recording: rec, lines, chunks });
+      }
+
+      case "audio-urls": {
+        const { data: rec } = await db.from("recordings").select("id,audio_deleted_at").eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
+        if (!rec) return json({ error: "not found" }, 404);
+        if (rec.audio_deleted_at) return json({ urls: [], deleted: true });
+        const { data: chunks } = await db.from("recording_chunks").select("seq,path,duration_s").eq("recording_id", rec.id).order("seq");
+        const { data: signed, error } = await db.storage.from(BUCKET).createSignedUrls((chunks ?? []).map((c) => c.path), 3600);
+        if (error) return json({ error: error.message }, 500);
+        return json({ urls: (chunks ?? []).map((c, i) => ({ seq: c.seq, url: signed?.[i]?.signedUrl ?? "", duration_s: c.duration_s })) });
+      }
+
+      case "star": {
+        const starred = body.starred === true;
+        const { data: rec } = await db.from("recordings").select("id,ended_at,audio_deleted_at,status").eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
+        if (!rec) return json({ error: "not found" }, 404);
+        const expires = rec.audio_deleted_at || rec.status !== "ready" ? null : expiryFor(rec.ended_at, await keepDays(db, user.id), starred);
+        await db.from("recordings").update({ starred, audio_expires_at: expires, updated_at: now() }).eq("id", rec.id);
+        return json({ ok: true, starred, audio_expires_at: expires });
+      }
+
+      case "title": {
+        const title = String(body.title ?? "").trim().slice(0, 200);
+        if (!title) return json({ error: "title is empty" }, 400);
+        const { data: rec } = await db.from("recordings").select("id,user_id,client_id,started_at,summary,memory_id")
+          .eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
+        if (!rec) return json({ error: "not found" }, 404);
+        const summary = rec.summary ? { ...rec.summary, title } : null;
+        await db.from("recordings").update({ title, ...(summary ? { summary } : {}), updated_at: now() }).eq("id", rec.id);
+        if (summary && rec.memory_id) await saveMemory(db, rec, summary as Summary, lagosDate(rec.started_at));
+        return json({ ok: true, title });
+      }
+
+      case "speaker": {
+        const label = String(body.label ?? "").trim().slice(0, 60);
+        const name = String(body.name ?? "").trim().slice(0, 60);
+        if (!label) return json({ error: "label is required" }, 400);
+        const { data: rec } = await db.from("recordings").select("id,speakers").eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
+        if (!rec) return json({ error: "not found" }, 404);
+        const speakers = { ...(rec.speakers ?? {}) } as Record<string, string>;
+        if (name) speakers[label] = name; else delete speakers[label];
+        await db.from("recordings").update({ speakers, updated_at: now() }).eq("id", rec.id);
+        return json({ ok: true, speakers });
+      }
+
+      case "tick": {
+        const index = Number(body.index);
+        if (!Number.isInteger(index) || index < 0 || index > 500) return json({ error: "bad index" }, 400);
+        const { data: rec } = await db.from("recordings").select("id,action_done").eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
+        if (!rec) return json({ error: "not found" }, 404);
+        const set = new Set<number>((rec.action_done ?? []) as number[]);
+        if (body.done === false) set.delete(index); else set.add(index);
+        const action_done = [...set].sort((a, b) => a - b);
+        await db.from("recordings").update({ action_done, updated_at: now() }).eq("id", rec.id);
+        return json({ ok: true, action_done });
+      }
+
+      case "delete-audio": {
+        const rec = await findRec();
+        if (!rec) return json({ error: "not found" }, 404);
+        await deleteAudio(db, user.id, clientId, rec.id);
+        return json({ ok: true });
+      }
+
+      case "ask": {
+        const question = String(body.question ?? "").trim().slice(0, 500);
+        if (!question) return json({ error: "question is empty" }, 400);
+        const { data: rec } = await db.from("recordings").select("id,title,started_at,speakers").eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
+        if (!rec) return json({ error: "not found" }, 404);
+        const { lines } = await meetingLines(db, rec.id);
+        if (!lines.length) return json({ answer: "There's no transcript for this meeting yet.", moments: [] });
+        // Show renamed speakers by name in what the model reads.
+        const sp = (rec.speakers ?? {}) as Record<string, string>;
+        const named: Line[] = lines.map((l) => ({ t: l.t, speaker: sp[l.speaker] ?? l.speaker, text: l.text }));
+        const r = await askMeeting(named, question, { title: rec.title, date: lagosDate(rec.started_at), userId: user.id });
+        return json(r);
+      }
+
       case "delete": {
-        const prefix = `${user.id}/${clientId}`;
-        const { data: objs } = await db.storage.from(BUCKET).list(prefix, { limit: 1000 });
-        if (objs?.length) await db.storage.from(BUCKET).remove(objs.map((o) => `${prefix}/${o.name}`));
+        const { data: rec } = await db.from("recordings").select("id,memory_id").eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
+        await deleteAudio(db, user.id, clientId);
+        if (rec?.memory_id) await db.from("memories").delete().eq("id", rec.memory_id).eq("user_id", user.id);
         await db.from("recordings").delete().eq("user_id", user.id).eq("client_id", clientId);
         return json({ ok: true });
       }
 
       default:
-        return json({ error: "op must be chunk | finish | delete" }, 400);
+        return json({ error: "unknown op" }, 400);
     }
   } catch (e) {
     console.error("meeting error:", e);
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
 });
+
+/** Start a transcription for every chunk of [recId] that still needs one; then check whether it's complete. */
+async function processPending(db: SupabaseClient, recId: string) {
+  const { data: chunks } = await db.from("recording_chunks").select("seq,status,attempts").eq("recording_id", recId).order("seq");
+  for (const c of chunks ?? []) {
+    if (c.status !== "done" && c.attempts < MAX_ATTEMPTS) kick({ op: "work-chunk", recording_id: recId, seq: c.seq });
+  }
+  await maybeTranscribed(db, recId);
+}
