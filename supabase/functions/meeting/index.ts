@@ -5,9 +5,14 @@
 //   { op: "finish", client_id, chunks_total, duration_s, ended_at, bookmarks, title }
 //        → the meeting has stopped and every chunk is up.                     → { status, uploaded }
 //   { op: "delete", client_id }  → audio + rows removed from the cloud.       → { ok }
-// M3: every verified chunk is transcribed in the background (EdgeRuntime.waitUntil) into recording_segments;
-// "finish" re-kicks anything pending/failed. When all chunks are done the recording becomes "transcribed".
-// M4: then the summary (Claude), the meeting memory (searchable), and a push: "‹title› — summary ready".
+// M3: every verified chunk is transcribed into recording_segments; when all are done the recording becomes
+// "transcribed". M4: then the summary (Claude), the meeting memory (searchable), and a push "summary ready".
+//
+// Long work never runs inside the caller's request: each chunk and each summary is its own invocation of this
+// function ("work-chunk" / "work-summary", authorised by MEETING_INTERNAL_SECRET), so each gets the full
+// time budget (~150 s). A pg_cron job posts { op: "sweep" } every 5 minutes and re-kicks anything stuck,
+// failed or never started, so the pipeline heals itself without the phone. Deployed with --no-verify-jwt:
+// user ops verify the JWT here (auth.getUser), internal ops check the secret.
 import { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/http.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClient.ts";
@@ -23,7 +28,29 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const STT_MODELS = [...new Set([Deno.env.get("GEMINI_MEETING_MODEL") ?? "gemini-2.5-flash", "gemini-2.5-flash-lite"])];
 const VOCAB = Deno.env.get("STT_VOCAB") ?? "";
 const MAX_ATTEMPTS = 3;
-const STALE_MS = 10 * 60_000; // a "transcribing" chunk older than this is assumed dead and retried
+const STALE_MS = 5 * 60_000; // a "transcribing"/"summarising" job older than this is assumed dead and retried
+const INTERNAL_SECRET = Deno.env.get("MEETING_INTERNAL_SECRET") ?? "";
+const SELF_URL = `${Deno.env.get("SUPABASE_URL")}/functions/v1/meeting`;
+
+/** Start [body.op] in a fresh invocation of this function (its own time budget). Fire-and-forget. */
+function kick(body: Record<string, unknown>) {
+  if (!INTERNAL_SECRET) { console.error("MEETING_INTERNAL_SECRET not set: can't start background work"); return; }
+  EdgeRuntime.waitUntil(
+    fetch(SELF_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-meeting-secret": INTERNAL_SECRET },
+      body: JSON.stringify(body),
+    }).then((r) => r.body?.cancel()).catch((e) => console.error(`kick ${body.op}: ${e}`)),
+  );
+}
+
+/** Constant-time compare for the internal secret. */
+function secretOk(got: string | null): boolean {
+  if (!INTERNAL_SECRET || !got || got.length !== INTERNAL_SECRET.length) return false;
+  let d = 0;
+  for (let i = 0; i < got.length; i++) d |= got.charCodeAt(i) ^ INTERNAL_SECRET.charCodeAt(i);
+  return d === 0;
+}
 
 const BUCKET = "recordings";
 const CLIENT_ID = /^rec-[A-Za-z0-9-]{4,60}$/;
@@ -38,24 +65,21 @@ async function sha256Hex(buf: ArrayBuffer): Promise<string> {
  * Claim one chunk (so two triggers never transcribe it twice), transcribe it, store its lines.
  * [audio] is passed when we already have the bytes (just verified); otherwise it's downloaded.
  */
-async function transcribeOne(db: SupabaseClient, recId: string, seq: number, userId: string, audio?: Uint8Array) {
+async function transcribeOne(db: SupabaseClient, recId: string, seq: number) {
   const staleBefore = new Date(Date.now() - STALE_MS).toISOString();
   const { data: claimed } = await db.from("recording_chunks")
     .update({ status: "transcribing", started_at: new Date().toISOString() })
     .eq("recording_id", recId).eq("seq", seq).lt("attempts", MAX_ATTEMPTS)
     .or(`status.in.(uploaded,failed),and(status.eq.transcribing,started_at.lt.${staleBefore})`)
-    .select("path,attempts");
+    .select("path,attempts,user_id");
   if (!claimed?.length) return;
   const chunk = claimed[0];
   await db.from("recording_chunks").update({ attempts: (chunk.attempts ?? 0) + 1 }).eq("recording_id", recId).eq("seq", seq);
   try {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
-    let bytes = audio;
-    if (!bytes) {
-      const { data: blob, error } = await db.storage.from(BUCKET).download(chunk.path);
-      if (error || !blob) throw new Error(`download: ${error?.message ?? "missing"}`);
-      bytes = new Uint8Array(await blob.arrayBuffer());
-    }
+    const { data: blob, error: dlErr } = await db.storage.from(BUCKET).download(chunk.path);
+    if (dlErr || !blob) throw new Error(`download: ${dlErr?.message ?? "missing"}`);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
     // Speaker labels already used earlier in the meeting help keep them consistent.
     const { data: prev } = await db.from("recording_segments").select("speaker").eq("recording_id", recId).lt("seq", seq).limit(2000);
     const known = [...new Set((prev ?? []).map((r) => r.speaker as string))].filter((s) => s && s !== "Media").slice(0, 12);
@@ -63,7 +87,7 @@ async function transcribeOne(db: SupabaseClient, recId: string, seq: number, use
     await db.from("recording_segments").delete().eq("recording_id", recId).eq("seq", seq);
     if (r.segments.length) {
       const { error } = await db.from("recording_segments").insert(r.segments.map((x, idx) => ({
-        recording_id: recId, seq, idx, user_id: userId, t_start_s: x.start, t_end_s: x.end, speaker: x.speaker, text: x.text,
+        recording_id: recId, seq, idx, user_id: chunk.user_id, t_start_s: x.start, t_end_s: x.end, speaker: x.speaker, text: x.text,
       })));
       if (error) throw new Error(`segments: ${error.message}`);
     }
@@ -84,7 +108,7 @@ async function maybeTranscribed(db: SupabaseClient, recId: string) {
   if (!rec || rec.chunks_total == null) return;
   // A summary that failed earlier, or got stuck, is retried whenever this runs again (e.g. a repeated "finish").
   const stuck = rec.status === "summarising" && Date.parse(rec.updated_at) < Date.now() - STALE_MS;
-  if (rec.status === "transcribed" || stuck) return await summariseRecording(db, recId);
+  if (rec.status === "transcribed" || stuck) return kick({ op: "work-summary", recording_id: recId });
   if (!["uploaded", "transcribing"].includes(rec.status)) return;
   const { data: chunks } = await db.from("recording_chunks").select("status,attempts").eq("recording_id", recId);
   const settled = (chunks ?? []).filter((c) => c.status === "done" || (c.status === "failed" && c.attempts >= MAX_ATTEMPTS));
@@ -96,7 +120,7 @@ async function maybeTranscribed(db: SupabaseClient, recId: string) {
   await db.from("recordings").update({
     status: "transcribed", error: failed ? `${failed} part(s) couldn't be transcribed` : null, updated_at: new Date().toISOString(),
   }).eq("id", recId).in("status", ["uploaded", "transcribing"]);
-  await summariseRecording(db, recId);
+  kick({ op: "work-summary", recording_id: recId });
 }
 
 const AUDIO_KEEP_DAYS = 90;
@@ -164,14 +188,34 @@ async function summariseRecording(db: SupabaseClient, recId: string) {
   }
 }
 
-/** Transcribe every chunk that still needs it, a few at a time. */
-async function processPending(db: SupabaseClient, recId: string, userId: string) {
+/** Start a transcription for every chunk of [recId] that still needs one; then check whether it's complete. */
+async function processPending(db: SupabaseClient, recId: string) {
   const { data: chunks } = await db.from("recording_chunks").select("seq,status,attempts").eq("recording_id", recId).order("seq");
-  const todo = (chunks ?? []).filter((c) => c.status !== "done" && c.attempts < MAX_ATTEMPTS).map((c) => c.seq as number);
-  for (let i = 0; i < todo.length; i += 3) {
-    await Promise.all(todo.slice(i, i + 3).map((seq) => transcribeOne(db, recId, seq, userId)));
+  for (const c of chunks ?? []) {
+    if (c.status !== "done" && c.attempts < MAX_ATTEMPTS) kick({ op: "work-chunk", recording_id: recId, seq: c.seq });
   }
   await maybeTranscribed(db, recId);
+}
+
+/** Every 5 minutes (pg_cron): restart anything stuck, failed or never started, for every user. */
+async function sweep(db: SupabaseClient): Promise<Record<string, number>> {
+  const stale = new Date(Date.now() - STALE_MS).toISOString();
+  // A job that died on its last allowed attempt can't be retried: mark it failed so the meeting can finish.
+  await db.from("recording_chunks").update({ status: "failed", error: "timed out" })
+    .eq("status", "transcribing").lt("started_at", stale).gte("attempts", MAX_ATTEMPTS);
+  const { data: chunks } = await db.from("recording_chunks").select("recording_id,seq")
+    .lt("attempts", MAX_ATTEMPTS)
+    .or(`status.in.(uploaded,failed),and(status.eq.transcribing,started_at.lt.${stale})`)
+    .limit(40);
+  for (const c of chunks ?? []) kick({ op: "work-chunk", recording_id: c.recording_id, seq: c.seq });
+  // Recordings whose last step never ran (all chunks settled, or a summary that failed / got stuck).
+  const { data: recs } = await db.from("recordings").select("id")
+    .not("chunks_total", "is", null)
+    .or(`status.in.(uploaded,transcribing,transcribed),and(status.eq.summarising,updated_at.lt.${stale})`)
+    .lt("updated_at", new Date(Date.now() - 60_000).toISOString())
+    .limit(40);
+  for (const r of recs ?? []) await maybeTranscribed(db, r.id);
+  return { chunks: chunks?.length ?? 0, recordings: recs?.length ?? 0 };
 }
 
 const iso = (ms: unknown) => {
@@ -182,6 +226,25 @@ const iso = (ms: unknown) => {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    // Internal work (self-kicks and the pg_cron sweep): answer at once, do the work in this invocation.
+    if (req.headers.get("x-meeting-secret") != null) {
+      if (!secretOk(req.headers.get("x-meeting-secret"))) return json({ error: "unauthorized" }, 401);
+      const b = await req.json();
+      const db = serviceClient();
+      switch (b.op) {
+        case "work-chunk":
+          EdgeRuntime.waitUntil(transcribeOne(db, String(b.recording_id), Number(b.seq)));
+          return json({ accepted: true }, 202);
+        case "work-summary":
+          EdgeRuntime.waitUntil(summariseRecording(db, String(b.recording_id)));
+          return json({ accepted: true }, 202);
+        case "sweep":
+          return json(await sweep(db));
+        default:
+          return json({ error: "unknown internal op" }, 400);
+      }
+    }
+
     const supabase = userClient(req);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
@@ -238,7 +301,7 @@ Deno.serve(async (req) => {
           audio_bytes: total, updated_at: new Date().toISOString(),
           ...(rec!.status === "recording" || rec!.status === "uploading" ? { status: done ? "uploaded" : "uploading" } : {}),
         }).eq("id", rec!.id);
-        EdgeRuntime.waitUntil(transcribeOne(db, rec!.id, seq, user.id, new Uint8Array(buf)));
+        kick({ op: "work-chunk", recording_id: rec!.id, seq });
         return json({ ok: true, recording_id: rec!.id });
       }
 
@@ -262,7 +325,7 @@ Deno.serve(async (req) => {
         if (error) return json({ error: error.message }, 500);
         if (status === "uploaded") {
           status = rec.status === "ready" ? "ready" : "transcribing";
-          EdgeRuntime.waitUntil(processPending(db, rec.id, user.id)); // also retries a failed summary
+          await processPending(db, rec.id); // also retries a failed summary
         }
         return json({ status, uploaded });
       }
