@@ -25,6 +25,8 @@ data class CloudRec(
     val audioDeleted: Boolean,
     val error: String,
     val source: String,
+    /** M6b: '' | copying | copied | not_connected | failed */
+    val driveStatus: String = "",
 ) {
     val isMeeting: Boolean get() = summary?.optBoolean("is_meeting", true) ?: true
     fun list(name: String): List<Any> = summary?.optJSONArray(name)?.let { a -> (0 until a.length()).map { a.get(it) } }.orEmpty()
@@ -127,6 +129,7 @@ class MeetingLibrary @Inject constructor(private val backend: EchoBackend) {
                 audioDeleted = !o.isNull("audio_deleted_at") && o.optString("audio_deleted_at").isNotBlank(),
                 error = if (o.isNull("error")) "" else o.optString("error"),
                 source = o.optString("source", "phone"),
+                driveStatus = if (o.isNull("drive_status")) "" else o.optString("drive_status"),
             )
         }
 

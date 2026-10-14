@@ -12,12 +12,13 @@ import { decryptSecret, encryptSecret } from "./crypto.ts";
 const CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
 const CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
 
-/** What the app asks for. Drafts only (compose), calendar events, contacts lookup. */
+/** What the app asks for. Drafts only (compose), calendar events, contacts lookup, and Drive files JARVIS creates. */
 export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.compose",
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/contacts.readonly",
   "https://www.googleapis.com/auth/contacts.other.readonly",
+  "https://www.googleapis.com/auth/drive.file", // M6b: only files JARVIS creates (starred meetings)
   "email",
 ];
 

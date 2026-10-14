@@ -18,7 +18,8 @@
 //
 // Background (header x-meeting-secret = MEETING_INTERNAL_SECRET; deployed with verify_jwt = false):
 //   work-chunk / work-summary (one job per invocation → full time budget each), sweep (pg_cron, every 5 min:
-//   restarts anything stuck/failed/unstarted), retention (pg_cron, daily: deletes expired unstarred audio).
+//   restarts anything stuck/failed/unstarted), retention (pg_cron, daily: deletes expired unstarred audio),
+//   work-drive (M6b: a starred meeting → Google Drive/JARVIS/Recordings, once Google is connected).
 // M3: each verified chunk → Gemini transcript lines (recording_segments). M4: all chunks done → summary (model
 // switchboard, job meeting_summary) → searchable `meeting` memory → push "‹title› — Summary ready".
 import { SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -30,6 +31,8 @@ import { askMeeting, Line, memoryText, pushBody, Summary, summarise } from "../_
 import { estimateUsd, logCall, routesFor } from "../_shared/llm.ts";
 import { embed } from "../_shared/embeddings.ts";
 import { pushConfigured, sendPush } from "../_shared/fcm.ts";
+import { connectionStatus } from "../_shared/google.ts";
+import { ensureFolder, uploadFile } from "../_shared/drive.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 
@@ -46,7 +49,7 @@ const BUCKET = "recordings";
 const CLIENT_ID = /^rec-[A-Za-z0-9-]{4,60}$/;
 const CHUNK_NAME = /^\d{3}\.m4a$/;
 const LIST_FIELDS =
-  "id,client_id,kind,source,title,started_at,ended_at,duration_s,status,chunks_total,bookmarks,speakers,summary,action_done,audio_bytes,starred,audio_expires_at,audio_deleted_at,error";
+  "id,client_id,kind,source,title,started_at,ended_at,duration_s,status,chunks_total,bookmarks,speakers,summary,action_done,audio_bytes,starred,audio_expires_at,audio_deleted_at,error,drive_status,drive_copied_at";
 
 const now = () => new Date().toISOString();
 const iso = (ms: unknown) => {
@@ -251,6 +254,49 @@ async function saveMemory(
   return memoryId;
 }
 
+// ── M6b: starred → Google Drive ─────────────────────────────────────────────────────────────────
+
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+
+/** Copy a starred, finished meeting (audio pieces + notes.txt) to Drive → JARVIS → Recordings → "<date> <title>". */
+async function copyToDrive(db: SupabaseClient, recId: string) {
+  const { data: rec } = await db.from("recordings")
+    .select("id,user_id,client_id,title,started_at,status,starred,summary,audio_deleted_at,drive_status").eq("id", recId).maybeSingle();
+  if (!rec || !rec.starred || rec.status !== "ready" || rec.drive_status === "copied" || rec.drive_status === "copying") return;
+  const g = await connectionStatus(rec.user_id).catch(() => null);
+  if (!g?.connected || !(g.scopes ?? []).includes(DRIVE_SCOPE)) {
+    if (rec.drive_status !== "not_connected") await db.from("recordings").update({ drive_status: "not_connected" }).eq("id", recId);
+    return;
+  }
+  const { data: claimed } = await db.from("recordings").update({ drive_status: "copying" }).eq("id", recId)
+    .in("drive_status", ["", "not_connected", "failed"]).select("id");
+  if (!claimed?.length) return;
+  try {
+    const date = new Date(rec.started_at).toISOString().slice(0, 10);
+    const jarvis = await ensureFolder(rec.user_id, "JARVIS");
+    const recordings = await ensureFolder(rec.user_id, "Recordings", jarvis);
+    const folder = await ensureFolder(rec.user_id, `${date} ${(rec.title || "Meeting").replace(/[\\/:*?"<>|]/g, "-").slice(0, 80)}`, recordings);
+    if (!rec.audio_deleted_at) {
+      const { data: chunks } = await db.from("recording_chunks").select("seq,path").eq("recording_id", recId).order("seq");
+      for (const c of chunks ?? []) {
+        const { data: blob, error } = await db.storage.from(BUCKET).download(c.path);
+        if (error || !blob) throw new Error(`download ${c.path}: ${error?.message ?? "missing"}`);
+        await uploadFile(rec.user_id, folder, `part-${String(c.seq + 1).padStart(3, "0")}.m4a`, new Uint8Array(await blob.arrayBuffer()), "audio/mp4");
+      }
+    }
+    const { lines } = await meetingLines(db, recId);
+    const notes = (rec.summary ? memoryText(rec.summary as Summary, lagosDate(rec.started_at)) + "\n\n" : "") +
+      "Transcript\n\n" + lines.map((l) => `[${new Date(l.t * 1000).toISOString().slice(11, 19)}] ${l.speaker}: ${l.text}`).join("\n");
+    await uploadFile(rec.user_id, folder, "notes.txt", new TextEncoder().encode(notes), "text/plain");
+    await db.from("recordings").update({ drive_status: "copied", drive_folder_id: folder, drive_copied_at: now() }).eq("id", recId);
+    console.log(`meeting drive ${recId}: copied`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`meeting drive ${recId} failed: ${msg}`);
+    await db.from("recordings").update({ drive_status: "failed" }).eq("id", recId);
+  }
+}
+
 // ── M6: storage ──────────────────────────────────────────────────────────────────────────────────
 
 /** Remove a recording's audio from storage; the transcript, summary and memory stay. */
@@ -288,7 +334,11 @@ async function sweep(db: SupabaseClient): Promise<Record<string, number>> {
     .lt("updated_at", new Date(Date.now() - 60_000).toISOString())
     .limit(40);
   for (const r of recs ?? []) await maybeTranscribed(db, r.id);
-  return { chunks: chunks?.length ?? 0, recordings: recs?.length ?? 0 };
+  // M6b: starred meetings not yet in Drive (cheap: copyToDrive checks the Google connection first).
+  const { data: drive } = await db.from("recordings").select("id").eq("starred", true).eq("status", "ready")
+    .in("drive_status", ["", "not_connected"]).limit(10);
+  for (const r of drive ?? []) kick({ op: "work-drive", recording_id: r.id });
+  return { chunks: chunks?.length ?? 0, recordings: recs?.length ?? 0, drive: drive?.length ?? 0 };
 }
 
 // ── request handling ─────────────────────────────────────────────────────────────────────────────
@@ -312,6 +362,9 @@ Deno.serve(async (req) => {
           return json(await sweep(db));
         case "retention":
           return json(await retention(db));
+        case "work-drive":
+          EdgeRuntime.waitUntil(copyToDrive(db, String(b.recording_id)));
+          return json({ accepted: true }, 202);
         default:
           return json({ error: "unknown internal op" }, 400);
       }
@@ -473,6 +526,7 @@ Deno.serve(async (req) => {
         if (!rec) return json({ error: "not found" }, 404);
         const expires = rec.audio_deleted_at || rec.status !== "ready" ? null : expiryFor(rec.ended_at, await keepDays(db, user.id), starred);
         await db.from("recordings").update({ starred, audio_expires_at: expires, updated_at: now() }).eq("id", rec.id);
+        if (starred) kick({ op: "work-drive", recording_id: rec.id });
         return json({ ok: true, starred, audio_expires_at: expires });
       }
 

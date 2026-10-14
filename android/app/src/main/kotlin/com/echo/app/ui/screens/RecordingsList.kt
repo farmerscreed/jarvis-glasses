@@ -382,6 +382,15 @@ private fun SummaryTab(vm: HomeViewModel, item: LibraryItem, rec: CloudRec?, loa
         val people = rec.list("people").map { it.toString() }
         if (people.isNotEmpty()) Text("People: " + people.joinToString(", "), style = Neo.body.copy(fontSize = 13.sp, color = Neo.Muted))
         MarkedMoments(item.bookmarks, onSeek)
+        if (rec.starred) Text(
+            "★ Starred — the audio is kept forever. " + when (rec.driveStatus) {
+                "copied" -> "A copy is in your Google Drive (JARVIS › Recordings)."
+                "copying" -> "Copying it to your Google Drive…"
+                "failed" -> "Couldn't copy it to Google Drive — unstar and star it again to retry."
+                else -> "Connect Google in Settings to also keep a copy in your Drive."
+            },
+            style = Neo.body.copy(fontSize = 13.sp, lineHeight = 19.sp, color = Neo.Amber),
+        )
         AskBox(vm, item.id, onSeek)
         Spacer(Modifier.height(12.dp))
     }

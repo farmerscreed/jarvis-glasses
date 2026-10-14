@@ -33,6 +33,7 @@ object GoogleSignInHelper {
         "https://www.googleapis.com/auth/calendar.events",
         "https://www.googleapis.com/auth/contacts.readonly",
         "https://www.googleapis.com/auth/contacts.other.readonly",
+        "https://www.googleapis.com/auth/drive.file", // M6b: only files JARVIS creates (starred meetings)
         "email",
     )
 
