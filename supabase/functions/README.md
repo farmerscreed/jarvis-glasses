@@ -9,7 +9,15 @@ The AI layer. All provider keys live here (server-side), never in the app.
 | `chat`   | POST `{ message, history?, recallLimit? }` | RAG: embed → recall → **Claude** answers grounded in memories → persist the Q&A. Returns `{ answer, memories_used }`. |
 | `transcribe` | POST `{ audioBase64, mimeType? }` | **Gemini** multimodal STT (model `gemini-2.5-flash`, retry + fallback to `gemini-2.5-flash-lite`). Returns `{ text }`. |
 
-Shared helpers in `_shared/`: `http.ts` (CORS/JSON), `supabaseClient.ts` (user-scoped client so RLS applies), `embeddings.ts` (OpenAI, 1536-dim), `anthropic.ts` (Claude Messages API).
+| `meeting` | POST `{ op, client_id?, … }` | **Phase 2 meetings** — chunk upload check, finish, library ops (list/get/audio-urls/star/title/speaker/tick/delete-audio/ask/settings/costs), delete. Background ops (header `x-meeting-secret`): work-chunk, work-summary, work-drive, sweep (pg_cron 5 min), retention (pg_cron daily). **Deploy with `--no-verify-jwt`.** Op list at the top of `meeting/index.ts`; record in `docs/SESSION_LOG_2026-10-14.md`. |
+
+(Other functions — research, vision, translate, calendar, email, google-connect, person, push, profile, distill,
+remember, chat-stream — are described at the top of their own `index.ts`.)
+
+Shared helpers in `_shared/`: `http.ts` (CORS/JSON), `supabaseClient.ts` (user-scoped client so RLS applies), `embeddings.ts` (Gemini, 1536-dim), `anthropic.ts` (Claude Messages API), `llm.ts` (**model switchboard**: `llmJson(job…)` over the `model_routes` table, logs `llm_calls`), `meetingStt.ts` (Gemini meeting transcription), `meetingSummary.ts` (meeting notes + ask), `drive.ts` (Google Drive), `google.ts` (Google connection), `fcm.ts` (push).
+
+**New functions can't be created from the CLI on this project (HTTP 500, 2026-10-12)** — create a placeholder in the
+dashboard first, then `supabase functions deploy <name> --use-api`.
 
 ## Providers (defaults, overridable in `.env`)
 - **Embeddings**: Google **Gemini `gemini-embedding-001`** at 1536 dims (free tier). `GEMINI_API_KEY`, `EMBED_PROVIDER=gemini`.

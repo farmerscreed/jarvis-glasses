@@ -2,10 +2,42 @@
 
 *The single-source handover between sessions. A new session should be able to read only this and
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
-*Last updated: 2026-10-12. Keep this current at the end of every working session.*
+*Last updated: 2026-10-14. Keep this current at the end of every working session.*
 
 ---
-### ▶ LATEST (2026-10-12) — start here next session
+### ▶ LATEST (2026-10-14) — start here next session
+Full record: **`docs/SESSION_LOG_2026-10-14.md`** (architecture, every op, bugs, cloud reference, SQL checks).
+Law's test steps: **`docs/TEST_PLAN_PHASE2.md`**. Design + milestone status: **`docs/PHASE2_DESIGN.md`**.
+
+**Phase 2 (meetings) is BUILT: M1–M7 + M6b.** Record (phone mic, screen-off) → each ~5-min piece uploads and is
+checked (size + sha256) → Gemini transcribes it (speaker-labelled lines) → after Stop, Claude writes the notes
+(decisions, action items, numbers, owners/dates only if said) → a searchable `meeting` memory + push "Summary
+ready". Memories → Recordings = full library (status cards, star, Summary/Transcript tabs, tap a line to play,
+rename speakers, tick actions, Ask about this meeting, share, delete audio-only/everything, 1×/1.5×/2×).
+Audio kept 90 days (setting 30/90/365/forever; starred forever; text forever); the phone frees its copy 7 days
+after backup. Model switchboard `_shared/llm.ts` + `model_routes` + `llm_calls` + Settings → AI models & cost.
+Starred → Google Drive (inert until Google setup). Self-healing: pg_cron `meeting-sweep` every 5 min.
+
+**Verified:** M1–M4 on the Pixel (two of Law's recordings went all the way to `ready`), the sweep recovering a stuck
+recording, the cloud jobs, summary/ask quality on test transcripts. **NOT yet seen on the phone:** the M5–M7 + M6b
+screens (Law was at the airport; phone on another network). **NEXT: run `TEST_PLAN_PHASE2.md` with Law** (install
+the latest APK first), fix what it finds, then push. Then M8 (glasses — needs a test session) and Phase 3.
+
+**Must-know traps (details in the 10-14 log §4, §9):**
+- `meeting` must be deployed with `--no-verify-jwt` (pinned in `supabase/config.toml`); internal ops use
+  `MEETING_INTERNAL_SECRET` (+ Vault `meeting_internal_secret` for pg_cron).
+- **Creating a NEW Edge Function fails with HTTP 500** (updates work) → ask Law to create a placeholder in the
+  dashboard, or add the work as an op inside an existing function.
+- Supabase Storage answers an expired token with **HTTP 400**, not 401 (handled in `EchoBackend.authExpired`).
+- One background job per invocation (~150 s wall clock) — never loop long work inside one request.
+- Python/sed/heredoc edits mangle backslashes — use the Edit/Write tools for code containing backslash escapes
+  (newline escapes, regexes), then scan the file for control characters.
+- Unpushed: commits after `081d51e` (M5–M7, M6b, docs). Push when Law says.
+
+**Law's to-dos:** run the test plan; Google Cloud setup (now also the **Drive API**); OpenRouter key (then run the
+eval); `STT_VOCAB` names; glasses test session (M8); delete the Firebase admin key file in `android/app/`?
+
+### ◀ 2026-10-12 block
 **M2 (upload) DONE and device-tested** (session log §15; includes an expired-token fix for Storage). **NEXT: M3**
 (chunk transcription in the `meeting` function).
 **Phase 2 · M1 (meeting recording) built and device-tested**, plus an early **Memories → Recordings** library

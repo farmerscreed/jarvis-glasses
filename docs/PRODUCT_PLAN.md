@@ -130,7 +130,7 @@ until "I'm back". Export everything to a file (pairs with Delete everything).
 | Phase | Name | Contents | Gate |
 | --- | --- | --- | --- |
 | 1 (now) | Finish and fix | Law tests translation fixes · email and calendar in the cloud · people memory · find my glasses | — |
-| 2 | Meetings | Meeting capture · recordings library + smart storage · cheaper model routing | — |
+| 2 | Meetings | Meeting capture · recordings library + smart storage · cheaper model routing — **built 14 Oct 2026, testing** (glasses recordings = M8, after a test session) | — |
 | 3 | In the field | Site and farm walks · PDF or Telegram report · counts across photos · video into memory | Law uses JARVIS daily |
 | 4 | Ready for a friend | Private mode (wake word off) · export everything · simple onboarding · privacy policy · a friend tests it | — |
 

@@ -19,17 +19,17 @@ truthfully (it says "I don't know" rather than guess). It runs offline-first and
 - **Home** — the glowing **orb is the talk button** (tap it, or say "Jarvis"). Under it, one status
   line (glasses battery · online · memories waiting to sync — tap it for the glasses screen). Then
   **Do something**: **Look** (photo + "what am I looking at"), **Translate**, **Ask** (Ask JARVIS),
-  **Research**, **Remember** (a person) and **Find glasses**. Your conversation or last answer shows below.
+  **Research**, **Remember** (a person) and **Meeting** (record a meeting; *Find glasses* is in the status line and Settings). Your conversation or last answer shows below.
 - **Translate** — one big **Listen** button, plus **Talk** (two-way), **Read** (signs & menus) and
   **Say** (a phrase for them). While a translation runs, a slim "Translating — tap to open" bar
   follows you on the other tabs.
 - **Memories** — everything JARVIS has saved, in one place (it replaces Timeline + Gallery). Search
-  with a question, filter **All · Photos · People · Research · Notes**, tap a photo for detail and
-  **"Ask about this photo"**.
+  with a question, filter **All · Recordings · Photos · People · Research · Notes**, tap a photo for detail and
+  **"Ask about this photo"**, or a meeting for its notes and transcript.
 - **Settings** — you and your glasses at the top, then short lists: **Connections** (glasses,
   Gmail & Calendar, notifications, find my glasses), **JARVIS** (wake word, listen with the app closed,
   personality & memory), **Privacy & help** (export / delete, help). Advanced and developer tools are
-  in the small link at the bottom.
+  in the small link at the bottom (incl. **Keep meeting audio** and **AI models & cost**).
 
 ## Talking to JARVIS (the fast lane)
 - **Start:** tap the orb/mic, or say **"Jarvis"** (turn on hands-free). It listens, answers in your ear,
@@ -114,18 +114,39 @@ connected for sound; if not, the app warns you and your English plays from the p
 ## Record a meeting
 - **Start:** Home → **Meeting** → **Start recording**, or say *"Jarvis, record this meeting (with Mr Ade)"*.
   Start it while the phone is unlocked; after that you can lock the phone and put it on the table — it keeps
-  recording (a "JARVIS is recording" notification with **Mark** and **Stop** stays up).
+  recording (a "JARVIS is recording" notification with **Mark** and **Stop** stays up). Tell everyone you're recording.
 - It uses the **phone's microphone** (it hears the whole room; the glasses mic only hears you well).
 - **During:** say *"mark that — price agreed"* (or tap **Mark**) to flag a moment; *"am I still recording?"*;
   **Pause/Resume** on the meeting screen. A red **"Recording · 12:34"** bar shows on every tab — tap it to open.
-- **Stop:** *"stop recording"*, the notification's **Stop**, or the Stop button.
-- **Find it later:** **Memories → Recordings.** Each recording shows its date, length and size. Tap it to
-  play (drag the bar, **−15 s / +15 s**, or tap a **marked moment** to jump there) or **Delete** it.
-- **Backup:** each 5-minute piece is sent to your private cloud storage as soon as it's finished — even during
-  the meeting, and later if you had no signal. The card shows **On phone**, **Uploading 2/5** or **Backed up**.
-  Deleting a recording removes the cloud copy too.
-- **Coming next:** the recording is written out as a transcript and summarised (decisions,
-  who said what, to-dos), with a notification when it's ready. - While recording, the wake word is off (the recorder uses the mic) and translation can't run at the same time.
+  While recording, the wake word is off (the recorder uses the mic) and translation can't run at the same time.
+- **Stop:** *"stop recording"*, the notification's **Stop**, or the Stop button → **Open in Recordings**.
+- **What happens next (automatic):** each 5-minute piece goes to your private cloud storage as soon as it's finished
+  (even mid-meeting; later if you had no signal) → JARVIS writes the **transcript** (who said what, with times;
+  other languages get an English translation in [brackets]; a TV or radio shows as *Media*) → after you stop, it
+  writes the **notes**: *In short*, decisions, action items (with who and when, only if someone said it), numbers
+  exactly as spoken, follow-ups and open questions. You get a notification **"‹title› — Summary ready: 3 action
+  items, 2 decisions"** usually within a few minutes. The notes are also saved as a memory, so you can later ask
+  *"what did Mr Ade say about the price?"*.
+
+## Your recordings (Memories → Recordings)
+- The list shows each meeting's title, date, length, where it's at (**Uploading → Transcribing… → Summarising… →
+  Ready**), the gist and the number of action items and decisions. The strip on top shows how long audio is kept
+  and how much space it uses. Offline, it shows what's on the phone.
+- **Open a meeting:**
+  - **Summary** — the notes. **Tap an action item** to tick it off. Tap a **marked moment** to hear it.
+    **Ask about this meeting** — type a question; the answer comes only from that meeting, with ▶ moments you can
+    tap to hear. If the meeting didn't cover it, it says so.
+  - **Transcript** — every line with time and speaker. **Tap a line** to play from there. **Tap a speaker's name**
+    (e.g. *Speaker 2 ✎*) to say who it is — it changes everywhere. Search box at the top.
+  - **Player** at the bottom: drag, **−15 / +15**, speed **1× / 1.5× / 2×**. Marked moments are amber ticks.
+  - Top: **tap the title to rename**, ☆ **star**, ↗ **share** the notes (WhatsApp, email…), 🗑 **delete** —
+    *Audio only* (keeps the notes and transcript) or *Everything* (phone and cloud).
+- **How long things are kept:** the notes, transcript and memory — **forever**. The audio — **90 days** in the cloud
+  (change it: Settings → Advanced → **Keep meeting audio**: 30 days, 90 days, 1 year or forever). **Starred** meetings
+  keep their audio forever and, once Google is connected, a copy goes to your **Google Drive › JARVIS › Recordings**
+  (audio + notes.txt). The phone keeps its own copy of the audio for a week after it's backed up, then plays it from
+  the cloud.
+- **AI cost:** Settings → Advanced → **AI models & cost** shows this month's estimated spend and which AI does each job.
 
 ## Find my glasses
 Device screen → **Find my glasses** → **Turn on**, and allow location (then **"All the time"**, so it

@@ -4,7 +4,8 @@
 > `docs/PRODUCT_PLAN.md` (Phase 1 = email + calendar in the cloud, people memory, find my glasses).
 > WORK_QUEUE §0 has the Claude Code on the PC setup (wireless adb, live logcat, build/install).
 > **UI work:** follow `docs/UI_REDESIGN.md` (approved redesign spec, mockups in `docs/design/redesign-2026-10/`).
-> **Phase 2 (meetings) build plan:** `docs/PHASE2_DESIGN.md`.
+> **Phase 2 (meetings):** design + milestone status `docs/PHASE2_DESIGN.md`; built 2026-10-14 (M1–M7 + M6b),
+> record in `docs/SESSION_LOG_2026-10-14.md`; Law's phone test steps `docs/TEST_PLAN_PHASE2.md`.
 
 **Then read `docs/SESSION_HANDOFF.md`** (the "LATEST" block at the top), then the
 newest `docs/SESSION_LOG_*.md`. They hold the current state, settled decisions, verified API facts and
@@ -23,6 +24,11 @@ Essentials, in case you read nothing else:
 - **Traps:** project `Json{}` has `encodeDefaults=false` (defaulted DTO fields are dropped — use
   org.json or non-default fields); Gemini Live Translate's real setup format differs from its docs
   (see the session log); the Pixel's logcat only keeps a few minutes.
+- **More traps (2026-10-12/14):** creating a NEW Edge Function returns HTTP 500 on this project (updates work) —
+  have Law create a placeholder in the dashboard, or add an op to an existing function; the `meeting` function must
+  be deployed with `--no-verify-jwt` (pinned in `supabase/config.toml`); Storage reports an expired token as HTTP 400;
+  one long job per function invocation (~150 s wall clock); Python/sed/heredoc edits mangle backslashes — use the
+  Edit/Write tools for code with backslash escapes. The phone's adb address changes — ask Law.
 - **Keep the handoff current:** at the end of a session update `docs/SESSION_HANDOFF.md` (LATEST
   block) and add/extend a `docs/SESSION_LOG_<date>.md`, and update the in-app Help + `USER_GUIDE.md`
   when user-facing behaviour changes.

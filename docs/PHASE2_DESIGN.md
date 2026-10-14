@@ -215,12 +215,24 @@ create table public.recording_segments (     -- the transcript, speaker-labelled
 | **M7** | Model router + eval + cost view | all jobs through `llm()`; eval run; Law picks models; monthly cost visible |
 | **M8** | Glasses test session + glasses recordings in the pipeline | longest recording/video, size, sync time, battery, heat measured; BACK-hold .opus > 2 min becomes a recording with summary; deletion-trigger understood |
 
-**Status (2026-10-12):** **M1 built + device-tested** (430 s with the screen locked → 2 valid chunks, Gemini
-transcribed the audio cleanly; voice marks + notification Mark/Stop). **Early M5 slice built:** Memories →
-Recordings (local list, sequential-chunk player with ±15 s / drag / jump-to-mark, delete). **M2 built** (migration
-applied to prod; phone uploader installed) — the `meeting` function is written but **not deployed**: creating a
-new Edge Function returns HTTP 500 (2026-10-12, CLI 2.98 and 2.120; updating existing functions works). M2 status
-value `uploaded` added. Upload progress is kept per recording in `upload.json` (not Room, as first planned).
+### Status (2026-10-14) — details in `SESSION_LOG_2026-10-11.md` §14–15 and `SESSION_LOG_2026-10-14.md`
+
+| # | Status | Notes |
+|---|---|---|
+| M1 | ✅ built, device-tested | 430 s screen-locked → 2 valid chunks. AAC **32 kbps** (not 24), `MediaRecorder` + `setNextOutputFile` (not AudioRecord/MediaCodec). |
+| M2 | ✅ built, device-tested | 26-min meeting, 6/6 chunks, bytes + sha256 match. Progress in `recordings/<id>/upload.json` (not Room). Expired-token fix. |
+| M3 | ✅ built, tested on real chunks | 13–22 s per 5-min chunk; "Media" label for TV/music; one invocation per chunk. |
+| M4 | ✅ built, tested | Law's 2 recordings reached `ready` ("no conversation" — correct). Real-meeting accuracy still to test (TEST_PLAN §2). |
+| M5 | 🟡 built, **not yet seen on the phone** | Library + detail as in the mockups; Ask about this meeting; share; delete audio-only/everything. No transcript auto-scroll / PDF yet. |
+| M6 | 🟡 built, cloud jobs verified | `meeting-retention` daily; keep 30/90/365/forever; phone frees audio 7 days after backup. |
+| M6b | 🟡 built, **inert** | Needs Law's Google setup incl. the Drive API; scope `drive.file`. |
+| M7 | 🟡 built | Switchboard + `llm_calls` + cost view + eval script. OpenRouter path untested (no key); routes still Claude-first. |
+| M8 | ⏳ not built | Needs the glasses test session — plan in `SESSION_LOG_2026-10-14.md` §8. |
+
+Deviations from the design above: status flow gained `uploaded` and `transcribed`; long work runs as one job per
+invocation of `meeting` (self-kick with a shared secret) plus a 5-minute pg_cron **sweep** that restarts anything
+stuck; retention is an op inside `meeting` (creating new functions fails on this project), not a separate
+`retention` function.
 
 Order rationale: M1–M4 give Law a working "record → summary" loop fast; M5 makes it browsable; M6/M7 cut
 cost; M8 depends on a hands-on session with the glasses.

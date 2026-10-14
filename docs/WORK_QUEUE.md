@@ -153,10 +153,12 @@ Build `docs/UI_REDESIGN.md` in its build order: theme + shared components → Tr
 Settings → Memories → Research (+ `headline` from the research function) → Ask/Device/Help/onboarding.
 Install + screenshot each step for Law. Nothing removed, only moved.
 
-## P4 — Phase 2: Meetings — NEXT (designed 2026-10-12)
+## P4 — Phase 2: Meetings — BUILT 2026-10-14 (M1–M7 + M6b); Law's phone test next
 Build `docs/PHASE2_DESIGN.md` milestone by milestone: M1 recording engine → M2 upload/storage → M3 chunk
 transcription → M4 summary + memory + push → M5 library UI → M6 retention (M6b Drive after Google) → M7 model
 router + eval → M8 glasses test session. Each ends on the phone with Law (acceptance table in the doc).
+**Now:** run `docs/TEST_PLAN_PHASE2.md` with Law (M5–M7 screens not yet seen on the device), fix findings, push.
+Then: Google setup → M6b check; OpenRouter key → eval → cheaper `meeting_summary` route; glasses session → M8.
 
 ## P3 — Planned upgrades carried from earlier docs (not yet scheduled; confirm with Law)
 - **Assistant roadmap** (`docs/ASSISTANT_ROADMAP.md`): v2.1 skills via tool-use in the chat path;
@@ -175,6 +177,7 @@ router + eval → M8 glasses test session. Each ends on the phone with Law (acce
 ---
 
 ## Done
+- 2026-10-14 — **Phase 2 meetings built** (M1–M7 + M6b): record → upload → transcript → summary + memory + push → library; retention; model switchboard. See `SESSION_LOG_2026-10-14.md`.
 - 2026-10-12 — **UI redesign** built and approved by Law ("I love the new look"). See `UI_REDESIGN.md`, session log §11–12.
 - 2026-10-11 — Phase 1 built: email + calendar (awaiting Google setup), people memory ✅, find my glasses ✅, push notifications (configured), faster glasses looks (≈7.2 s).
 - 2026-10-11 — **P0 translation echo/loop fixed**, T1–T8 passed on the Pixel with Law. See `SESSION_LOG_2026-10-11.md`.
