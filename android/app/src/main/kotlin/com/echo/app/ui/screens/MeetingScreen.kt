@@ -232,9 +232,15 @@ private fun MeetingSaved(vm: HomeViewModel, onBack: () -> Unit) {
                     StatTile("Size", "${"%.1f".format(s.bytes / 1_000_000.0)} MB", Modifier.weight(1f))
                 }
             }
-            Text("Next update: it uploads, writes the transcript and a summary with action items, and tells you when it's ready.",
+            Text("It's uploading now. In a few minutes JARVIS writes the transcript and a summary with action items, and sends you a notification. " +
+                "Find it any time in Memories → Recordings.",
                 style = Neo.body.copy(fontSize = 14.sp, lineHeight = 21.sp, color = Neo.Muted), textAlign = TextAlign.Start)
-            GlowButton("Done", onClick = { vm.clearMeetingSaved(); onBack() }, modifier = Modifier.fillMaxWidth())
+            GlowButton("Open in Recordings", onClick = {
+                val id = s.id
+                vm.clearMeetingSaved(); onBack()
+                com.echo.app.meeting.MeetingNav.openRecording = id
+            }, modifier = Modifier.fillMaxWidth())
+            GhostButton("Done", onClick = { vm.clearMeetingSaved(); onBack() }, modifier = Modifier.fillMaxWidth())
             GhostButton("Record another", onClick = { vm.clearMeetingSaved() }, modifier = Modifier.fillMaxWidth())
         }
     }

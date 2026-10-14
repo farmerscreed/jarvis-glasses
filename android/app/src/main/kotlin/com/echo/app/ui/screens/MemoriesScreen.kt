@@ -79,7 +79,7 @@ private val DAY = DateTimeFormatter.ofPattern("EEE d MMM").withZone(ZoneId.syste
  */
 @Composable
 fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
-    LaunchedEffect(Unit) { vm.refreshLibrary(); vm.reconcileOrphanMedia() }
+    LaunchedEffect(Unit) { vm.refreshLibrary(); vm.reconcileOrphanMedia(); vm.refreshRecordings() }
     var filter by rememberSaveable { mutableStateOf("all") }
     var query by rememberSaveable { mutableStateOf("") }
     var selected by remember { mutableStateOf<Memory?>(null) }
@@ -195,7 +195,12 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
                     item(span = { GridItemSpan(3) }, key = "day-$day") { MonoLabel(dayLabel(day), modifier = Modifier.padding(top = 8.dp)) }
                 }
                 item(span = { GridItemSpan(3) }, key = m.id ?: m.clientId ?: m.hashCode().toString()) {
-                    MemoryRow(m, onOpenPhoto = { selected = m }, onOpenMeeting = { id -> filter = "recordings"; openRec = id })
+                    MemoryRow(m, onOpenPhoto = { selected = m }, onOpenMeeting = { key ->
+                        // key = the recording id, or the meeting's title (cloud search hits carry no metadata).
+                        val id = if (key.startsWith("rec-")) key else vm.library.firstOrNull { it.title.equals(key, ignoreCase = true) }?.id
+                        filter = "recordings"
+                        if (id != null) openRec = id
+                    })
                 }
             }
         }
@@ -269,7 +274,9 @@ private fun MemoryRow(m: Memory, onOpenPhoto: () -> Unit, onOpenMeeting: (String
             }
         }
         else -> {
-            val meetingId = m.metadata["client_id"]?.takeIf { m.type == MemoryType.MEETING && it.startsWith("rec-") }
+            val meetingId = if (m.type != MemoryType.MEETING) null
+            else m.metadata["client_id"]?.takeIf { it.startsWith("rec-") }
+                ?: body.removePrefix("Meeting:").substringBefore(" — ").trim().takeIf { body.startsWith("Meeting:") && it.isNotBlank() }
             val tag = when {
                 m.type == MemoryType.MEETING -> "Meeting"
                 m.type == MemoryType.VOICE_NOTE -> "Voice note"
