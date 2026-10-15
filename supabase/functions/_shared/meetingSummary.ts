@@ -67,6 +67,43 @@ export function transcriptText(lines: Line[], bookmarks: { t_s: number; label: s
   return body + marks;
 }
 
+/** Phase 3: the same notes shape for a VIDEO (what was seen + said) or a SITE WALK (report-style). */
+const VIDEO_SYSTEM = (walk: boolean) => `You write the notes for a ${walk ? "SITE WALK video (the owner walked a building site or farm, filming and talking)" : "video the owner filmed"} on smart glasses or a phone (Nigeria). The owner is Law; the assistant is JARVIS. The input has two kinds of lines: what people SAID ("Speaker 1: …", translations in [brackets]) and what the camera showed ("Seen: …").
+Strict rules:
+- Use ONLY what was seen or said. Never invent. Counts from video are approximate — keep "about"/"≈" when the input says so.
+- is_meeting=false ONLY if the video has nothing meaningful (blank, pocket, floor). Otherwise true.
+- in_short: what the video shows and what was said about it, 2–4 plain sentences.
+- decisions/action_items: only if someone said them${walk ? " — for a site walk, also list clear problems that need fixing as action items (owner only if named)" : ""}.
+- numbers: quantities, measurements, prices, dates — seen or said, with what they refer to.
+- people: who was there or named. follow_ups: things to check next. open_questions: what was unclear.
+- speakers: label → name only when clear. Lines where the owner tells JARVIS to "mark that" are commands, not action items.
+- title: short and specific, e.g. "${walk ? "Site walk — block C, plastering and rebar" : "Pepper greenhouse — leaf damage"}".`;
+
+export async function summariseVideo(
+  lines: Line[],
+  ctx: { walk: boolean; title?: string; date?: string; durationS?: number; bookmarks?: { t_s: number; label: string }[]; userId?: string },
+): Promise<Summary> {
+  let text = transcriptText(lines, ctx.bookmarks ?? []);
+  if (text.length > 300_000) text = text.slice(0, 150_000) + "\n[…]\n" + text.slice(-150_000);
+  const header = [
+    ctx.title ? `Title given by the owner: ${ctx.title}` : "No title given.",
+    ctx.date ? `Date: ${ctx.date}` : "",
+    ctx.durationS ? `Length: ${Math.max(1, Math.round(ctx.durationS / 60))} minutes` : "",
+  ].filter(Boolean).join("\n");
+  const s = await llmJson<Summary>(
+    ctx.walk ? "walk_report" : "video_summary", VIDEO_SYSTEM(ctx.walk), `${header}\n\nWhat was seen and said:\n${text || "(nothing was seen or heard)"}`, SCHEMA, { userId: ctx.userId },
+  );
+  delete s._model;
+  return s;
+}
+
+/** Push text for a video / walk. */
+export function videoPushBody(s: Summary, walk: boolean): string {
+  if (!s.is_meeting) return "Video processed — nothing to note in it.";
+  if (walk) return `Walk report ready: ${s.action_items.length} thing${s.action_items.length === 1 ? "" : "s"} to fix.`;
+  return "Video notes ready — tap to read what was seen and said.";
+}
+
 export async function summarise(
   lines: Line[],
   ctx: { title?: string; date?: string; durationS?: number; bookmarks?: { t_s: number; label: string }[]; userId?: string; routes?: RouteEntry[] },
@@ -108,8 +145,8 @@ export async function askMeeting(
 }
 
 /** The meeting memory: what recall/chat search over ("what did Mr Ade say about delivery?"). */
-export function memoryText(s: Summary, date: string): string {
-  const parts = [`Meeting: ${s.title} — ${date}`, `In short: ${s.in_short}`];
+export function memoryText(s: Summary, date: string, heading = "Meeting"): string {
+  const parts = [`${heading}: ${s.title} — ${date}`, `In short: ${s.in_short}`];
   if (s.decisions.length) parts.push("Decisions:\n" + s.decisions.map((d) => `- ${d}`).join("\n"));
   if (s.action_items.length) {
     parts.push("Action items:\n" + s.action_items.map((a) =>

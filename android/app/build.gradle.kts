@@ -171,6 +171,10 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.media)
+    // Phase 3 video: the small analysis copy (480p) is made on the phone with Media3 Transformer.
+    implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.effect)
+    implementation(libs.androidx.media3.common)
     implementation(libs.work.runtime)
     implementation(libs.mediapipe.tasks.text)
     implementation(libs.mediapipe.tasks.genai) // on-device LLM spike (Gemma 3 1B) — docs/ONDEVICE_BRAIN.md

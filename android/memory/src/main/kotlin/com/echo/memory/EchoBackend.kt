@@ -192,7 +192,7 @@ class EchoBackend(
                 .addHeader("apikey", session.anonKey)
                 .addHeader("Authorization", "Bearer ${session.accessToken}")
                 .addHeader("x-upsert", "true")
-                .post(bytes.toRequestBody("audio/mp4".toMediaType()))
+                .post(bytes.toRequestBody((if (name.endsWith(".mp4")) "video/mp4" else "audio/mp4").toMediaType()))
                 .build()
             http.newCall(req).execute().use { resp -> return resp.code to resp.body?.string().orEmpty() }
         }

@@ -1313,25 +1313,37 @@ class HomeViewModel @Inject constructor(
      * Start a glasses video ("Jarvis, record a video"), or a site walk (no length limit). The glasses' own
      * recording light comes on as usual. Returns what JARVIS says.
      */
-    fun startGlassesVideo(walk: Boolean = false): String {
+    suspend fun startGlassesVideo(walk: Boolean = false): String {
         val battery = ble.battery.value
         if (battery != null && battery <= GlassesBleManager.MIN_VIDEO_BATTERY) {
             return "The glasses' battery is too low to record video — $battery percent. Charge them, or use the phone camera."
         }
         if (ble.recording.value) return "The glasses are already recording."
         ble.setVideoLength(if (walk) GlassesBleManager.VIDEO_UNLIMITED else com.echo.app.video.VideoPrefs.length(appContext))
+        delay(400) // let the length setting land before the start command
+        val before = ble.videoReply.value
         if (!ble.toggleVideo()) return "I can't reach the glasses right now — are they on and connected?"
+        // Only say "recording" once the glasses confirm it.
+        val reply = withTimeoutOrNull(4_000) { ble.videoReply.filterNotNull().first { it !== before } }
+        if (reply == null || !ble.recording.value) {
+            ble.clearRecording()
+            android.util.Log.w("EchoBle", "video start not confirmed: reply=$reply")
+            return if (reply == null) "The glasses didn't answer. If they're charging, unplug them — they don't film while charging."
+            else "The glasses didn't start the video (they said ${reply.first}/${reply.second}). If they're charging, unplug them and try again."
+        }
         walkActive = walk
+        if (walk) com.echo.app.video.VideoPrefs.walkStarted(appContext)
         return if (walk) "Site walk started. Walk and talk me through it — say “Jarvis, stop the walk” when you're done."
         else "Recording video. Tell people you're filming."
     }
 
     /** Stop the glasses video / site walk. (If the glasses ignore it, a FRONT double-click stops it.) */
     fun stopGlassesVideo(): String {
-        if (!ble.recording.value && !walkActive) return "The glasses aren't recording."
+        if (!ble.recording.value && !walkActive) { ble.clearRecording(); return "The glasses aren't recording." }
         ble.toggleVideo()
         val wasWalk = walkActive
         walkActive = false
+        if (wasWalk) com.echo.app.video.VideoPrefs.walkStopped(appContext)
         // Back to the normal length once the walk has ended (a few seconds, so the stop isn't disturbed).
         if (wasWalk) viewModelScope.launch { delay(4_000); ble.setVideoLength(com.echo.app.video.VideoPrefs.length(appContext)) }
         return if (wasWalk) "Walk stopped. It'll sync to your phone." else "Stopped. The video will sync to your phone."

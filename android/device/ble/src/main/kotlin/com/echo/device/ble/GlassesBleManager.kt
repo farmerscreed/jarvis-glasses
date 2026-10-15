@@ -103,10 +103,17 @@ class GlassesBleManager(private val context: Context) {
     val battery: StateFlow<Int?> = _battery
 
     /** Every notification from any subscribed characteristic (button presses, IP, …). */
-    /** True while the glasses are recording video/audio (they send a heartbeat about every 3 s). */
+    /**
+     * True while a glasses video WE started is running: set when the glasses accept the start command, cleared
+     * when they report a saved file, when we send stop, or after the video length + 15 s. (The `0B nn` frame
+     * every ~3 s is NOT a recording heartbeat — it arrives all the time; 2026-10-15.)
+     */
     private val _recording = MutableStateFlow(false)
     val recording: StateFlow<Boolean> = _recording
-    @Volatile private var lastTickAt = 0L
+    @Volatile private var recordingSince = 0L
+    /** Last reply to the video command: errorCode (0/255 = ok) and what the glasses are busy with. */
+    private val _videoReply = MutableStateFlow<Pair<Int, Int>?>(null)
+    val videoReply: StateFlow<Pair<Int, Int>?> = _videoReply
 
     /** The glasses' video length in seconds (65535 = no limit), once read; null = unknown. */
     private val _videoLength = MutableStateFlow<Int?>(null)
@@ -275,9 +282,21 @@ class GlassesBleManager(private val context: Context) {
         // Battery status (BC 73 … 05 <percent> 00), pushed unsolicited by the glasses.
         when (val e = GlassesEvent.parse(value)) {
             is GlassesEvent.Battery -> if (e.percent in 0..100) { _battery.value = e.percent; Log.i(TAG, "glasses battery = ${e.percent}%") }
-            is GlassesEvent.RecordingTick -> { lastTickAt = System.currentTimeMillis(); if (!_recording.value) { _recording.value = true; watchRecording() } }
-            is GlassesEvent.CaptureSaved -> if (_recording.value) { _recording.value = false; Log.i(TAG, "glasses recording saved") }
+            is GlassesEvent.CaptureSaved -> if (_recording.value) { _recording.value = false; Log.i(TAG, "glasses recording saved (videos=${e.videos})") }
             else -> {}
+        }
+        // Reply to the video command: BC 41 … 02 01 02 <errorCode> <workType> (stock app: 0/255 = ok).
+        if (value.size >= 11 && value[0] == 0xBC.toByte() && value[1] == 0x41.toByte() &&
+            value[6].toInt() == 0x02 && value[7].toInt() == 0x01 && value[8].toInt() == 0x02
+        ) {
+            val err = value[9].toInt() and 0xFF
+            val work = value[10].toInt() and 0xFF
+            _videoReply.value = err to work
+            Log.i(TAG, "video command reply: error=$err work=$work (recording flag was ${_recording.value})")
+            if ((err == 0 || err == 255) && pendingVideoStart) {
+                _recording.value = true; recordingSince = System.currentTimeMillis(); expireRecording(_videoLength.value ?: 180)
+            }
+            pendingVideoStart = false
         }
         // Reply to "read video settings" (stock layout: BC 41 … 01 02 <angle> <seconds:u16 LE> …) — verify in V0.
         if (value.size >= 11 && value[0] == 0xBC.toByte() && value[1] == 0x41.toByte() &&
@@ -288,15 +307,13 @@ class GlassesBleManager(private val context: Context) {
         }
     }
 
-    /** No heartbeat for 8 s → the recording has ended (CaptureSaved usually says so first). */
-    private fun watchRecording() {
-        handler.postDelayed(object : Runnable {
-            override fun run() {
-                if (!_recording.value) return
-                if (System.currentTimeMillis() - lastTickAt > 8_000) { _recording.value = false; Log.i(TAG, "glasses recording heartbeat stopped") }
-                else handler.postDelayed(this, 2_000)
-            }
-        }, 2_000)
+    /** Safety net: a video can't outlast its length; clear the flag 15 s after it should have ended. */
+    private fun expireRecording(lengthS: Int) {
+        if (lengthS >= VIDEO_UNLIMITED) return
+        val since = recordingSince
+        handler.postDelayed({
+            if (_recording.value && recordingSince == since) { _recording.value = false; Log.i(TAG, "video flag expired after ${lengthS}s") }
+        }, (lengthS + 15) * 1000L)
     }
 
     private fun sendGlassesControl(payload: ByteArray): Boolean {
@@ -323,9 +340,16 @@ class GlassesBleManager(private val context: Context) {
     /** Start a glasses video (the recording light comes on, as always). Same command again stops it, if it toggles. */
     fun toggleVideo(): Boolean {
         if (glassesGatt == null) connectGlasses()
-        Log.i(TAG, "video command (recording=${_recording.value})")
+        val stopping = _recording.value
+        Log.i(TAG, "video command (${if (stopping) "stop" else "start"})")
+        pendingVideoStart = !stopping
+        if (stopping) _recording.value = false
         return sendGlassesControl(CMD_VIDEO)
     }
+
+    /** Clear the "filming" flag by hand (e.g. the glasses never confirmed or already stopped). */
+    fun clearRecording() { _recording.value = false; pendingVideoStart = false }
+    @Volatile private var pendingVideoStart = false
 
     /** Ask the glasses for their video length; the answer arrives in [videoLength]. */
     fun readVideoLength(): Boolean = sendGlassesControl(CMD_READ_VIDEO_SETTINGS)

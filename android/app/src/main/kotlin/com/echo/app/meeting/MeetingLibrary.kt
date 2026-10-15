@@ -27,6 +27,9 @@ data class CloudRec(
     val source: String,
     /** M6b: '' | copying | copied | not_connected | failed */
     val driveStatus: String = "",
+    /** Phase 3: video | walk | meeting, and the photos taken at a video's key moments. */
+    val kind: String = "meeting",
+    val frames: List<Frame> = emptyList(),
 ) {
     val isMeeting: Boolean get() = summary?.optBoolean("is_meeting", true) ?: true
     fun list(name: String): List<Any> = summary?.optJSONArray(name)?.let { a -> (0 until a.length()).map { a.get(it) } }.orEmpty()
@@ -38,7 +41,11 @@ data class CloudRec(
 /** One transcript line on the meeting's timeline (seconds from the start). */
 data class TLine(val t: Double, val end: Double, val speaker: String, val text: String)
 
-data class MeetingDetail(val rec: CloudRec, val lines: List<TLine>, val chunkSeconds: List<Int>)
+/** [moments]: a video's key moments (seconds on the whole video, why) — Phase 3. */
+data class MeetingDetail(val rec: CloudRec, val lines: List<TLine>, val chunkSeconds: List<Int>, val moments: List<Pair<Double, String>> = emptyList())
+
+/** A photo taken from the original video at a key moment (path in the `media` bucket). */
+data class Frame(val t: Double, val path: String, val why: String)
 
 data class LibraryInfo(val keepDays: Int = 90, val starred: Int = 0, val audioBytes: Long = 0)
 
@@ -78,7 +85,9 @@ class MeetingLibrary @Inject constructor(private val backend: EchoBackend) {
             TLine(it.optDouble("t", 0.0), it.optDouble("end", 0.0), it.optString("speaker"), it.optString("text"))
         }
         val ca = o.optJSONArray("chunks") ?: JSONArray()
-        return MeetingDetail(parse(o.getJSONObject("recording")), lines, (0 until ca.length()).map { ca.getJSONObject(it).optInt("duration_s") })
+        val ma = o.optJSONArray("moments") ?: JSONArray()
+        val moments = (0 until ma.length()).map { ma.getJSONObject(it) }.map { it.optDouble("t", 0.0) to it.optString("why") }
+        return MeetingDetail(parse(o.getJSONObject("recording")), lines, (0 until ca.length()).map { ca.getJSONObject(it).optInt("duration_s") }, moments)
     }
 
     /** Signed links (1 h) to each piece of audio, for when it's no longer on this phone. Empty if deleted. */
@@ -130,6 +139,8 @@ class MeetingLibrary @Inject constructor(private val backend: EchoBackend) {
                 error = if (o.isNull("error")) "" else o.optString("error"),
                 source = o.optString("source", "phone"),
                 driveStatus = if (o.isNull("drive_status")) "" else o.optString("drive_status"),
+                kind = o.optString("kind", "meeting"),
+                frames = (o.optJSONArray("frames") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getJSONObject(it) }.map { Frame(it.optDouble("t", 0.0), it.optString("path"), it.optString("why")) } },
             )
         }
 

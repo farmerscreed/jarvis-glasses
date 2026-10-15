@@ -141,3 +141,9 @@ Replies (`GlassModelControlResponse`): `dataType=[7]`; for type 1: `errorCode` (
 (what the glasses are busy with — the stock app shows different messages for 1, 2, 255). Counts reply: images
 `[8..9]`, videos `[10..11]`, recordings `[12..13]`. **Unverified on our glasses:** whether `02 01 02` again stops
 the video (toggle) — test in V0. 2026-10-15: buttons did nothing at 8 % battery — consistent with the 15 % rule.
+**2026-10-15 live test (31 % battery):** `02 01 02` → reply `BC 41 05 00 … 02 01 02 FF FF` (ok) → 11 s later
+`BC 73 … 01 00 00 01 00 00 00 01` (CaptureSaved: 0 photos, **1 video**). Set-length `02 02 00 B4 00` was answered
+`BC 41 02 00 … 02 02` — whether it took effect is unverified (the clip stopped at ~11 s). `0B nn` every ~3 s is not
+a recording heartbeat. Battery frame `05 <pct> <flag>`: flag 1 = charging. Event `09 FF 02` precedes the glasses
+re-announcing an unsynced capture (~every 37 s). Wi-Fi for transfer took ~23 s right after a video.
+

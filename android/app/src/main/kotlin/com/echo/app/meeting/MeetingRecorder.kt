@@ -30,6 +30,9 @@ import javax.inject.Singleton
 
 data class Bookmark(val tS: Int, val label: String)
 
+/** A recording piece: meeting audio (`NNN.m4a`) or a video's small analysis copy (`NNN.mp4`, Phase 3). */
+fun isPiece(f: File): Boolean = f.extension == "m4a" || f.extension == "mp4"
+
 /** What the meeting screens show. */
 data class MeetingUi(
     val active: Boolean = false,
@@ -62,7 +65,7 @@ data class SavedRecording(
     val inCloud: Boolean = false,
 ) {
     /** The playable pieces, in order. */
-    fun files(): List<File> = dir.listFiles { f -> f.extension == "m4a" && f.length() > 0 }?.sortedBy { it.name }.orEmpty()
+    fun files(): List<File> = dir.listFiles { f -> isPiece(f) && f.length() > 0 }?.sortedBy { it.name }.orEmpty()
 }
 
 /**
@@ -219,14 +222,14 @@ class MeetingRecorder @Inject constructor(@ApplicationContext private val contex
     /** Remove only the audio from this phone (meta stays, so the library still lists it from the cloud). */
     fun deleteLocalAudio(id: String) {
         if (_ui.value.active && _ui.value.id == id) return
-        File(root(), id).listFiles { f -> f.extension == "m4a" }?.forEach { it.delete() }
+        File(root(), id).listFiles { f -> isPiece(f) }?.forEach { it.delete() }
     }
 
     // ── internals ────────────────────────────────────────────────────────────────────────────────
 
     private fun nextFile(): File = File(dir, "%03d.m4a".format(seq++))
 
-    private fun chunkFiles(d: File) = d.listFiles { f -> f.extension == "m4a" && f.length() > 0 }?.sortedBy { it.name }.orEmpty()
+    private fun chunkFiles(d: File) = d.listFiles { f -> isPiece(f) && f.length() > 0 }?.sortedBy { it.name }.orEmpty()
 
     @Suppress("DEPRECATION")
     private fun newRecorder(first: File): MediaRecorder {

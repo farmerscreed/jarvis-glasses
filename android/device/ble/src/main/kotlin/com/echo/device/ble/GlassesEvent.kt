@@ -16,7 +16,10 @@ sealed class GlassesEvent {
     /** Double-click BACK ("AI fast image recognition") — pure button signal, no file is saved. */
     object AiGesture : GlassesEvent()
 
-    /** ~3 s heartbeat while an audio/video recording is in progress. Payload: `0B <counter>`. */
+    /**
+     * `0B <n>` about every 3 s. First read (June) as a recording heartbeat — WRONG: it arrives all the time
+     * (2026-10-15, value 54→57 while the glasses were likely charging). Meaning unknown; don't use it.
+     */
     data class RecordingTick(val counter: Int) : GlassesEvent()
 
     /** The glasses' Wi-Fi IP for media transfer. Payload: `08 <ip:4>`. */

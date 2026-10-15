@@ -115,6 +115,15 @@ clips** — from **both the glasses and the phone camera**. Builds on the Phase 
 | **V6** | Site walk + report + PDF | one real walk → a report Law would send to someone |
 | **V7** | Sharing clips | share original / small version / PDF / text |
 
+## 10a. Status (2026-10-15)
+| # | Status | Notes |
+|---|---|---|
+| V0 | 🟡 partly | 8 % battery → no video (stock rule ≤ 15 %). At 31 %: voice start **worked** (reply `02 01 02 FF FF`, glasses saved 1 video) but it **stopped after ~11 s** (length setting not taking? — check the file). Download kept failing: the glasses' Wi-Fi took ~23 s (> our 20 s wait → now 40 s). The `0B nn` frame every 3 s is NOT a recording heartbeat. Battery frame `05 <pct> <charging>`: 3rd byte 1 = charging. |
+| V1 | ✅ built, installed | voice start/stop/walk, battery guard, Video length setting, filming bar (now from the start-command reply, not the 3 s frame), 45 MB upload guard, 40 s Wi-Fi wait / 240 s sync. |
+| V2 | ✅ built (not yet on the phone) | `video/VideoIngest.kt`: Media3 Transformer → 480p ~0.7 Mbps pieces of ≤ 3 min (`NNN.mp4`) in `recordings/<id>/`; original stays (meta `original`); kind `walk` if filmed inside a walk window. Uploader/recorder handle `.mp4` pieces. |
+| V3 | ✅ built, cloud tested | `_shared/meetingVideo.ts`: Gemini Files API → said + seen ("Seen" lines) + key moments; tested on a 16 s clip (7.5–12 s). `meeting` v15: video pieces analysed, `summariseVideo` (jobs `video_summary` / `walk_report`), memory type `video`, op `frames`; phone takes photos from the original at the moments (`MeetingUploader.framesStep`). |
+| V4–V7 | ⏳ | video page (player on top, moments strip), phone camera, walk report PDF, sharing. |
+
 ## 11. Risks
 - **Time limit (~150 s per cloud job):** uploading a 40 MB piece to Gemini + waiting for it to be processed +
   analysis may not fit — split into "send to Gemini" and "analyse" jobs if needed (the sweep already retries).

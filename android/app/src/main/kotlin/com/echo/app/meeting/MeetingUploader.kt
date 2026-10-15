@@ -26,7 +26,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** How far a recording has got to the cloud (from its `upload.json`). */
-data class UploadState(val uploaded: Set<String> = emptySet(), val finished: Boolean = false, val v: Int = 0)
+data class UploadState(val uploaded: Set<String> = emptySet(), val finished: Boolean = false, val v: Int = 0, val framesDone: Boolean = false)
 
 /**
  * Phase 2 · M2 — sends each finished ~5-minute chunk to the cloud while the meeting is still going, and
@@ -40,17 +40,18 @@ class MeetingUploader @Inject constructor(
     @ApplicationContext private val context: Context,
     private val recorder: MeetingRecorder,
     private val backend: EchoBackend,
+    private val library: MeetingLibrary,
 ) {
     private val lock = Mutex()
 
     fun state(dir: File): UploadState = runCatching {
         val o = JSONObject(File(dir, STATE).readText())
         val a = o.optJSONArray("uploaded") ?: JSONArray()
-        UploadState((0 until a.length()).map { a.getString(it) }.toSet(), o.optBoolean("finished"), o.optInt("v"))
+        UploadState((0 until a.length()).map { a.getString(it) }.toSet(), o.optBoolean("finished"), o.optInt("v"), o.optBoolean("frames_done"))
     }.getOrDefault(UploadState())
 
     private fun save(dir: File, s: UploadState) = runCatching {
-        File(dir, STATE).writeText(JSONObject().put("uploaded", JSONArray(s.uploaded.sorted())).put("finished", s.finished).put("v", s.v).toString())
+        File(dir, STATE).writeText(JSONObject().put("uploaded", JSONArray(s.uploaded.sorted())).put("finished", s.finished).put("v", s.v).put("frames_done", s.framesDone).toString())
     }
 
     /** Remember to delete [id] from the cloud too, then try now. */
@@ -74,11 +75,11 @@ class MeetingUploader @Inject constructor(
         val id = dir.name
         var st = state(dir)
         // v < CLOUD_V: finished before the cloud could transcribe → send "finish" once more (it re-kicks the work).
-        if (st.finished && st.v >= CLOUD_V) { cleanUpLocal(dir); return true }
+        if (st.finished && st.v >= CLOUD_V) { framesStep(dir, st); cleanUpLocal(dir); return true }
         val meta = JSONObject(File(dir, "meta.json").readText())
         val open = recorder.openChunk(id)              // the file still being written (never upload it)
         val recording = recorder.isActive && recorder.ui.value.id == id
-        val files = dir.listFiles { f -> f.extension == "m4a" && f.length() > 0 }?.sortedBy { it.name }.orEmpty()
+        val files = dir.listFiles { f -> isPiece(f) && f.length() > 0 }?.sortedBy { it.name }.orEmpty()
         for (f in files) {
             if (f.name == open || f.name in st.uploaded) continue
             val bytes = f.readBytes()
@@ -121,7 +122,7 @@ class MeetingUploader @Inject constructor(
      * it; playback then streams from the cloud (until the cloud audio expires — the text stays forever).
      */
     private fun cleanUpLocal(dir: File) {
-        val audio = dir.listFiles { f -> f.extension == "m4a" }.orEmpty()
+        val audio = dir.listFiles { f -> isPiece(f) }.orEmpty() // the video ORIGINAL lives elsewhere and is kept
         if (audio.isEmpty()) return
         val st = state(dir)
         if (!audio.all { it.name in st.uploaded }) return
@@ -129,6 +130,34 @@ class MeetingUploader @Inject constructor(
         if (started <= 0 || System.currentTimeMillis() - started < KEEP_LOCAL_DAYS * 86_400_000L) return
         audio.forEach { it.delete() }
         Log.i(TAG, "freed ${audio.size} local audio piece(s) of ${dir.name} (backed up, older than $KEEP_LOCAL_DAYS days)")
+    }
+
+    /**
+     * Phase 3 · V3: once a VIDEO's notes are ready, take full-quality photos from the ORIGINAL at the key
+     * moments the AI chose, upload them (media bucket) and register them (op frames). Runs once per video.
+     */
+    private suspend fun framesStep(dir: File, st: UploadState) {
+        if (st.framesDone) return
+        val original = runCatching { JSONObject(File(dir, "meta.json").readText()).optString("original") }.getOrDefault("")
+        if (original.isBlank()) { save(dir, st.copy(framesDone = true)); return } // a meeting — nothing to do
+        val video = File(original)
+        if (!video.exists()) { save(dir, st.copy(framesDone = true)); return }
+        val detail = runCatching { library.get(dir.name) }.getOrNull() ?: return
+        if (detail.rec.status != "ready") return // not yet — the next drain tries again
+        val frames = JSONArray()
+        android.media.MediaMetadataRetriever().use { r ->
+            r.setDataSource(video.absolutePath)
+            for ((t, why) in detail.moments.take(10)) {
+                val bmp = runCatching { r.getFrameAtTime((t * 1_000_000).toLong(), android.media.MediaMetadataRetriever.OPTION_CLOSEST) }.getOrNull() ?: continue
+                val scale = minOf(1f, 1280f / maxOf(bmp.width, bmp.height))
+                val small = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true) else bmp
+                val jpeg = java.io.ByteArrayOutputStream().use { out -> small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out); out.toByteArray() }
+                val path = runCatching { backend.uploadMedia(jpeg, "${dir.name}-${t.toInt()}.jpg", bucket = "media") }.getOrNull() ?: continue
+                frames.put(JSONObject().put("t", t).put("path", path).put("why", why))
+            }
+        }
+        val (code, _) = backend.meeting(JSONObject().put("op", "frames").put("client_id", dir.name).put("frames", frames).toString())
+        if (code in 200..299) { save(dir, st.copy(framesDone = true)); Log.i(TAG, "video ${dir.name}: ${frames.length()} photo(s) from key moments") }
     }
 
     private suspend fun drainDeletes(): Boolean {

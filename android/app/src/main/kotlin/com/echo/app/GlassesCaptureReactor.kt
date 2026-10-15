@@ -46,6 +46,7 @@ class GlassesCaptureReactor @Inject constructor(
     private val backend: EchoBackend,
     private val tts: TtsEngine,
     private val locator: GlassesLocator,
+    private val videoIngest: com.echo.app.video.VideoIngest,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val syncMutex = Mutex()
@@ -269,7 +270,7 @@ class GlassesCaptureReactor @Inject constructor(
             _status.value = if (autoTriggered) "Glasses captured — syncing…" else "Connecting to glasses…"
             // Bound the whole ceremony so a flaky Wi-Fi-Direct step can NEVER hold the mutex forever
             // (that's what wedged every subsequent capture). On timeout it returns empty + releases.
-            val files = withTimeoutOrNull(75_000) { doSync() } ?: run {
+            val files = withTimeoutOrNull(240_000) { doSync() } ?: run { // videos can take a while to download
                 android.util.Log.w("EchoVision", "syncAndRoute: doSync timed out — releasing lock")
                 emptyList()
             }
@@ -372,7 +373,8 @@ class GlassesCaptureReactor @Inject constructor(
             p2p.discoverAndConnect()
             ble.startWifiTransfer() // glasses bring up Wi-Fi; IP arrives via BLE notify
             _status.value = "Waiting for glasses Wi-Fi…"
-            val ip = withTimeoutOrNull(20_000) { ble.glassesWifiIp.filterNotNull().first() }
+            // 40 s: right after a video (or while charging) the glasses took ~23 s to bring Wi-Fi up (2026-10-15).
+            val ip = withTimeoutOrNull(40_000) { ble.glassesWifiIp.filterNotNull().first() }
             android.util.Log.i("EchoVision", "doSync: glasses Wi-Fi ip=$ip")
             if (ip == null) {
                 _status.value = "Timed out waiting for glasses Wi-Fi"
@@ -421,6 +423,8 @@ class GlassesCaptureReactor @Inject constructor(
             "mp4" -> {
                 _status.value = "Saving video ${f.name}…"
                 store.rememberLocal(Memory(type = MemoryType.PHOTO, text = "(video — ${f.name})", tags = listOf("video")), f, "media")
+                // Phase 3 · V2: the small analysis copy → the recordings pipeline (notes come back as a recording).
+                scope.launch { runCatching { videoIngest.ingest(f, source = "glasses") }.onFailure { android.util.Log.e("EchoVideo", "ingest ${f.name}", it) } }
             }
             "wav", "mp3", "aac", "m4a", "amr", "ogg", "opus" -> {
                 _status.value = "Transcribing ${f.name}…"

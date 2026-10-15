@@ -27,7 +27,8 @@ import { corsHeaders, json } from "../_shared/http.ts";
 import { serviceClient, userClient } from "../_shared/supabaseClient.ts";
 import { checkRateLimit, HOURLY } from "../_shared/rateLimit.ts";
 import { transcribeChunk } from "../_shared/meetingStt.ts";
-import { askMeeting, Line, memoryText, pushBody, Summary, summarise } from "../_shared/meetingSummary.ts";
+import { analyseVideoChunk, VideoResult } from "../_shared/meetingVideo.ts";
+import { askMeeting, Line, memoryText, pushBody, Summary, summarise, summariseVideo, videoPushBody } from "../_shared/meetingSummary.ts";
 import { estimateUsd, logCall, routesFor } from "../_shared/llm.ts";
 import { embed } from "../_shared/embeddings.ts";
 import { pushConfigured, sendPush } from "../_shared/fcm.ts";
@@ -47,9 +48,9 @@ const SELF_URL = `${Deno.env.get("SUPABASE_URL")}/functions/v1/meeting`;
 
 const BUCKET = "recordings";
 const CLIENT_ID = /^rec-[A-Za-z0-9-]{4,60}$/;
-const CHUNK_NAME = /^\d{3}\.m4a$/;
+const CHUNK_NAME = /^\d{3}\.(m4a|mp4)$/; // meeting audio, or a video's analysis-copy piece (Phase 3)
 const LIST_FIELDS =
-  "id,client_id,kind,source,title,started_at,ended_at,duration_s,status,chunks_total,bookmarks,speakers,summary,action_done,audio_bytes,starred,audio_expires_at,audio_deleted_at,error,drive_status,drive_copied_at";
+  "id,client_id,kind,source,title,started_at,ended_at,duration_s,status,chunks_total,bookmarks,speakers,summary,action_done,audio_bytes,starred,audio_expires_at,audio_deleted_at,error,drive_status,drive_copied_at,frames";
 
 const now = () => new Date().toISOString();
 const iso = (ms: unknown) => {
@@ -120,6 +121,7 @@ async function transcribeOne(db: SupabaseClient, recId: string, seq: number) {
   const chunk = claimed[0];
   await db.from("recording_chunks").update({ attempts: (chunk.attempts ?? 0) + 1 }).eq("recording_id", recId).eq("seq", seq);
   const t0 = Date.now();
+  let job = "meeting_stt";
   try {
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
     const { data: blob, error: dlErr } = await db.storage.from(BUCKET).download(chunk.path);
@@ -128,9 +130,16 @@ async function transcribeOne(db: SupabaseClient, recId: string, seq: number) {
     // Speaker labels already used earlier in the meeting help keep them consistent.
     const { data: prev } = await db.from("recording_segments").select("speaker").eq("recording_id", recId).lt("seq", seq).limit(2000);
     const known = [...new Set((prev ?? []).map((r) => r.speaker as string))].filter((s) => s && s !== "Media").slice(0, 12);
-    const route = (await routesFor("meeting_stt", db)).filter((r) => r.provider === "gemini");
+    // Phase 3: a video piece is WATCHED (said + seen + key moments); meeting audio is transcribed.
+    const { data: recKind } = await db.from("recordings").select("kind").eq("id", recId).maybeSingle();
+    const isVideo = recKind?.kind === "video" || recKind?.kind === "walk";
+    job = isVideo ? "video_stt" : "meeting_stt";
+    const route = (await routesFor(job, db)).filter((r) => r.provider === "gemini");
     const models = route.length ? route.map((r) => r.model) : STT_FALLBACK;
-    const r = await transcribeChunk(bytes, { apiKey: GEMINI_API_KEY, models, vocab: VOCAB, knownSpeakers: known });
+    const r = isVideo
+      ? await analyseVideoChunk(bytes, { apiKey: GEMINI_API_KEY, models, kind: recKind!.kind, vocab: VOCAB })
+      : await transcribeChunk(bytes, { apiKey: GEMINI_API_KEY, models, vocab: VOCAB, knownSpeakers: known });
+    if (isVideo) await db.from("recording_chunks").update({ moments: (r as VideoResult).moments }).eq("recording_id", recId).eq("seq", seq);
     await db.from("recording_segments").delete().eq("recording_id", recId).eq("seq", seq);
     if (r.segments.length) {
       const { error } = await db.from("recording_segments").insert(r.segments.map((x, idx) => ({
@@ -142,15 +151,15 @@ async function transcribeOne(db: SupabaseClient, recId: string, seq: number) {
       .eq("recording_id", recId).eq("seq", seq);
     const entry = route.find((x) => x.model === r.model);
     await logCall({
-      userId: chunk.user_id, job: "meeting_stt", provider: "gemini", model: r.model, tokensIn: r.tokensIn, tokensOut: r.tokensOut,
+      userId: chunk.user_id, job, provider: "gemini", model: r.model, tokensIn: r.tokensIn, tokensOut: r.tokensOut,
       usd: estimateUsd(r.model, r.tokensIn ?? 0, r.tokensOut ?? 0, entry), ms: r.ms, ok: true,
     }, db);
-    console.log(`meeting stt ${recId}/${seq}: ${r.segments.length} lines, ${r.model}, ${r.ms} ms, ${r.tokens ?? "?"} tokens`);
+    console.log(`${job} ${recId}/${seq}: ${r.segments.length} lines, ${r.model}, ${r.ms} ms`);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(`meeting stt ${recId}/${seq} failed: ${msg}`);
+    console.error(`${job} ${recId}/${seq} failed: ${msg}`);
     await db.from("recording_chunks").update({ status: "failed", error: msg.slice(0, 500) }).eq("recording_id", recId).eq("seq", seq);
-    await logCall({ userId: chunk.user_id, job: "meeting_stt", provider: "gemini", model: "?", ms: Date.now() - t0, ok: false, error: msg }, db);
+    await logCall({ userId: chunk.user_id, job, provider: "gemini", model: "?", ms: Date.now() - t0, ok: false, error: msg }, db);
   }
   await maybeTranscribed(db, recId);
 }
@@ -219,9 +228,11 @@ async function summariseRecording(db: SupabaseClient, recId: string) {
     .update({ status: "summarising", updated_at: now() })
     .eq("id", recId)
     .or(`status.eq.transcribed,and(status.eq.summarising,updated_at.lt.${staleBefore})`)
-    .select("id,user_id,client_id,title,started_at,ended_at,duration_s,bookmarks,speakers,memory_id,starred,error,audio_deleted_at,summary");
+    .select("id,user_id,client_id,kind,title,started_at,ended_at,duration_s,bookmarks,speakers,memory_id,starred,error,audio_deleted_at,summary");
   const rec = claimed?.[0];
   if (!rec) return;
+  const isVideo = rec.kind === "video" || rec.kind === "walk";
+  const walk = rec.kind === "walk";
   try {
     const { lines } = await meetingLines(db, recId);
     const date = lagosDate(rec.started_at);
@@ -231,12 +242,14 @@ async function summariseRecording(db: SupabaseClient, recId: string) {
     const bookmarks = withVoiceMarks((rec.bookmarks ?? []) as { t_s: number; label: string }[], lines);
     // A title Law typed is kept; one the model made on an earlier run is replaced.
     const userTitle = rec.title?.trim() && rec.title !== rec.summary?.title ? rec.title.trim() : "";
-    const s = await summarise(lines as Line[], { title: userTitle, date, durationS: rec.duration_s, bookmarks, userId: rec.user_id });
-    const title = (userTitle || s.title || "Meeting").slice(0, 200);
+    const s = isVideo
+      ? await summariseVideo(lines as Line[], { walk, title: userTitle, date, durationS: rec.duration_s, bookmarks, userId: rec.user_id })
+      : await summarise(lines as Line[], { title: userTitle, date, durationS: rec.duration_s, bookmarks, userId: rec.user_id });
+    const title = (userTitle || s.title || (walk ? "Site walk" : isVideo ? "Video" : "Meeting")).slice(0, 200);
     s.title = title;
     // Names Law typed himself win over the model's guesses.
     const speakers = { ...Object.fromEntries(s.speakers.filter((x) => x.label && x.name).map((x) => [x.label, x.name])), ...(rec.speakers ?? {}) };
-    const memoryId = await saveMemory(db, rec, s, date);
+    const memoryId = await saveMemory(db, rec, s, date, isVideo ? { type: "video", heading: walk ? "Site walk" : "Video", tag: walk ? "walk" : "video" } : undefined);
     const days = await keepDays(db, rec.user_id);
     await db.from("recordings").update({
       status: "ready", summary: s, title, speakers, memory_id: memoryId, bookmarks,
@@ -245,7 +258,7 @@ async function summariseRecording(db: SupabaseClient, recId: string) {
     }).eq("id", recId);
     console.log(`meeting summary ${recId}: ${Date.now() - t0} ms, meeting=${s.is_meeting}, ${s.action_items.length} actions`);
     if (pushConfigured()) {
-      await sendPush(rec.user_id, title, pushBody(s), { kind: "meeting", id: rec.client_id })
+      await sendPush(rec.user_id, title, isVideo ? videoPushBody(s, walk) : pushBody(s), { kind: "meeting", id: rec.client_id })
         .catch((e) => console.warn(`meeting push: ${e instanceof Error ? e.message : e}`));
     }
   } catch (e) {
@@ -262,14 +275,15 @@ async function saveMemory(
   rec: { id: string; user_id: string; client_id: string; started_at: string; memory_id?: string | null },
   s: Summary,
   date: string,
+  as: { type: string; heading: string; tag: string } = { type: "meeting", heading: "Meeting", tag: "meeting" },
 ): Promise<string | null> {
   let memoryId: string | null = rec.memory_id ?? null;
   if (!s.is_meeting) {
     if (memoryId) await db.from("memories").delete().eq("id", memoryId).eq("user_id", rec.user_id);
     return null;
   }
-  const text = memoryText(s, date);
-  const row = { text, embedding: await embed(text), tags: ["meeting"], metadata: { recording_id: rec.id, client_id: rec.client_id } };
+  const text = memoryText(s, date, as.heading);
+  const row = { text, embedding: await embed(text), tags: [as.tag], metadata: { recording_id: rec.id, client_id: rec.client_id } };
   // memories.client_id is a UUID column → a stable UUID derived from the recording id (same on every re-run).
   const memClientId = await stableUuid(`meeting-${rec.client_id}`);
   if (!memoryId) { // a previous run may have saved it before failing (memories.client_id is unique when set)
@@ -280,7 +294,7 @@ async function saveMemory(
     await db.from("memories").update(row).eq("id", memoryId).eq("user_id", rec.user_id);
   } else {
     const { data: m, error } = await db.from("memories")
-      .insert({ ...row, user_id: rec.user_id, type: "meeting", created_at: rec.started_at, client_id: memClientId })
+      .insert({ ...row, user_id: rec.user_id, type: as.type, created_at: rec.started_at, client_id: memClientId })
       .select("id").single();
     if (error) throw new Error(`memory: ${error.message}`);
     memoryId = m.id;
@@ -541,7 +555,27 @@ Deno.serve(async (req) => {
         const { data: rec } = await db.from("recordings").select(LIST_FIELDS).eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
         if (!rec) return json({ error: "not found" }, 404);
         const { lines, chunks } = await meetingLines(db, rec.id);
-        return json({ recording: rec, lines, chunks });
+        // Video key moments on the whole video's timeline (each piece's moments + the pieces before it).
+        const { data: mom } = await db.from("recording_chunks").select("seq,duration_s,moments").eq("recording_id", rec.id).order("seq");
+        let off = 0;
+        const moments: { t: number; why: string }[] = [];
+        for (const c of mom ?? []) {
+          for (const m of (c.moments ?? []) as { t: number; why: string }[]) moments.push({ t: off + Number(m.t), why: m.why });
+          off += c.duration_s ?? 0;
+        }
+        return json({ recording: rec, lines, chunks, moments });
+      }
+
+      case "frames": {
+        // Phase 3: photos the phone took from the ORIGINAL video at the key moments (already in the media bucket).
+        const frames = Array.isArray(body.frames)
+          ? body.frames.slice(0, 40).map((f: { t?: unknown; path?: unknown; why?: unknown }) => ({
+            t: Number(f.t) || 0, path: String(f.path ?? ""), why: String(f.why ?? "").slice(0, 200),
+          })).filter((f: { path: string }) => f.path.startsWith(`${user.id}/`))
+          : [];
+        const { error } = await db.from("recordings").update({ frames, updated_at: now() }).eq("user_id", user.id).eq("client_id", clientId);
+        if (error) return json({ error: error.message }, 500);
+        return json({ ok: true, frames: frames.length });
       }
 
       case "audio-urls": {
