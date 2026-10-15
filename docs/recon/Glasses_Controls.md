@@ -118,3 +118,26 @@ auto-sync + route by file type) live in `HomeViewModel` (`onCaptureSaved`/`onAiG
 - 🟡 **Next tasks:**
   1. **Sync pipeline** (the substance): pull captured media off the glasses into our app via the reverse-engineered path (BLE start cmd → Wi-Fi Direct → `GET /files/media.config` → `GET /files/<file>`), then apply AI/memory.
   2. **BLE notification capture**: subscribe to the notify characteristics, press each gesture, record the bytes → so the app can react *instantly* to a press (auto-sync that capture + run the matching feature).
+
+---
+## Video/audio commands — found in the stock app's code (2026-10-15)
+Source: `D:\APP\Jarvis Glasses\decompiled\sources` (jadx of the AITOGlasses app). All go through
+`LargeDataHandler.glassesControl(bytes)` = the same `BC 41 …` framing our app already uses for the photo
+(`GlassesBleManager.CMD_CAPTURE_PHOTO = 02 01 01`).
+
+| Bytes | Meaning (from the stock app) | Where |
+|---|---|---|
+| `02 01 01` | take a photo (we use it) | HomeFragment$loadDataData$4$1 |
+| `02 01 02` | **start video** (`videoStart` toggle; the stock app refuses if battery ≤ 15 %) | HomeFragment$loadDataData$4$2 |
+| `02 01 08` | **start audio recording** (`recordStart`; same ≤ 15 % rule) | HomeFragment$loadDataData$4$3 |
+| `02 01 04` / `02 01 09` / `02 04` | Wi-Fi/transfer related (PictureFragment) | |
+| `02 01 05` OTA · `02 01 0A` factory reset · `02 01 0E` restart · `02 01 0F` reset P2P | | |
+| `02 01 06 <w> <h>` thumbnail · `02 01 07` / `02 01 0B` speech (Azure STT) | | |
+| `01 02` → read video settings; reply: angle `[8]`, **video duration** `[9..10]` LE seconds, dynamic list flag | RecordSettingActivity |
+| `02 02 00 <lo> <hi>` → **set video duration** (seconds; `65535` = unlimited). Stock choices: 15, 30, 60, 180, 540, 720 s, unlimited (default index 3 = 180 s) | RecordSettingActivity$initView$1$3$1 |
+| `01 06` / `02 06 00 <lo> <hi>` → read / set **audio recording duration** | RecordSettingActivity$initView$1$4$1 |
+
+Replies (`GlassModelControlResponse`): `dataType=[7]`; for type 1: `errorCode` (0/255 = ok), `workTypeIng=[10]`
+(what the glasses are busy with — the stock app shows different messages for 1, 2, 255). Counts reply: images
+`[8..9]`, videos `[10..11]`, recordings `[12..13]`. **Unverified on our glasses:** whether `02 01 02` again stops
+the video (toggle) — test in V0. 2026-10-15: buttons did nothing at 8 % battery — consistent with the 15 % rule.

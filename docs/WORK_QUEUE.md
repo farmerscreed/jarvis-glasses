@@ -160,6 +160,10 @@ router + eval → M8 glasses test session. Each ends on the phone with Law (acce
 **Now:** run `docs/TEST_PLAN_PHASE2.md` with Law (M5–M7 screens not yet seen on the device), fix findings, push.
 Then: Google setup → M6b check; OpenRouter key → eval → cheaper `meeting_summary` route; glasses session → M8.
 
+## P5 — Phase 3: Video — DESIGNED 2026-10-15, awaiting Law's approval
+`docs/PHASE3_VIDEO_DESIGN.md`: V0 test session (charged glasses) → V1 glasses video control + voice → V2 analysis copy + upload →
+V3 video understanding → V4 notes/memory/video page → V5 phone camera → V6 site walk report + PDF → V7 sharing.
+
 ## P3 — Planned upgrades carried from earlier docs (not yet scheduled; confirm with Law)
 - **Assistant roadmap** (`docs/ASSISTANT_ROADMAP.md`): v2.1 skills via tool-use in the chat path;
   **v2.2 "noticer"/heartbeat** (proactive reminders, follow-ups, daily briefing — needs FCM);
