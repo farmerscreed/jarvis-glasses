@@ -86,6 +86,15 @@ async function sha256Hex(buf: ArrayBuffer): Promise<string> {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** A deterministic UUID (version-5 style, from SHA-256) for [name]. */
+async function stableUuid(name: string): Promise<string> {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(name))).slice(0, 16);
+  h[6] = (h[6] & 0x0f) | 0x50; // version 5
+  h[8] = (h[8] & 0x3f) | 0x80; // RFC 4122 variant
+  const x = [...h].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
+}
+
 async function keepDays(db: SupabaseClient, userId: string): Promise<number> {
   const { data } = await db.from("profile").select("audio_keep_days").eq("user_id", userId).maybeSingle();
   return data?.audio_keep_days ?? DEFAULT_KEEP_DAYS;
@@ -167,6 +176,25 @@ async function maybeTranscribed(db: SupabaseClient, recId: string) {
   kick({ op: "work-summary", recording_id: recId });
 }
 
+const VOICE_MARK = /\b(?:jarvis|javis|jarpis)\b[\s,.:;-]*(?:please\s+)?(?:mark|bookmark|flag)\s+(?:that|this|it)\b[\s,.:;—–-]*(.*)$/i;
+
+/**
+ * Marks spoken in the meeting ("Jarvis, mark that — price agreed") added to the phone's marks. A spoken mark
+ * within 10 s of one that already exists (e.g. also tapped) is not added twice. Exported for tests.
+ */
+export function withVoiceMarks(marks: { t_s: number; label: string }[], lines: { t: number; text: string }[]) {
+  const out = [...marks];
+  for (const l of lines) {
+    const m = l.text.match(VOICE_MARK);
+    if (!m) continue;
+    const t = Math.round(l.t);
+    if (out.some((b) => Math.abs(b.t_s - t) <= 10)) continue;
+    const label = (m[1] ?? "").replace(/[.!?]+$/, "").trim().slice(0, 120);
+    out.push({ t_s: t, label: label || "Marked by voice" });
+  }
+  return out.sort((a, b) => a.t_s - b.t_s);
+}
+
 /** The whole meeting as one timeline: each chunk's lines shifted by the length of the chunks before it. */
 async function meetingLines(db: SupabaseClient, recId: string) {
   const { data: chunks } = await db.from("recording_chunks").select("seq,duration_s").eq("recording_id", recId).order("seq");
@@ -191,22 +219,27 @@ async function summariseRecording(db: SupabaseClient, recId: string) {
     .update({ status: "summarising", updated_at: now() })
     .eq("id", recId)
     .or(`status.eq.transcribed,and(status.eq.summarising,updated_at.lt.${staleBefore})`)
-    .select("id,user_id,client_id,title,started_at,ended_at,duration_s,bookmarks,speakers,memory_id,starred,error,audio_deleted_at");
+    .select("id,user_id,client_id,title,started_at,ended_at,duration_s,bookmarks,speakers,memory_id,starred,error,audio_deleted_at,summary");
   const rec = claimed?.[0];
   if (!rec) return;
   try {
     const { lines } = await meetingLines(db, recId);
     const date = lagosDate(rec.started_at);
     const t0 = Date.now();
-    const s = await summarise(lines as Line[], { title: rec.title, date, durationS: rec.duration_s, bookmarks: rec.bookmarks ?? [], userId: rec.user_id });
-    const title = (rec.title?.trim() || s.title || "Meeting").slice(0, 200);
+    // "Jarvis, mark that — price agreed" said during the meeting: the wake word is off while recording, so the
+    // phone never hears it as a command — pick it out of the transcript and make it a real marked moment.
+    const bookmarks = withVoiceMarks((rec.bookmarks ?? []) as { t_s: number; label: string }[], lines);
+    // A title Law typed is kept; one the model made on an earlier run is replaced.
+    const userTitle = rec.title?.trim() && rec.title !== rec.summary?.title ? rec.title.trim() : "";
+    const s = await summarise(lines as Line[], { title: userTitle, date, durationS: rec.duration_s, bookmarks, userId: rec.user_id });
+    const title = (userTitle || s.title || "Meeting").slice(0, 200);
     s.title = title;
     // Names Law typed himself win over the model's guesses.
     const speakers = { ...Object.fromEntries(s.speakers.filter((x) => x.label && x.name).map((x) => [x.label, x.name])), ...(rec.speakers ?? {}) };
     const memoryId = await saveMemory(db, rec, s, date);
     const days = await keepDays(db, rec.user_id);
     await db.from("recordings").update({
-      status: "ready", summary: s, title, speakers, memory_id: memoryId,
+      status: "ready", summary: s, title, speakers, memory_id: memoryId, bookmarks,
       audio_expires_at: rec.audio_deleted_at ? null : expiryFor(rec.ended_at, days, rec.starred),
       error: rec.error?.includes("part(s)") ? rec.error : null, updated_at: now(),
     }).eq("id", recId);
@@ -237,7 +270,8 @@ async function saveMemory(
   }
   const text = memoryText(s, date);
   const row = { text, embedding: await embed(text), tags: ["meeting"], metadata: { recording_id: rec.id, client_id: rec.client_id } };
-  const memClientId = `meeting-${rec.client_id}`;
+  // memories.client_id is a UUID column → a stable UUID derived from the recording id (same on every re-run).
+  const memClientId = await stableUuid(`meeting-${rec.client_id}`);
   if (!memoryId) { // a previous run may have saved it before failing (memories.client_id is unique when set)
     const { data: existing } = await db.from("memories").select("id").eq("client_id", memClientId).eq("user_id", rec.user_id).maybeSingle();
     memoryId = existing?.id ?? null;

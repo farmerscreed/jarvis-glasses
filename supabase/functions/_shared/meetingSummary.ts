@@ -44,7 +44,8 @@ Strict rules:
 - Don't assume which speaker is Law unless the transcript makes it clear; otherwise refer to them by label.
 - If something is garbled, write [unclear] rather than guessing.
 - Lines labelled "Media" are a TV/video/music in the room, not participants — ignore their content unless people discuss it.
-- If the recording contains no real conversation (only media, silence, or test noise), set is_meeting=false, say so plainly in in_short, and leave the lists empty.
+- is_meeting=false ONLY when there is no real conversation between people at all (just a TV/video/music, silence or test noise) — then say so plainly in in_short and leave the lists empty.
+- ANY real conversation counts, even an informal chat with no agenda: is_meeting=true, in_short = what was talked about and any views or plans people expressed (neutral, no judgement), people = who took part or was mentioned; decisions/action items only if there were any (empty lists are fine). The title names the main topics, e.g. "Chat about COVID's origins and Gaddafi".
 - speakers: map labels ("Speaker 1") to a name ONLY when the transcript makes it clear (e.g. "Thank you, Mr Ade" said to them, or they introduce themselves). Otherwise leave that label out.
 - title: short and specific, e.g. "Site meeting with Mr Ade — cement delivery" (keep the user's title if one is given and still fits).
 - in_short: 2–4 plain sentences a busy person can read in 10 seconds.
@@ -124,5 +125,6 @@ export function memoryText(s: Summary, date: string): string {
 export function pushBody(s: Summary): string {
   if (!s.is_meeting) return "Recording processed — no conversation found in it.";
   const n = (k: number, w: string) => `${k} ${w}${k === 1 ? "" : "s"}`;
+  if (!s.action_items.length && !s.decisions.length) return "Notes ready — tap to read the summary.";
   return `Summary ready: ${n(s.action_items.length, "action item")}, ${n(s.decisions.length, "decision")}.`;
 }

@@ -143,3 +143,25 @@ glasses, pull with byte-length verification before anything is deleted; (2) conf
 Everything in §5–§7b was compiled, unit-tested (20 tests) and the cloud parts called where possible, but the new
 phone screens have **not been seen on the device** (the Pixel was on another network, 10.125.142.141). The last APK
 is built at `android/app/build/outputs/apk/prod/debug/app-prod-debug.apk` — install it first.
+
+## 12. 2026-10-15 — first real phone test (Law, at home): 4 bugs found and fixed
+App installed (192.168.1.69). TEST_PLAN step 1 (library, transcript, play-from-line, speed, search) passed.
+Step 2: a real 9.6-min conversation (2+ people, informal). Pipeline speed fine (summary 77 s after Stop), but:
+1. **Gemini Flash returned an EMPTY transcript for a full 5-min chunk of speech** (under heavy load; reproduced
+   locally; Flash-Lite transcribed it fine). → `meetingStt.ts`: an empty answer for > ~1 min of audio is only
+   believed if the next model agrees; each call capped at 60 s; 2 tries per model; overall budget for the
+   ~150 s invocation. Re-run: chunk 0 went 0 → 29 lines (Flash empty → Flash-Lite).
+2. **Real informal chat labelled `is_meeting=false`** ("no business agenda") → no notes, no memory, push "no
+   conversation found". → summary prompt: only media/silence/noise is "not a meeting"; any real conversation gets
+   notes + memory. Push says "Notes ready — tap to read the summary." when there are no actions/decisions.
+3. **Saving the meeting memory failed: `memories.client_id` is a UUID column** (it was "meeting-rec-…"). Every real
+   meeting would have failed at this step (the earlier test recordings were "no conversation" so never reached it).
+   → `stableUuid("meeting-<rec-id>")` (SHA-256 → UUID v5 style).
+4. **"Jarvis, mark that" during a meeting does nothing** — the wake word is off while recording (shared mic), so
+   the summary turned it into an action item. → `withVoiceMarks()`: spoken marks are picked out of the transcript
+   and saved as real marks (label = words after "mark that"; skipped within 10 s of an existing mark).
+   The notification **Mark** button still works live. Also: a title the model made on an earlier run is now
+   replaced on re-run (only a title Law typed is kept).
+Also: transcript fragments ("my life" / "my life") from Flash-Lite are joined into turns (`mergeFragments`).
+Result for the meeting: 2/2 chunks, summary + memory saved, mark at 9:20, title "Chat about AI glasses/JARVIS,
+rogue AI fears, COVID's origins and Gaddafi". `meeting` deployed **v13**.
