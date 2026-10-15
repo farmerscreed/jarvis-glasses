@@ -123,7 +123,15 @@ clips** — from **both the glasses and the phone camera**. Builds on the Phase 
 - **Counts from video are approximate** — always shown with "≈" and a confidence.
 - **Privacy:** video of people — same reminder as meetings ("tell people you're recording").
 
-## 12. Decisions for Law
+## 12. Decisions — Law approved all four recommendations (2026-10-15)
+1. Cloud keeps the **small 480p copy for 90 days** (starred forever), like meeting audio.
+2. Home: **Meeting tile → "Record"** (Meeting · Video · Site walk).
+3. Glasses video length: **3 min** for normal videos, **unlimited** for site walks.
+4. Walk report as a **PDF** with photos (plus the in-app report).
+Not built, by decision: turning off or hiding the glasses' recording light (it tells people they're being filmed;
+declined 2026-10-15 — offered to solve the underlying problem instead if Law describes it).
+
+## 12a. The questions as asked
 1. Cloud keeps the **small 480p copy for 90 days** like meeting audio (recommended), or nothing in the cloud
    after analysis (then old videos play only from the phone)?
 2. **Home: Meeting tile → "Record"** chooser (Meeting · Video · Site walk) — OK?
