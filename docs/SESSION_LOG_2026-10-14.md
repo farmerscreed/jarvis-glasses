@@ -165,3 +165,15 @@ Step 2: a real 9.6-min conversation (2+ people, informal). Pipeline speed fine (
 Also: transcript fragments ("my life" / "my life") from Flash-Lite are joined into turns (`mergeFragments`).
 Result for the meeting: 2/2 chunks, summary + memory saved, mark at 9:20, title "Chat about AI glasses/JARVIS,
 rogue AI fears, COVID's origins and Gaddafi". `meeting` deployed **v13**.
+
+## 13. 2026-10-15 — TEST_PLAN_PHASE2 parts A–C passed (Law)
+- **A** (meeting page: summary, transcript, rename speaker/title, Ask incl. "doesn't say", share, marked moment,
+  memory search → recording): all working.
+- **B** (airplane mode mid-recording): 6.7-min recording, 2/2 chunks done, `ready` on its own. ✅
+- **C**: star → `audio_expires_at` null + `drive_status=not_connected` (correct before Google); keep-audio 90 ✓;
+  delete audio-only → `audio_deleted_at` set, notes kept; delete everything → row + audio gone. ✅
+- Numbers check: "The price of the product is $100" → Numbers: Product price $100 (exact, nothing invented).
+- Two prompt fixes (v14): spoken "mark that" lines are app commands, never action items; no "(likely Law)" guesses.
+- Cost so far: ≈ $0.16 total (6 transcriptions, 5 summaries, 1 question).
+- Still untested (need Law's setup): Drive copy (Google), OpenRouter routes (key). A business-style meeting with
+  owners + due dates would still be a useful accuracy check.

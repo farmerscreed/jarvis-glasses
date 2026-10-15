@@ -222,9 +222,9 @@ create table public.recording_segments (     -- the transcript, speaker-labelled
 | M1 | ✅ built, device-tested | 430 s screen-locked → 2 valid chunks. AAC **32 kbps** (not 24), `MediaRecorder` + `setNextOutputFile` (not AudioRecord/MediaCodec). |
 | M2 | ✅ built, device-tested | 26-min meeting, 6/6 chunks, bytes + sha256 match. Progress in `recordings/<id>/upload.json` (not Room). Expired-token fix. |
 | M3 | ✅ built, tested on real chunks | 13–22 s per 5-min chunk; "Media" label for TV/music; one invocation per chunk. |
-| M4 | ✅ built, tested | Law's 2 recordings reached `ready` ("no conversation" — correct). Real-meeting accuracy still to test (TEST_PLAN §2). |
-| M5 | 🟡 built, **not yet seen on the phone** | Library + detail as in the mockups; Ask about this meeting; share; delete audio-only/everything. No transcript auto-scroll / PDF yet. |
-| M6 | 🟡 built, cloud jobs verified | `meeting-retention` daily; keep 30/90/365/forever; phone frees audio 7 days after backup. |
+| M4 | ✅ built, tested on the phone | Real conversations summarised (2026-10-15); numbers exact; 4 bugs fixed in the test (see 10-14 log §12–13). |
+| M5 | ✅ built, tested on the phone (2026-10-15) | Library + detail as in the mockups; Ask about this meeting; share; delete audio-only/everything. No transcript auto-scroll / PDF yet. |
+| M6 | ✅ built, tested (keep setting, delete audio-only/everything) | `meeting-retention` daily; keep 30/90/365/forever; phone frees audio 7 days after backup. |
 | M6b | 🟡 built, **inert** | Needs Law's Google setup incl. the Drive API; scope `drive.file`. |
 | M7 | 🟡 built | Switchboard + `llm_calls` + cost view + eval script. OpenRouter path untested (no key); routes still Claude-first. |
 | M8 | ⏳ not built | Needs the glasses test session — plan in `SESSION_LOG_2026-10-14.md` §8. |

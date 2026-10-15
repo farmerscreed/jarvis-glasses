@@ -41,7 +41,8 @@ Strict rules:
 - An action item's owner/due: only if someone said it — otherwise "".
 - Numbers: quote money (naira), quantities, dates and measurements exactly as spoken, with what they refer to. Never calculate totals or figures nobody said.
 - Relative dates ("next Tuesday") may be resolved against the meeting date — show both, e.g. "next Tuesday (20 Oct)".
-- Don't assume which speaker is Law unless the transcript makes it clear; otherwise refer to them by label.
+- Don't assume which speaker is Law unless the transcript makes it clear; otherwise refer to them by label only — never write guesses like "(likely Law)".
+- Lines where someone tells JARVIS to "mark that"/"bookmark this" are commands to the recording app, already saved as marked moments — never list them as action items or decisions.
 - If something is garbled, write [unclear] rather than guessing.
 - Lines labelled "Media" are a TV/video/music in the room, not participants — ignore their content unless people discuss it.
 - is_meeting=false ONLY when there is no real conversation between people at all (just a TV/video/music, silence or test noise) — then say so plainly in in_short and leave the lists empty.

@@ -18,7 +18,8 @@ Audio kept 90 days (setting 30/90/365/forever; starred forever; text forever); t
 after backup. Model switchboard `_shared/llm.ts` + `model_routes` + `llm_calls` + Settings → AI models & cost.
 Starred → Google Drive (inert until Google setup). Self-healing: pg_cron `meeting-sweep` every 5 min.
 
-**Verified:** M1–M4 on the Pixel (two of Law's recordings went all the way to `ready`), the sweep recovering a stuck
+**2026-10-15: Law ran TEST_PLAN_PHASE2 parts A–C on the phone — all pass** (after 4 fixes + 2 prompt tweaks, `meeting` v14; 10-14 log §12–13). Remaining: Drive (Google setup), OpenRouter (key). **Next topic Law asked for: video (Phase 3).**
+**Earlier:** M1–M4 on the Pixel (two of Law's recordings went all the way to `ready`), the sweep recovering a stuck
 recording, the cloud jobs, summary/ask quality on test transcripts. **NOT yet seen on the phone:** the M5–M7 + M6b
 screens (Law was at the airport; phone on another network). **NEXT: run `TEST_PLAN_PHASE2.md` with Law** (install
 the latest APK first), fix what it finds, then push. Then M8 (glasses — needs a test session) and Phase 3.
