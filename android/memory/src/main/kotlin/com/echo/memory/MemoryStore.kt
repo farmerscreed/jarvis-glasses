@@ -15,6 +15,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
 
+/** Largest file sent to the `media` bucket (its limit is 50 MiB); bigger files stay on the phone. */
+const val MAX_MEDIA_UPLOAD_BYTES = 45L * 1024 * 1024
+
 /**
  * The offline-first memory core (Phase C §4.2). Implements [MemoryRepository] but writes the phone
  * FIRST — a capture is durable the instant it happens, internet or not — then drains an outbox to
@@ -140,7 +143,9 @@ class MemoryStore(
         var mediaPath = row.mediaPath
         if (mediaPath == null && row.localMediaPath != null) {
             val file = File(row.localMediaPath)
-            if (file.exists()) {
+            // Long glasses videos exceed the media bucket's 50 MB limit (and would be read into memory whole):
+            // they stay on the phone; Phase 3 sends a small analysis copy instead (docs/PHASE3_VIDEO_DESIGN.md).
+            if (file.exists() && file.length() <= MAX_MEDIA_UPLOAD_BYTES) {
                 mediaPath = backend.uploadMedia(file.readBytes(), file.name, bucket = row.bucket)
                 dao.setMediaPath(row.clientId, mediaPath, System.currentTimeMillis())
             }

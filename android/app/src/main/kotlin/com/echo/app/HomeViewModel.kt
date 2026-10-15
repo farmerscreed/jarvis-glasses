@@ -879,6 +879,18 @@ class HomeViewModel @Inject constructor(
                 continue
             }
 
+            // ── Glasses video (Phase 3 · V1) — checked before meetings so "stop recording" stops a glasses
+            // video when no meeting is running, and "record a video" never starts a meeting ────────────
+            val startWalk = com.echo.app.video.VideoCommands.isStartWalk(heard)
+            val stopVideo = com.echo.app.video.VideoCommands.isStop(heard) || com.echo.app.video.VideoCommands.isStopWalk(heard) ||
+                (!meetings.isActive && (ble.recording.value || walkActive) && com.echo.app.meeting.MeetingCommands.isStop(heard))
+            if (startWalk || com.echo.app.video.VideoCommands.isStart(heard) || stopVideo) {
+                val said = if (stopVideo) stopGlassesVideo() else startGlassesVideo(walk = startWalk)
+                answer = said; transcript.add(TurnLine(false, said)); tts.speak(said)
+                if (!continuous) { status = said; break }
+                status = "Listening…"; continue
+            }
+
             // ── Meetings (Phase 2) ─────────────────────────────────────────────────────────────────
             if (meetings.isActive && com.echo.app.meeting.MeetingCommands.isStatus(heard)) {
                 val said = "Yes — ${spokenDuration((meetings.elapsedMs() / 1000).toInt())} so far."
@@ -1288,6 +1300,50 @@ class HomeViewModel @Inject constructor(
             library = library.filterNot { it.id == id }
             refreshRecordings()
         }
+    }
+
+    // ── Glasses video (Phase 3 · V1, docs/PHASE3_VIDEO_DESIGN.md) ─────────────────────────────────────
+
+    /** The glasses are recording (their ~3 s heartbeat) — shown as a bar so it's always visible in the app. */
+    val glassesRecording get() = ble.recording
+    /** A site walk is running (video length set to "no limit" until it stops). */
+    var walkActive by mutableStateOf(false); private set
+
+    /**
+     * Start a glasses video ("Jarvis, record a video"), or a site walk (no length limit). The glasses' own
+     * recording light comes on as usual. Returns what JARVIS says.
+     */
+    fun startGlassesVideo(walk: Boolean = false): String {
+        val battery = ble.battery.value
+        if (battery != null && battery <= GlassesBleManager.MIN_VIDEO_BATTERY) {
+            return "The glasses' battery is too low to record video — $battery percent. Charge them, or use the phone camera."
+        }
+        if (ble.recording.value) return "The glasses are already recording."
+        ble.setVideoLength(if (walk) GlassesBleManager.VIDEO_UNLIMITED else com.echo.app.video.VideoPrefs.length(appContext))
+        if (!ble.toggleVideo()) return "I can't reach the glasses right now — are they on and connected?"
+        walkActive = walk
+        return if (walk) "Site walk started. Walk and talk me through it — say “Jarvis, stop the walk” when you're done."
+        else "Recording video. Tell people you're filming."
+    }
+
+    /** Stop the glasses video / site walk. (If the glasses ignore it, a FRONT double-click stops it.) */
+    fun stopGlassesVideo(): String {
+        if (!ble.recording.value && !walkActive) return "The glasses aren't recording."
+        ble.toggleVideo()
+        val wasWalk = walkActive
+        walkActive = false
+        // Back to the normal length once the walk has ended (a few seconds, so the stop isn't disturbed).
+        if (wasWalk) viewModelScope.launch { delay(4_000); ble.setVideoLength(com.echo.app.video.VideoPrefs.length(appContext)) }
+        return if (wasWalk) "Walk stopped. It'll sync to your phone." else "Stopped. The video will sync to your phone."
+    }
+
+    /** Settings → Glasses → Video length (seconds; 65535 = no limit). Applied to the glasses right away. */
+    var videoLength by mutableStateOf(0); private set
+    fun loadVideoLength() { videoLength = com.echo.app.video.VideoPrefs.length(appContext); ble.readVideoLength() }
+    fun chooseVideoLength(seconds: Int) {
+        com.echo.app.video.VideoPrefs.setLength(appContext, seconds)
+        videoLength = seconds
+        if (!ble.setVideoLength(seconds)) status = "Saved — it'll apply when the glasses are connected."
     }
 
     /** Star = keep this recording's audio forever (unstar → it expires with the others). */

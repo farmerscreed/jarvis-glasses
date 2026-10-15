@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -115,6 +116,7 @@ fun AppRoot() {
         )
     }
 
+    val glassesFilming by vm.glassesRecording.collectAsState()
     val fullScreen = devConsole || device || ask || research || meeting
     if (fullScreen) BackHandler { devConsole = false; device = false; ask = false; research = false; meeting = false }
     else if (tab != JarvisTab.Home) BackHandler { tab = JarvisTab.Home }
@@ -131,6 +133,7 @@ fun AppRoot() {
         bottomBar = {
             if (!fullScreen) Column {
                 if (vm.meetingUi.active) RecordingBar(vm.meetingUi.elapsedMs) { meeting = true }
+                if (glassesFilming && !vm.meetingUi.active) GlassesFilmingBar(vm.walkActive) { vm.stopGlassesVideo() }
                 if (vm.translateUi.active && tab != JarvisTab.Translate) TranslatingBar(vm.translateUi.theirLang) { tab = JarvisTab.Translate }
                 JarvisBottomBar(current = tab, onSelect = { tab = it })
             }
@@ -180,6 +183,21 @@ private fun TranslatingBar(lang: String, onOpen: () -> Unit) {
             style = Neo.body.copy(fontSize = 14.sp, color = Neo.CyanPale),
         )
         Box(Modifier.fillMaxWidth())
+    }
+}
+
+/** Slim red bar while the GLASSES are filming (their heartbeat) — tap to stop. */
+@Composable
+private fun GlassesFilmingBar(walk: Boolean, onStop: () -> Unit) {
+    val red = androidx.compose.ui.graphics.Color(0xFFFF5C5C)
+    Row(
+        Modifier.fillMaxWidth().background(Neo.Bar).padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(50)).background(red.copy(alpha = 0.12f)).clickable(onClick = onStop).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(Modifier.padding(2.dp).clip(RoundedCornerShape(50)).background(red).padding(4.dp))
+        Text((if (walk) "Site walk — glasses filming" else "Glasses filming") + " — tap to stop", style = Neo.body.copy(fontSize = 14.sp, color = Neo.Danger))
     }
 }
 

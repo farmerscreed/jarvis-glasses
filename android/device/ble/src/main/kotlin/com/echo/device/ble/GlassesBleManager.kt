@@ -71,6 +71,17 @@ class GlassesBleManager(private val context: Context) {
         val CMD_CAPTURE_PHOTO = byteArrayOf(0x02, 0x01, 0x01)
         val CMD_START_WIFI = byteArrayOf(0x02, 0x01, 0x04)
         val CMD_RESET_P2P = byteArrayOf(0x02, 0x01, 0x0F)
+        /** Start (and, if it toggles — to verify in V0, docs/PHASE3_VIDEO_DESIGN.md) stop a glasses video. */
+        val CMD_VIDEO = byteArrayOf(0x02, 0x01, 0x02)
+        /** Start/stop a glasses audio recording (stock app; not used yet). */
+        val CMD_AUDIO_RECORD = byteArrayOf(0x02, 0x01, 0x08)
+        /** Ask for the video settings; the reply carries the video length in seconds. */
+        val CMD_READ_VIDEO_SETTINGS = byteArrayOf(0x01, 0x02)
+        /** Video lengths the glasses accept (seconds); 65535 = no limit. From the stock app. */
+        val VIDEO_LENGTHS = listOf(15, 30, 60, 180, 540, 720, 65535)
+        const val VIDEO_UNLIMITED = 65535
+        /** The stock app won't start a video at or below this battery level — nor do the glasses (2026-10-15). */
+        const val MIN_VIDEO_BATTERY = 15
     }
 
     private val manager get() = context.getSystemService(BluetoothManager::class.java)
@@ -92,6 +103,15 @@ class GlassesBleManager(private val context: Context) {
     val battery: StateFlow<Int?> = _battery
 
     /** Every notification from any subscribed characteristic (button presses, IP, …). */
+    /** True while the glasses are recording video/audio (they send a heartbeat about every 3 s). */
+    private val _recording = MutableStateFlow(false)
+    val recording: StateFlow<Boolean> = _recording
+    @Volatile private var lastTickAt = 0L
+
+    /** The glasses' video length in seconds (65535 = no limit), once read; null = unknown. */
+    private val _videoLength = MutableStateFlow<Int?>(null)
+    val videoLength: StateFlow<Int?> = _videoLength
+
     private val _notifications = MutableSharedFlow<GlassesNotification>(extraBufferCapacity = 32)
     val notifications: SharedFlow<GlassesNotification> = _notifications
 
@@ -253,9 +273,30 @@ class GlassesBleManager(private val context: Context) {
             _status.value = "BLE: glasses IP $ip"
         }
         // Battery status (BC 73 … 05 <percent> 00), pushed unsolicited by the glasses.
-        (GlassesEvent.parse(value) as? GlassesEvent.Battery)?.let { b ->
-            if (b.percent in 0..100) { _battery.value = b.percent; Log.i(TAG, "glasses battery = ${b.percent}%") }
+        when (val e = GlassesEvent.parse(value)) {
+            is GlassesEvent.Battery -> if (e.percent in 0..100) { _battery.value = e.percent; Log.i(TAG, "glasses battery = ${e.percent}%") }
+            is GlassesEvent.RecordingTick -> { lastTickAt = System.currentTimeMillis(); if (!_recording.value) { _recording.value = true; watchRecording() } }
+            is GlassesEvent.CaptureSaved -> if (_recording.value) { _recording.value = false; Log.i(TAG, "glasses recording saved") }
+            else -> {}
         }
+        // Reply to "read video settings" (stock layout: BC 41 … 01 02 <angle> <seconds:u16 LE> …) — verify in V0.
+        if (value.size >= 11 && value[0] == 0xBC.toByte() && value[1] == 0x41.toByte() &&
+            value[6].toInt() == 0x01 && value[7].toInt() == 0x02
+        ) {
+            val secs = (value[9].toInt() and 0xFF) or ((value[10].toInt() and 0xFF) shl 8)
+            if (secs > 0) { _videoLength.value = secs; Log.i(TAG, "glasses video length = ${secs}s") }
+        }
+    }
+
+    /** No heartbeat for 8 s → the recording has ended (CaptureSaved usually says so first). */
+    private fun watchRecording() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                if (!_recording.value) return
+                if (System.currentTimeMillis() - lastTickAt > 8_000) { _recording.value = false; Log.i(TAG, "glasses recording heartbeat stopped") }
+                else handler.postDelayed(this, 2_000)
+            }
+        }, 2_000)
     }
 
     private fun sendGlassesControl(payload: ByteArray): Boolean {
@@ -278,6 +319,25 @@ class GlassesBleManager(private val context: Context) {
     }
 
     fun resetP2p() = sendGlassesControl(CMD_RESET_P2P)
+
+    /** Start a glasses video (the recording light comes on, as always). Same command again stops it, if it toggles. */
+    fun toggleVideo(): Boolean {
+        if (glassesGatt == null) connectGlasses()
+        Log.i(TAG, "video command (recording=${_recording.value})")
+        return sendGlassesControl(CMD_VIDEO)
+    }
+
+    /** Ask the glasses for their video length; the answer arrives in [videoLength]. */
+    fun readVideoLength(): Boolean = sendGlassesControl(CMD_READ_VIDEO_SETTINGS)
+
+    /** Set the glasses' video length in seconds (one of [VIDEO_LENGTHS]; 65535 = no limit). */
+    fun setVideoLength(seconds: Int): Boolean {
+        val s = seconds.coerceIn(1, VIDEO_UNLIMITED)
+        Log.i(TAG, "set video length ${s}s")
+        val ok = sendGlassesControl(byteArrayOf(0x02, 0x02, 0x00, (s and 0xFF).toByte(), ((s shr 8) and 0xFF).toByte()))
+        if (ok) _videoLength.value = s
+        return ok
+    }
 
     @Suppress("DEPRECATION")
     private fun writeNoResponse(g: BluetoothGatt, ch: BluetoothGattCharacteristic, data: ByteArray) {

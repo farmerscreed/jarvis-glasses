@@ -85,9 +85,35 @@ fun DeviceScreen(vm: HomeViewModel) {
 
         FindGlassesCard(vm, bleUp)
 
+        // Video (Phase 3 · V1): length + a battery note — the glasses won't film at 15 % or less.
+        androidx.compose.runtime.LaunchedEffect(Unit) { vm.loadVideoLength() }
+        var pickLength by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        SettingsGroup("Video") {
+            SettingsRow(
+                Icons.Outlined.Videocam, "Video length",
+                sub = "How long a glasses video runs before it stops by itself (site walks have no limit)",
+                value = com.echo.app.video.VideoPrefs.label(vm.videoLength), onClick = { pickLength = !pickLength },
+                divider = pickLength || (battery != null && battery <= 15),
+            )
+            if (pickLength) {
+                val choices = com.echo.device.ble.GlassesBleManager.VIDEO_LENGTHS
+                choices.forEachIndexed { i, s ->
+                    SettingsRow(
+                        null, com.echo.app.video.VideoPrefs.label(s) + if (s == com.echo.app.video.VideoPrefs.DEFAULT_LENGTH) " (recommended)" else "",
+                        value = if (vm.videoLength == s) "✓" else null, valueColor = Neo.Cyan,
+                        divider = i < choices.size - 1 || (battery != null && battery <= 15),
+                        onClick = { vm.chooseVideoLength(s); pickLength = false },
+                    )
+                }
+            }
+            if (battery != null && battery <= 15) {
+                SettingsRow(null, "Battery too low to record video ($battery%)", sub = "The glasses only film above 15 %. Charge them.", titleColor = Neo.Amber, divider = false)
+            }
+        }
+
         SettingsGroup("Buttons on your glasses") {
             SettingsRow(Icons.Outlined.CameraAlt, "Front button", sub = "Press once — take a photo")
-            SettingsRow(Icons.Outlined.Videocam, "Front button — double-click", sub = "Start / stop a video")
+            SettingsRow(Icons.Outlined.Videocam, "Front button — double-click", sub = "Start / stop a video (or say “Jarvis, record a video”)")
             SettingsRow(Icons.Outlined.Mic, "Back button — hold", sub = "Record a voice note")
             SettingsRow(Icons.Outlined.GraphicEq, "Back button — double-click", sub = "Listen & translate on / off", divider = false)
         }
