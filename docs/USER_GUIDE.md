@@ -169,6 +169,21 @@ notifications when Android asks).
 | **Front — double-click** | Start/stop video |
 | Right double-click / slide | Media play-pause / volume (native) |
 
+## Record: meeting, video or site walk
+Home → **Record** → choose **Meeting** (audio, the phone's microphone), **Video** or **Site walk**. Video and Site walk
+then ask **Glasses** or **Phone camera**:
+- **Glasses** — they start filming (light on). Stop with a FRONT double-click or *"stop the video"* / *"stop the walk"*.
+- **Phone camera** — big red button, flip camera, running time. Keep the screen on while it films (Android stops the
+  camera when the screen goes off). Tap the button again to stop; it then goes through the same notes pipeline.
+- Said *"Jarvis, record a video"* but the glasses aren't connected or are below 16 %? JARVIS opens the phone camera.
+
+**Site walk report:** overview, progress, **problems** (each with severity, where, the moment and a photo — tap to watch),
+counts (marked *said* / *counted* / *estimate*), safety, next steps, questions. Push: *"Site walk report ready: 3 problems"*.
+
+**Share** (video page → ↗): the **report / notes as a PDF with photos**, the **full video**, a **small copy** (480p, for
+slow data) or the **notes as text** — to WhatsApp, email, anything. **Ask about this video** sits under the notes
+(*"how many bags of cement were there?"*).
+
 ## Videos from the glasses
 1. **Film:** double-click the FRONT button, or say *"Jarvis, record a video"* (the light shows while it films). Stop with
    another double-click or *"stop the video"*. Default length 3 min (Glasses screen → Video length). Needs > 15 % battery,

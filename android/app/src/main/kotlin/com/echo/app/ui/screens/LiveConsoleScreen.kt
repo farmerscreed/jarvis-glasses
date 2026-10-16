@@ -99,6 +99,7 @@ fun LiveConsoleScreen(
     val audioInGlasses = rememberGlassesAudioConnected()
     val bleUp = vm.bleStatus.contains("listening", true) || vm.bleStatus.contains("glasses IP", true) || vm.bleStatus.contains("already connected", true)
     var showRemember by rememberSaveable { mutableStateOf(false) }
+    var showRecord by rememberSaveable { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(Neo.Ground).verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 20.dp)) {
         // Header.
@@ -173,6 +174,16 @@ fun LiveConsoleScreen(
             }
         }
 
+        // Record: Meeting (audio) · Video · Site walk — with the glasses or the phone camera.
+        if (showRecord) RecordChooser(
+            glassesReady = vm.glassesCanFilm,
+            glassesWhyNot = vm.glassesFilmWhyNot,
+            onMeeting = { showRecord = false; onOpenMeeting() },
+            onGlasses = { walk -> showRecord = false; vm.startGlassesVideoFromApp(walk) },
+            onPhone = { walk -> showRecord = false; vm.cameraRequest = if (walk) "walk" else "video" },
+            onDismiss = { showRecord = false },
+        )
+
         // Do something.
         Spacer(Modifier.height(22.dp))
         MonoLabel("Do something", modifier = Modifier.padding(bottom = 12.dp))
@@ -185,7 +196,7 @@ fun LiveConsoleScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 FeatureTile(Icons.Outlined.Search, "Research", onClick = onOpenResearch, modifier = Modifier.weight(1f))
                 FeatureTile(Icons.Outlined.PersonAddAlt, "Remember", onClick = { showRemember = true }, modifier = Modifier.weight(1f))
-                FeatureTile(Icons.Outlined.RadioButtonChecked, "Meeting", onClick = onOpenMeeting, accent = androidx.compose.ui.graphics.Color(0xFFFF7A7A), modifier = Modifier.weight(1f))
+                FeatureTile(Icons.Outlined.RadioButtonChecked, "Record", onClick = { showRecord = true }, accent = androidx.compose.ui.graphics.Color(0xFFFF7A7A), modifier = Modifier.weight(1f))
             }
         }
 

@@ -263,6 +263,8 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
     var renameSpeaker by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var reload by remember { mutableStateOf(0) }
+    var showShare by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf("") } // "" or what's being prepared
 
     // Follow the cloud until the notes are ready (or it was never uploaded).
     LaunchedEffect(item.id, reload) {
@@ -312,8 +314,9 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
                         scope.launch { runCatching { vm.meetingLib.star(item.id, s) }; vm.refreshRecordings() }
                     })
                     Spacer(Modifier.width(8.dp))
-                    RoundButton(Icons.Outlined.Share, "Share the notes", onClick = {
-                        ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, shareText(title, rec)), "Share meeting notes"))
+                    RoundButton(Icons.Outlined.Share, if (isVideo) "Share" else "Share the notes", onClick = {
+                        if (isVideo) showShare = true
+                        else ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, shareText(title, rec)), "Share meeting notes"))
                     })
                     Spacer(Modifier.width(8.dp))
                 }
@@ -343,13 +346,64 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
         }
 
         Box(Modifier.weight(1f)) {
-            if (tab == "summary") SummaryTab(vm, item, rec, loadError, onSeek = seek)
+            if (tab == "summary") SummaryTab(vm, item, rec, loadError, onSeek = seek, video = isVideo)
             else TranscriptTab(lines, rec, speakers, positionMs, playable, onSeek = seek, onRename = { renameSpeaker = it })
         }
 
         if (videoFile == null) PlayerBar(vm, item, rec, audioDeleted)
     }
 
+    if (showShare && rec != null) {
+        val walk = rec.kind == "walk" || rec.summary?.optJSONObject("report") != null
+        fun send(f: java.io.File, type: String, label: String) {
+            ctx.startActivity(Intent.createChooser(
+                Intent(Intent.ACTION_SEND).setType(type).putExtra(Intent.EXTRA_STREAM, vm.shareUri(f))
+                    .putExtra(Intent.EXTRA_SUBJECT, title).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                label,
+            ))
+        }
+        AlertDialog(
+            onDismissRequest = { if (sharing.isEmpty()) showShare = false },
+            containerColor = Neo.Card,
+            title = { Text("Share", style = Neo.display.copy(fontSize = 20.sp)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (sharing.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        CircularProgressIndicator(color = Neo.Cyan, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                        Text(sharing, style = Neo.body.copy(fontSize = 14.sp, color = Neo.TextSoft))
+                    } else {
+                        val ready = rec.status == "ready" && rec.summary != null
+                        ShareOption(if (walk) "The report (PDF with photos)" else "The notes (PDF with photos)", "Best for WhatsApp or email.", enabled = ready) {
+                            sharing = "Making the PDF…"
+                            scope.launch {
+                                val f = vm.reportPdf(rec, videoFile)
+                                sharing = ""; showShare = false
+                                if (f != null) send(f, "application/pdf", "Share the report") else android.widget.Toast.makeText(ctx, "Couldn't make the PDF.", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                        ShareOption("The video", "Full quality — a big file.", enabled = videoFile != null) {
+                            showShare = false; send(videoFile!!, "video/mp4", "Share the video")
+                        }
+                        ShareOption("A small copy of the video", "480p — for slow data. Takes a moment to make.", enabled = videoFile != null) {
+                            sharing = "Making a small copy…"
+                            scope.launch {
+                                val f = vm.smallVideoCopy(videoFile!!, title)
+                                sharing = ""; showShare = false
+                                if (f != null) send(f, "video/mp4", "Share the video") else android.widget.Toast.makeText(ctx, "Couldn't make the small copy.", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                        ShareOption("The notes as text", "Paste into a chat.", enabled = ready) {
+                            showShare = false
+                            ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, shareText(title, rec)), "Share the notes"))
+                        }
+                        if (videoFile == null) Text("The full video isn't on this phone any more, so only the notes can be shared.", style = Neo.body.copy(fontSize = 13.sp, color = Neo.Muted))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { if (sharing.isEmpty()) TextButton(onClick = { showShare = false }) { Text("Cancel", color = Neo.Text) } },
+        )
+    }
     if (renameTitle && rec != null) {
         TextDialog("Rename meeting", title, onDone = { t ->
             renameTitle = false
@@ -427,7 +481,7 @@ private fun KeyMoments(vm: HomeViewModel, rec: CloudRec?, moments: List<Pair<Dou
 }
 
 @Composable
-private fun SummaryTab(vm: HomeViewModel, item: LibraryItem, rec: CloudRec?, loadError: String, onSeek: (Double) -> Unit) {
+private fun SummaryTab(vm: HomeViewModel, item: LibraryItem, rec: CloudRec?, loadError: String, onSeek: (Double) -> Unit, video: Boolean = false) {
     val scope = rememberCoroutineScope()
     var done by remember(rec?.clientId, rec?.actionDone) { mutableStateOf(rec?.actionDone.orEmpty()) }
     Column(
@@ -450,11 +504,14 @@ private fun SummaryTab(vm: HomeViewModel, item: LibraryItem, rec: CloudRec?, loa
             MarkedMoments(item.bookmarks, onSeek)
             return@Column
         }
+        val report = summary.optJSONObject("report")
         NoteCard {
-            MonoLabel("In short", color = Neo.Cyan)
-            Text(rec.inShort, style = Neo.body.copy(fontSize = 16.sp, lineHeight = 23.sp))
+            MonoLabel(if (report != null) "Overview" else "In short", color = Neo.Cyan)
+            report?.optString("place")?.takeIf { it.isNotBlank() }?.let { Text(it, style = Neo.body.copy(fontSize = 13.sp, color = Neo.Muted)) }
+            Text(report?.optString("overview")?.takeIf { it.isNotBlank() } ?: rec.inShort, style = Neo.body.copy(fontSize = 16.sp, lineHeight = 23.sp))
             if (rec.error.isNotBlank()) Text(rec.error, style = Neo.body.copy(fontSize = 12.sp, color = Neo.Amber))
         }
+        if (report != null) WalkReport(vm, report, rec.frames, onSeek)
         val actions = rec.list("action_items").map { it as org.json.JSONObject }
         if (actions.isNotEmpty()) NoteCard {
             MonoLabel("Action items — tap when done")
@@ -488,9 +545,11 @@ private fun SummaryTab(vm: HomeViewModel, item: LibraryItem, rec: CloudRec?, loa
                 }
             }
         }
-        Bullets("Decisions", rec.list("decisions").map { it.toString() })
-        Bullets("Follow-ups", rec.list("follow_ups").map { it.toString() })
-        Bullets("Open questions", rec.list("open_questions").map { it.toString() })
+        if (report == null) {
+            Bullets("Decisions", rec.list("decisions").map { it.toString() })
+            Bullets("Follow-ups", rec.list("follow_ups").map { it.toString() })
+            Bullets("Open questions", rec.list("open_questions").map { it.toString() })
+        }
         val people = rec.list("people").map { it.toString() }
         if (people.isNotEmpty()) Text("People: " + people.joinToString(", "), style = Neo.body.copy(fontSize = 13.sp, color = Neo.Muted))
         MarkedMoments(item.bookmarks, onSeek)
@@ -503,9 +562,72 @@ private fun SummaryTab(vm: HomeViewModel, item: LibraryItem, rec: CloudRec?, loa
             },
             style = Neo.body.copy(fontSize = 13.sp, lineHeight = 19.sp, color = Neo.Amber),
         )
-        AskBox(vm, item.id, onSeek)
+        AskBox(vm, item.id, onSeek, video)
         Spacer(Modifier.height(12.dp))
     }
+}
+
+@Composable
+private fun ShareOption(title: String, sub: String, enabled: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Neo.Ground).border(1.dp, Neo.Border, RoundedCornerShape(14.dp))
+            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Text(title, style = Neo.body.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (enabled) Neo.Text else Neo.Faint))
+        Text(sub, style = Neo.body.copy(fontSize = 12.sp, color = if (enabled) Neo.Muted else Neo.Fainter))
+    }
+}
+
+/** V6: the site walk report — progress, problems (with the photo from that moment — tap to watch), counts, safety, next steps. */
+@Composable
+private fun WalkReport(vm: HomeViewModel, report: org.json.JSONObject, frames: List<com.echo.app.meeting.Frame>, onSeek: (Double) -> Unit) {
+    fun strings(k: String) = report.optJSONArray(k)?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() } }.orEmpty()
+    fun objects(k: String) = report.optJSONArray(k)?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
+    Bullets("Progress — done or under way", strings("progress"))
+    val problems = objects("problems")
+    if (problems.isNotEmpty()) NoteCard {
+        MonoLabel("Problems (${problems.size}) — tap to watch", color = Neo.Danger)
+        problems.forEach { p ->
+            val t = p.optDouble("t", -1.0)
+            val sev = p.optString("severity")
+            val c = when (sev) { "high" -> Color(0xFFFF6B6B); "medium" -> Neo.Amber; else -> Neo.Muted }
+            val frame = if (t >= 0) frames.minByOrNull { kotlin.math.abs(it.t - t) }?.takeIf { kotlin.math.abs(it.t - t) <= 8 } else null
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(enabled = t >= 0) { onSeek(t) }.padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Box(Modifier.width(4.dp).height(44.dp).clip(RoundedCornerShape(2.dp)).background(c))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(p.optString("what"), style = Neo.body.copy(fontSize = 15.sp, lineHeight = 21.sp))
+                    Text(
+                        listOfNotNull(sev.uppercase().ifBlank { null }, p.optString("where").ifBlank { null }, if (t >= 0) clockS(t) else null).joinToString(" · "),
+                        style = Neo.mono.copy(fontSize = 11.sp, color = c, letterSpacing = 0.sp),
+                    )
+                }
+                if (frame != null) {
+                    val url by produceState<String?>(null, frame.path) { value = vm.signedMediaUrl(frame.path) }
+                    val img = rememberRemoteImage(url)
+                    Box(Modifier.size(width = 88.dp, height = 56.dp).clip(RoundedCornerShape(10.dp)).background(Neo.CardLow)) {
+                        if (img != null) Image(img, contentDescription = p.optString("what"), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    }
+                }
+            }
+        }
+    }
+    val counts = objects("counts")
+    if (counts.isNotEmpty()) NoteCard {
+        MonoLabel("Counts")
+        counts.forEach { c ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(c.optString("item"), style = Neo.body.copy(fontSize = 14.sp, color = Neo.TextSoft), modifier = Modifier.weight(1f))
+                Text(c.optString("number"), style = Neo.body.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
+                Text(c.optString("sure"), style = Neo.mono.copy(fontSize = 11.sp, color = Neo.Faint, letterSpacing = 0.sp))
+            }
+        }
+    }
+    Bullets("Safety", strings("safety"))
+    Bullets("Next steps", strings("next_steps"))
+    Bullets("Questions", strings("questions"))
 }
 
 @Composable
@@ -556,7 +678,7 @@ private fun MarkedMoments(marks: List<Bookmark>, onSeek: (Double) -> Unit) {
 
 /** "Ask about this meeting" — answered from this meeting's transcript, with the moments it used. */
 @Composable
-private fun AskBox(vm: HomeViewModel, id: String, onSeek: (Double) -> Unit) {
+private fun AskBox(vm: HomeViewModel, id: String, onSeek: (Double) -> Unit, video: Boolean = false) {
     val scope = rememberCoroutineScope()
     var q by rememberSaveable(id) { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -572,11 +694,11 @@ private fun AskBox(vm: HomeViewModel, id: String, onSeek: (Double) -> Unit) {
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        MonoLabel("Ask about this meeting")
+        MonoLabel(if (video) "Ask about this video" else "Ask about this meeting")
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = q, onValueChange = { q = it }, singleLine = true, modifier = Modifier.weight(1f),
-                placeholder = { Text("What did Mr Ade say about delivery?", style = Neo.body.copy(fontSize = 14.sp, color = Neo.Faint), maxLines = 1) },
+                placeholder = { Text(if (video) "How many bags of cement were there?" else "What did Mr Ade say about delivery?", style = Neo.body.copy(fontSize = 14.sp, color = Neo.Faint), maxLines = 1) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { send() }),
                 shape = RoundedCornerShape(24.dp), colors = neoFieldColors(),
             )

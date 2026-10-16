@@ -145,9 +145,17 @@ class MeetingUploader @Inject constructor(
         val detail = runCatching { library.get(dir.name) }.getOrNull() ?: return
         if (detail.rec.status != "ready") return // not yet — the next drain tries again
         val frames = JSONArray()
+        // V6: a site walk also gets a photo at every problem the report lists (the moment it's best seen).
+        val problems = detail.rec.summary?.optJSONObject("report")?.optJSONArray("problems")?.let { a ->
+            (0 until a.length()).mapNotNull { a.optJSONObject(it) }.filter { it.optDouble("t", -1.0) >= 0 }
+                .map { it.optDouble("t") to ("Problem: " + it.optString("what")) }
+        }.orEmpty()
+        val wanted = (problems + detail.moments.take(10)).fold(mutableListOf<Pair<Double, String>>()) { acc, m ->
+            if (acc.none { kotlin.math.abs(it.first - m.first) < 3 }) acc += m; acc  // one photo per ~3 s
+        }.take(20)
         android.media.MediaMetadataRetriever().use { r ->
             r.setDataSource(video.absolutePath)
-            for ((t, why) in detail.moments.take(10)) {
+            for ((t, why) in wanted) {
                 val bmp = runCatching { r.getFrameAtTime((t * 1_000_000).toLong(), android.media.MediaMetadataRetriever.OPTION_CLOSEST) }.getOrNull() ?: continue
                 val scale = minOf(1f, 1280f / maxOf(bmp.width, bmp.height))
                 val small = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true) else bmp

@@ -78,6 +78,7 @@ class HomeViewModel @Inject constructor(
     val player: com.echo.app.meeting.RecordingPlayer,
     private val uploader: com.echo.app.meeting.MeetingUploader,
     val meetingLib: com.echo.app.meeting.MeetingLibrary,
+    private val videoIngest: com.echo.app.video.VideoIngest,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -1321,7 +1322,12 @@ class HomeViewModel @Inject constructor(
     suspend fun startGlassesVideo(walk: Boolean = false): String {
         val battery = ble.battery.value
         if (battery != null && battery <= GlassesBleManager.MIN_VIDEO_BATTERY) {
-            return "The glasses' battery is too low to record video — $battery percent. Charge them, or use the phone camera."
+            cameraRequest = if (walk) "walk" else "video"
+            return "The glasses' battery is too low to record video — $battery percent. I've opened the phone camera instead: tap the red button to start."
+        }
+        if (!ble.isConnected()) {
+            cameraRequest = if (walk) "walk" else "video"
+            return "The glasses aren't connected, so I've opened the phone camera. Tap the red button to start."
         }
         if (ble.recording.value) return "The glasses are already recording."
         ble.setVideoLength(if (walk) GlassesBleManager.VIDEO_UNLIMITED else com.echo.app.video.VideoPrefs.length(appContext))
@@ -1340,6 +1346,48 @@ class HomeViewModel @Inject constructor(
         if (walk) com.echo.app.video.VideoPrefs.walkStarted(appContext)
         return if (walk) "Site walk started. Walk and talk me through it — say “Jarvis, stop the walk” when you're done."
         else "Recording video. Tell people you're filming."
+    }
+
+    /** "video" | "walk" while the phone camera recorder should be open (Home → Record, or voice when the glasses can't). */
+    var cameraRequest by mutableStateOf<String?>(null)
+
+    /** True when the glasses can film right now (connected and above the battery floor). */
+    val glassesCanFilm: Boolean get() {
+        val b = ble.battery.value
+        return ble.isConnected() && (b == null || b > GlassesBleManager.MIN_VIDEO_BATTERY)
+    }
+
+    /** Why the glasses can't film right now (shown under the Record choices), or "". */
+    val glassesFilmWhyNot: String get() {
+        val b = ble.battery.value
+        return when {
+            !ble.isConnected() -> "The glasses aren't connected — use the phone camera, or connect them on the Glasses screen."
+            b != null && b <= GlassesBleManager.MIN_VIDEO_BATTERY -> "The glasses' battery is too low to film ($b%) — charge them or use the phone camera."
+            else -> ""
+        }
+    }
+
+    /**
+     * Phase 3 · V5: a video finished on the phone camera → the same pipeline as a glasses video (analysis copy →
+     * cloud → notes). [startedAt] = when recording began.
+     */
+    fun phoneVideoDone(file: java.io.File, walk: Boolean, startedAt: Long) {
+        viewModelScope.launch {
+            val id = runCatching { videoIngest.ingest(file, source = "phone", kind = if (walk) "walk" else "video", startedAt = startedAt) }
+                .onFailure { android.util.Log.e("EchoVideo", "phone ingest", it) }.getOrNull()
+            status = if (id != null) (if (walk) "Site walk saved — the report comes in a few minutes." else "Video saved — notes come in a few minutes.")
+            else "Couldn't read that video."
+            refreshRecordings()
+        }
+    }
+
+    /** Home → Record → Video/Site walk → Glasses: start it and say/show what happened. */
+    fun startGlassesVideoFromApp(walk: Boolean) {
+        viewModelScope.launch {
+            val said = startGlassesVideo(walk)
+            status = said
+            runCatching { tts.speak(said) }
+        }
     }
 
     /** Stop the glasses video / site walk. (If the glasses ignore it, a FRONT double-click stops it.) */
@@ -2107,6 +2155,28 @@ class HomeViewModel @Inject constructor(
     fun clearSearch() { searchHits = null }
 
     /** Read-only: a short-lived signed URL for a synced photo's stored media (null if not synced). */
+    // ── Phase 3 · V6/V7: report PDF + sharing ──────────────────────────────────────────────────────────
+
+    private fun shareDir() = java.io.File(appContext.cacheDir, "share").apply { mkdirs() }
+    private fun safeName(t: String) = t.replace(Regex("[^A-Za-z0-9 _-]"), "").trim().replace(Regex("\\s+"), "_").take(60).ifBlank { "JARVIS" }
+
+    /** The site walk report / video notes as a PDF (photos from the original when it's on the phone). */
+    suspend fun reportPdf(rec: com.echo.app.meeting.CloudRec, original: java.io.File?): java.io.File? = runCatching {
+        com.echo.app.video.ReportPdf.build(rec, original, java.io.File(shareDir(), safeName(rec.title) + ".pdf")) { path ->
+            withContext(Dispatchers.IO) { runCatching { java.net.URL(backend.signedMediaUrl(path)).readBytes() }.getOrNull() }
+        }
+    }.onFailure { android.util.Log.e("EchoVideo", "report pdf", it) }.getOrNull()
+
+    /** A 480p copy of the whole video for sending on slow data. */
+    suspend fun smallVideoCopy(original: java.io.File, title: String): java.io.File? {
+        val out = java.io.File(shareDir(), safeName(title) + "_small.mp4")
+        return if (videoIngest.makeSmallCopy(original, out)) out else null
+    }
+
+    /** A content:// link other apps (WhatsApp, email…) can open. */
+    fun shareUri(f: java.io.File): android.net.Uri =
+        androidx.core.content.FileProvider.getUriForFile(appContext, appContext.packageName + ".fileprovider", f)
+
     /** A short-lived link to a file in the media bucket (e.g. a video's key-moment photo). */
     suspend fun signedMediaUrl(path: String): String? = runCatching { backend.signedMediaUrl(path) }.getOrNull()
 

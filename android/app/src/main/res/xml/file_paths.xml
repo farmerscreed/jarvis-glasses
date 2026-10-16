@@ -4,4 +4,8 @@
     <cache-path name="export" path="export/" />
     <!-- "Read with phone camera": the camera app writes the photo here. -->
     <cache-path name="camera" path="camera/" />
+    <!-- Phase 3 · V7 sharing: the original videos (glasses + phone camera) and made-to-share files (small clip, report PDF). -->
+    <files-path name="glasses_media" path="glasses_media/" />
+    <files-path name="videos" path="videos/" />
+    <cache-path name="share" path="share/" />
 </paths>

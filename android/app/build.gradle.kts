@@ -175,6 +175,12 @@ dependencies {
     implementation(libs.androidx.media3.transformer)
     implementation(libs.androidx.media3.effect)
     implementation(libs.androidx.media3.common)
+    // Phase 3 · V5: the in-app phone camera recorder.
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.video)
+    implementation(libs.androidx.camera.view)
     implementation(libs.work.runtime)
     implementation(libs.mediapipe.tasks.text)
     implementation(libs.mediapipe.tasks.genai) // on-device LLM spike (Gemma 3 1B) — docs/ONDEVICE_BRAIN.md

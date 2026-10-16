@@ -95,7 +95,8 @@ class VideoIngest @Inject constructor(
         val byOriginal = withContext(Dispatchers.IO) { // file reads: never on the main thread (it runs at app start)
             recorder.saved().associateBy { runCatching { JSONObject(File(it.dir, "meta.json").readText()).optString("original") }.getOrDefault("") }
         }
-        for (f in media.filter { it.extension.lowercase() == "mp4" && it.lastModified() >= cutoff }.sortedBy { it.lastModified() }) {
+        val phone = File(context.filesDir, "videos").listFiles()?.toList().orEmpty() // the phone camera's videos (V5)
+        for (f in (media + phone).filter { it.extension.lowercase() == "mp4" && it.lastModified() >= cutoff }.sortedBy { it.lastModified() }) {
             val rec = byOriginal[f.absolutePath]
             if (rec != null) {
                 val up = runCatching { JSONObject(File(rec.dir, MeetingUploader.STATE).readText()) }.getOrNull()
@@ -104,8 +105,16 @@ class VideoIngest @Inject constructor(
                 Log.i(TAG, "catch-up: ${rec.id} was finished with nothing uploaded — making it again")
                 rec.dir.deleteRecursively()
             }
-            ingest(f, source = "glasses")
+            ingest(f, source = if (f.parentFile?.name == "videos") "phone" else "glasses")
         }
+    }
+
+    /** V7: a small copy of the whole video (480p) for sharing on slow data — into [out]. Same encoder lock as ingest. */
+    suspend fun makeSmallCopy(original: File, out: File): Boolean = lock.withLock {
+        val durationMs = withContext(Dispatchers.IO) { durationOf(original) }
+        if (durationMs <= 0) return false
+        out.parentFile?.mkdirs(); out.delete()
+        runCatching { transcode(original, out, 0, durationMs) }.onFailure { Log.e(TAG, "small copy failed", it); out.delete() }.isSuccess && out.length() > 0
     }
 
     @OptIn(UnstableApi::class)

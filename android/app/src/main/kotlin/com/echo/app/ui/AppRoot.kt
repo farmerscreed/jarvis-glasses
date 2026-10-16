@@ -41,6 +41,7 @@ import com.echo.app.ui.dev.DevConsoleScreen
 import com.echo.app.ui.help.HelpScreen
 import com.echo.app.ui.onboarding.OnboardingPrefs
 import com.echo.app.ui.onboarding.OnboardingScreen
+import com.echo.app.ui.screens.CameraRecorderScreen
 import com.echo.app.ui.screens.AskJarvisScreen
 import com.echo.app.ui.screens.DeviceScreen
 import com.echo.app.ui.screens.LiveConsoleScreen
@@ -87,6 +88,12 @@ fun AppRoot() {
 
     LaunchedEffect(com.echo.app.meeting.MeetingNav.openRecording) {
         if (com.echo.app.meeting.MeetingNav.openRecording != null) { tab = JarvisTab.Memories; meeting = false; ask = false; research = false; device = false }
+    }
+
+    // Phase 3 · V5: the phone camera recorder (Home → Record, or voice when the glasses can't film).
+    vm.cameraRequest?.let { mode ->
+        CameraRecorderScreen(vm, walk = mode == "walk", onClose = { vm.cameraRequest = null })
+        return
     }
 
     if (!onboarded) {

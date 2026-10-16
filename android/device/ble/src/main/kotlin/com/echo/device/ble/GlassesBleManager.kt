@@ -89,6 +89,9 @@ class GlassesBleManager(private val context: Context) {
     private val handler = Handler(Looper.getMainLooper())
 
     private var glassesGatt: BluetoothGatt? = null
+
+    /** The control link to the glasses is up (commands like video start can be sent). */
+    fun isConnected(): Boolean = glassesGatt != null
     private val gatts = mutableMapOf<String, BluetoothGatt>() // diagnostic connections
 
     private val _status = MutableStateFlow("BLE idle")
