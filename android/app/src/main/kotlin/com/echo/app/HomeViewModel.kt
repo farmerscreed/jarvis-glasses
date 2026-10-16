@@ -892,6 +892,17 @@ class HomeViewModel @Inject constructor(
                 status = "Listening…"; continue
             }
 
+            // ── Meetings recorded BY THE GLASSES (M8): "record this meeting on the glasses" / "stop recording" ──
+            val glassesAudio = ble.audioRecording.value
+            if ((!meetings.isActive && glassesAudio && com.echo.app.meeting.MeetingCommands.isStop(heard)) ||
+                (!meetings.isActive && !glassesAudio && com.echo.app.meeting.MeetingCommands.isStart(heard) && Regex("\\bglass(es)?\\b", RegexOption.IGNORE_CASE).containsMatchIn(heard))
+            ) {
+                val said = if (glassesAudio) stopGlassesMeeting() else startGlassesMeeting()
+                answer = said; transcript.add(TurnLine(false, said)); tts.speak(said)
+                if (!continuous) { status = said; break }
+                status = "Listening…"; continue
+            }
+
             // ── Meetings (Phase 2) ─────────────────────────────────────────────────────────────────
             if (meetings.isActive && com.echo.app.meeting.MeetingCommands.isStatus(heard)) {
                 val said = "Yes — ${spokenDuration((meetings.elapsedMs() / 1000).toInt())} so far."
@@ -1381,6 +1392,45 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    // ── M8: a meeting recorded by the GLASSES (their own recorder; the file syncs after Stop) ───────────────────
+
+    /** The glasses are recording a meeting (audio) that we started. */
+    val glassesMeetingRecording get() = ble.audioRecording
+
+    suspend fun startGlassesMeeting(): String {
+        val battery = ble.battery.value
+        if (!ble.isConnected()) return "The glasses aren't connected. Use the phone's microphone instead: Home, Record, Meeting."
+        if (battery != null && battery <= GlassesBleManager.MIN_VIDEO_BATTERY)
+            return "The glasses' battery is too low to record — $battery percent. Use the phone's microphone instead."
+        ble.setAudioLength(GlassesBleManager.AUDIO_LENGTHS.last()) // the longest the glasses allow: 2 hours
+        delay(400)
+        val before = ble.audioReply.value
+        if (!ble.toggleAudioRecording()) return "I can't reach the glasses right now."
+        val reply = withTimeoutOrNull(4_000) { ble.audioReply.filterNotNull().first { it !== before } }
+        if (reply == null || !ble.audioRecording.value) {
+            ble.clearAudioRecording()
+            android.util.Log.w("EchoBle", "glasses audio start not confirmed: reply=$reply")
+            return if (reply == null) "The glasses didn't answer. If they're charging, unplug them and try again."
+            else "The glasses didn't start recording (they said ${reply.first}/${reply.second}). Try holding the back button instead."
+        }
+        com.echo.app.video.VideoPrefs.setPending(appContext, "meeting")
+        return "Recording the meeting on the glasses, for up to two hours. Say “stop recording” or hold the back button to stop. Tell people you're recording."
+    }
+
+    fun stopGlassesMeeting(): String {
+        if (!ble.audioRecording.value) return "The glasses aren't recording a meeting."
+        ble.toggleAudioRecording()
+        return "Stopped. Keep the glasses near the phone — the recording comes across, then the notes."
+    }
+
+    fun startGlassesMeetingFromApp() {
+        viewModelScope.launch {
+            val said = startGlassesMeeting()
+            status = said
+            runCatching { tts.speak(said) }
+        }
+    }
+
     /** Home → Record → Video/Site walk → Glasses: start it and say/show what happened. */
     fun startGlassesVideoFromApp(walk: Boolean) {
         viewModelScope.launch {
@@ -1396,7 +1446,7 @@ class HomeViewModel @Inject constructor(
         ble.toggleVideo()
         val wasWalk = walkActive
         walkActive = false
-        if (wasWalk) com.echo.app.video.VideoPrefs.walkStopped(appContext)
+        if (wasWalk) { com.echo.app.video.VideoPrefs.walkStopped(appContext); com.echo.app.video.VideoPrefs.setPending(appContext, "walk") }
         // Back to the normal length once the walk has ended (a few seconds, so the stop isn't disturbed).
         if (wasWalk) viewModelScope.launch { delay(4_000); ble.setVideoLength(com.echo.app.video.VideoPrefs.length(appContext)) }
         return if (wasWalk) "Walk stopped. It'll sync to your phone." else "Stopped. The video will sync to your phone."

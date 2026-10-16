@@ -73,8 +73,10 @@ class GlassesBleManager(private val context: Context) {
         val CMD_RESET_P2P = byteArrayOf(0x02, 0x01, 0x0F)
         /** Start (and, if it toggles — to verify in V0, docs/PHASE3_VIDEO_DESIGN.md) stop a glasses video. */
         val CMD_VIDEO = byteArrayOf(0x02, 0x01, 0x02)
-        /** Start/stop a glasses audio recording (stock app; not used yet). */
+        /** Start/stop a glasses audio recording (stock app `recordStart`; M8 — a meeting recorded by the glasses). */
         val CMD_AUDIO_RECORD = byteArrayOf(0x02, 0x01, 0x08)
+        /** Audio recording lengths the glasses offer (seconds) — 30 min, 1 h, 2 h (stock app). */
+        val AUDIO_LENGTHS = listOf(1800, 3600, 7200)
         /** Ask for the video settings; the reply carries the video length in seconds. */
         val CMD_READ_VIDEO_SETTINGS = byteArrayOf(0x01, 0x02)
         /** Video lengths the glasses accept (seconds); 65535 = no limit. From the stock app. */
@@ -117,6 +119,16 @@ class GlassesBleManager(private val context: Context) {
     /** Last reply to the video command: errorCode (0/255 = ok) and what the glasses are busy with. */
     private val _videoReply = MutableStateFlow<Pair<Int, Int>?>(null)
     val videoReply: StateFlow<Pair<Int, Int>?> = _videoReply
+
+    /** True while a glasses AUDIO recording we started is running (cleared by stop, a newly saved recording, or 2 h). */
+    private val _audioRecording = MutableStateFlow(false)
+    val audioRecording: StateFlow<Boolean> = _audioRecording
+    @Volatile private var pendingAudioStart = false
+    @Volatile private var audioSince = 0L
+    @Volatile private var lastAudioCount = -1
+    /** Last reply to the audio-record command: errorCode (0/255 = ok) and what the glasses are busy with. */
+    private val _audioReply = MutableStateFlow<Pair<Int, Int>?>(null)
+    val audioReply: StateFlow<Pair<Int, Int>?> = _audioReply
 
     /** The glasses' video length in seconds (65535 = no limit), once read; null = unknown. */
     private val _videoLength = MutableStateFlow<Int?>(null)
@@ -285,7 +297,12 @@ class GlassesBleManager(private val context: Context) {
         // Battery status (BC 73 … 05 <percent> 00), pushed unsolicited by the glasses.
         when (val e = GlassesEvent.parse(value)) {
             is GlassesEvent.Battery -> if (e.percent in 0..100) { _battery.value = e.percent; Log.i(TAG, "glasses battery = ${e.percent}%") }
-            is GlassesEvent.CaptureSaved -> if (_recording.value) { _recording.value = false; Log.i(TAG, "glasses recording saved (videos=${e.videos})") }
+            is GlassesEvent.CaptureSaved -> {
+                if (_recording.value) { _recording.value = false; Log.i(TAG, "glasses recording saved (videos=${e.videos})") }
+                // A NEW audio file (the count went up) means our glasses meeting ended on the glasses' side.
+                if (_audioRecording.value && lastAudioCount >= 0 && e.audio > lastAudioCount) { _audioRecording.value = false; Log.i(TAG, "glasses audio recording saved (audio=${e.audio})") }
+                lastAudioCount = e.audio
+            }
             else -> {}
         }
         // Reply to the video command: BC 41 … 02 01 02 <errorCode> <workType> (stock app: 0/255 = ok).
@@ -300,6 +317,21 @@ class GlassesBleManager(private val context: Context) {
                 _recording.value = true; recordingSince = System.currentTimeMillis(); expireRecording(_videoLength.value ?: 180)
             }
             pendingVideoStart = false
+        }
+        // Reply to the audio-record command: BC 41 … 02 01 08 <errorCode> <workType>.
+        if (value.size >= 11 && value[0] == 0xBC.toByte() && value[1] == 0x41.toByte() &&
+            value[6].toInt() == 0x02 && value[7].toInt() == 0x01 && value[8].toInt() == 0x08
+        ) {
+            val err = value[9].toInt() and 0xFF
+            val work = value[10].toInt() and 0xFF
+            _audioReply.value = err to work
+            Log.i(TAG, "audio record reply: error=$err work=$work (recording flag was ${_audioRecording.value})")
+            if ((err == 0 || err == 255) && pendingAudioStart) {
+                _audioRecording.value = true; audioSince = System.currentTimeMillis()
+                val since = audioSince
+                handler.postDelayed({ if (_audioRecording.value && audioSince == since) _audioRecording.value = false }, (7200 + 30) * 1000L)
+            }
+            pendingAudioStart = false
         }
         // Reply to "read video settings" (stock layout: BC 41 … 01 02 <angle> <seconds:u16 LE> …) — verify in V0.
         if (value.size >= 11 && value[0] == 0xBC.toByte() && value[1] == 0x41.toByte() &&
@@ -348,6 +380,24 @@ class GlassesBleManager(private val context: Context) {
         pendingVideoStart = !stopping
         if (stopping) _recording.value = false
         return sendGlassesControl(CMD_VIDEO)
+    }
+
+    /** Start / stop a glasses AUDIO recording (M8). Stop = the same command again (or hold BACK on the glasses). */
+    fun toggleAudioRecording(): Boolean {
+        if (glassesGatt == null) connectGlasses()
+        val stopping = _audioRecording.value
+        Log.i(TAG, "audio record command (${if (stopping) "stop" else "start"})")
+        pendingAudioStart = !stopping
+        if (stopping) _audioRecording.value = false
+        return sendGlassesControl(CMD_AUDIO_RECORD)
+    }
+
+    fun clearAudioRecording() { _audioRecording.value = false; pendingAudioStart = false }
+
+    /** Set the glasses' longest audio recording (seconds; one of [AUDIO_LENGTHS]). */
+    fun setAudioLength(seconds: Int): Boolean {
+        Log.i(TAG, "set audio length ${seconds}s")
+        return sendGlassesControl(byteArrayOf(0x02, 0x06, 0x00, (seconds and 0xFF).toByte(), ((seconds shr 8) and 0xFF).toByte()))
     }
 
     /** Clear the "filming" flag by hand (e.g. the glasses never confirmed or already stopped). */

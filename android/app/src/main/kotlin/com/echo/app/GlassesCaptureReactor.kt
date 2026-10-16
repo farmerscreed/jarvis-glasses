@@ -430,6 +430,14 @@ class GlassesCaptureReactor @Inject constructor(
                 scope.launch { runCatching { videoIngest.ingest(f, source = "glasses") }.onFailure { android.util.Log.e("EchoVideo", "ingest ${f.name}", it) } }
             }
             "wav", "mp3", "aac", "m4a", "amr", "ogg", "opus" -> {
+                // M8: a meeting recorded on the glasses (started from the app), or any glasses recording of 2 min or
+                // more, goes to the meetings pipeline (transcript + notes) instead of becoming a voice note.
+                if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { videoIngest.isGlassesMeeting(f) }) {
+                    _status.value = "Saving the meeting from the glasses…"
+                    scope.launch { runCatching { videoIngest.ingestAudio(f) }.onFailure { android.util.Log.e("EchoVideo", "audio ingest ${f.name}", it) } }
+                    if (speak) tts.speak("Meeting saved from the glasses. The notes come in a few minutes.")
+                    return
+                }
                 _status.value = "Transcribing ${f.name}…"
                 val transcript = runCatching {
                     backend.transcribe(f.readBytes(), EchoBackend.mimeFor(f.name))

@@ -55,13 +55,17 @@ class VideoIngest @Inject constructor(
      * glasses' file name when possible). Returns the recording id, or null if the file can't be read.
      */
     suspend fun ingest(original: File, source: String, kind: String? = null, title: String = "", startedAt: Long = startedAtOf(original)): String? = lock.withLock {
-        // A glasses video filmed during a site walk becomes a walk (the walk's start/stop times are kept).
-        val kind = kind ?: if (VideoPrefs.inWalk(context, startedAt)) "walk" else "video"
         val durationMs = withContext(Dispatchers.IO) { durationOf(original) }
         if (durationMs <= 0) { Log.w(TAG, "can't read ${original.name}"); return null }
         // One recording per original (a re-sync of the same file doesn't make a second one).
         recorder.saved().firstOrNull { runCatching { JSONObject(File(it.dir, "meta.json").readText()).optString("original") }.getOrNull() == original.absolutePath }
             ?.let { return it.id }
+        // No trustworthy time in the name → it started (about) its length before it reached the phone.
+        @Suppress("NAME_SHADOWING")
+        val startedAt = if (startedAt == original.lastModified()) original.lastModified() - durationMs else startedAt
+        // A glasses video filmed during a site walk becomes a walk: the walk's time window, or "a walk was filmed on
+        // the glasses and this is the next glasses video" (the glasses' clock can be months off).
+        val kind = kind ?: if (VideoPrefs.inWalk(context, startedAt) || (source == "glasses" && VideoPrefs.takePending(context, "walk"))) "walk" else "video"
         val id = "rec-$startedAt-" + UUID.randomUUID().toString().take(6)
         // Build it in a hidden folder (no meta.json → the uploader ignores it) and move it into place only when
         // every piece is written. Built in place, the uploader once sent a half-written piece (107 KB of 943 KB)
@@ -106,6 +110,65 @@ class VideoIngest @Inject constructor(
                 rec.dir.deleteRecursively()
             }
             ingest(f, source = if (f.parentFile?.name == "videos") "phone" else "glasses")
+        }
+    }
+
+    /** M8: is this glasses audio file a meeting? (One started from the app, or anything 2 minutes or longer.) */
+    fun isGlassesMeeting(f: File): Boolean =
+        VideoPrefs.takePending(context, "meeting") || durationOf(f) >= MEETING_MIN_MS
+
+    /**
+     * M8: a MEETING recorded by the glasses (their own audio recorder: hold BACK, or Record → Meeting → Glasses mic).
+     * The .opus file becomes AAC pieces of ≤ 5 min (`NNN.m4a`, like a phone meeting) → the meetings pipeline
+     * (transcript, notes, memory, push). Built off to the side and moved into place when complete, as for video.
+     * Its start time is when it reached the phone minus its length (the glasses' clock can't be trusted).
+     */
+    suspend fun ingestAudio(original: File, title: String = ""): String? = lock.withLock {
+        val durationMs = withContext(Dispatchers.IO) { durationOf(original) }
+        if (durationMs <= 0) { Log.w(TAG, "can't read ${original.name}"); return null }
+        recorder.saved().firstOrNull { runCatching { JSONObject(File(it.dir, "meta.json").readText()).optString("original") }.getOrNull() == original.absolutePath }
+            ?.let { return it.id }
+        val named = startedAt(original.nameWithoutExtension, original.lastModified())
+        val startedAt = if (named == original.lastModified()) original.lastModified() - durationMs else named
+        val id = "rec-$startedAt-" + UUID.randomUUID().toString().take(6)
+        recorder.root().listFiles { f -> f.name.startsWith(".ingest-") }?.forEach { it.deleteRecursively() }
+        val dir = File(recorder.root(), ".ingest-$id").apply { mkdirs() }
+        val pieces = ((durationMs + AUDIO_PIECE_MS - 1) / AUDIO_PIECE_MS).toInt().coerceAtLeast(1)
+        Log.i(TAG, "ingest audio $id: ${original.name} ${durationMs / 1000}s → $pieces piece(s)")
+        for (i in 0 until pieces) {
+            val out = File(dir, "%03d.m4a".format(i))
+            val startMs = i * AUDIO_PIECE_MS
+            runCatching { transcodeAudio(original, out, startMs, minOf(durationMs, startMs + AUDIO_PIECE_MS)) }
+                .onFailure { Log.e(TAG, "audio piece $i of $id failed", it); out.delete() }
+        }
+        val made = dir.listFiles { f -> f.extension == "m4a" && f.length() > 0 }?.size ?: 0
+        Log.i(TAG, "ingest audio $id: $made/$pieces piece(s), ${dir.listFiles()?.sumOf { it.length() }?.div(1000)} KB")
+        if (made == 0) { dir.deleteRecursively(); return null }
+        writeMeta(dir, id, title, "glasses", "meeting", startedAt, (durationMs / 1000).toInt(), original)
+        if (!dir.renameTo(File(recorder.root(), id))) { dir.deleteRecursively(); return null }
+        MeetingUploadWorker.enqueue(context)
+        id
+    }
+
+    @OptIn(UnstableApi::class)
+    private suspend fun transcodeAudio(input: File, output: File, startMs: Long, endMs: Long) = withContext(Dispatchers.Main) {
+        suspendCancellableCoroutine<Unit> { cont ->
+            val item = MediaItem.Builder()
+                .setUri(Uri.fromFile(input))
+                .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionMs(startMs).setEndPositionMs(endMs).build())
+                .build()
+            val edited = EditedMediaItem.Builder(item).setRemoveVideo(true).build()
+            val transformer = Transformer.Builder(context)
+                .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                .addListener(object : Transformer.Listener {
+                    override fun onCompleted(composition: Composition, exportResult: ExportResult) { if (cont.isActive) cont.resume(Unit) }
+                    override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
+                        if (cont.isActive) cont.resumeWithException(exportException)
+                    }
+                })
+                .build()
+            transformer.start(edited, output.absolutePath)
+            cont.invokeOnCancellation { runCatching { transformer.cancel() } }
         }
     }
 
@@ -160,6 +223,10 @@ class VideoIngest @Inject constructor(
     companion object {
         private const val TAG = "EchoVideo"
         const val PIECE_MS = 180_000L
+        /** M8: glasses meeting audio pieces, like a phone meeting's (~5 min). */
+        const val AUDIO_PIECE_MS = 300_000L
+        /** A glasses audio recording this long (or longer) is treated as a meeting, not a voice note. */
+        const val MEETING_MIN_MS = 120_000L
         const val HEIGHT = 480
         const val VIDEO_BPS = 700_000
 

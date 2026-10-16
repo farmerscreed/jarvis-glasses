@@ -169,7 +169,14 @@ notifications when Android asks).
 | **Front — double-click** | Start/stop video |
 | Right double-click / slide | Media play-pause / volume (native) |
 
-## Record: meeting, video or site walk
+## Record a meeting with the glasses (M8)
+Home → **Record** → **Meeting** → **Glasses mic**, or say *"Jarvis, record this meeting on the glasses"*, or hold the
+glasses' **BACK** button. The glasses record on their own (up to 2 hours) — a red bar shows *"Glasses recording the
+meeting — tap to stop"*. Stop with *"stop recording"*, the bar, or holding BACK again. Afterwards keep the glasses near the
+phone: the recording comes across over Wi-Fi, becomes ~5-minute pieces and goes through the meetings pipeline →
+**"Summary ready"**, listed under Recordings as **AUDIO** from *glasses*. Any glasses recording of **2 minutes or more**
+becomes a meeting; shorter ones stay voice notes. Phone mic = whole room; glasses mic = you and the person in front of you.
+
 Home → **Record** → choose **Meeting** (audio, the phone's microphone), **Video** or **Site walk**. Video and Site walk
 then ask **Glasses** or **Phone camera**:
 - **Glasses** — they start filming (light on). Stop with a FRONT double-click or *"stop the video"* / *"stop the walk"*.

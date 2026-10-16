@@ -178,7 +178,7 @@ fun LiveConsoleScreen(
         if (showRecord) RecordChooser(
             glassesReady = vm.glassesCanFilm,
             glassesWhyNot = vm.glassesFilmWhyNot,
-            onMeeting = { showRecord = false; onOpenMeeting() },
+            onMeeting = { glasses -> showRecord = false; if (glasses) vm.startGlassesMeetingFromApp() else onOpenMeeting() },
             onGlasses = { walk -> showRecord = false; vm.startGlassesVideoFromApp(walk) },
             onPhone = { walk -> showRecord = false; vm.cameraRequest = if (walk) "walk" else "video" },
             onDismiss = { showRecord = false },

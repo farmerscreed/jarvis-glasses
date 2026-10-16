@@ -138,8 +138,10 @@ class MeetingUploader @Inject constructor(
      */
     private suspend fun framesStep(dir: File, st: UploadState) {
         if (st.framesDone) return
-        val original = runCatching { JSONObject(File(dir, "meta.json").readText()).optString("original") }.getOrDefault("")
-        if (original.isBlank()) { save(dir, st.copy(framesDone = true)); return } // a meeting — nothing to do
+        val meta = runCatching { JSONObject(File(dir, "meta.json").readText()) }.getOrNull()
+        val original = meta?.optString("original").orEmpty()
+        // A meeting (phone, or glasses audio — M8) has no pictures to take.
+        if (original.isBlank() || meta?.optString("kind", "meeting") == "meeting") { save(dir, st.copy(framesDone = true)); return }
         val video = File(original)
         if (!video.exists()) { save(dir, st.copy(framesDone = true)); return }
         val detail = runCatching { library.get(dir.name) }.getOrNull() ?: return

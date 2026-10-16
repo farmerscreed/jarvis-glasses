@@ -35,6 +35,24 @@ object VideoPrefs {
             .putString(KEY_WALKS, list.takeLast(20).joinToString(";") { "${it.first}-${it.second}" }).apply()
     }
 
+    // ── "the next file from the glasses is …" (the glasses' clock can be months off, so times can't be matched) ──
+    // walk: a site walk was filmed on the glasses → the next glasses VIDEO is that walk.
+    // meeting: a meeting was recorded on the glasses → the next glasses AUDIO file is that meeting (M8).
+    private fun key(kind: String) = "pending_$kind"
+
+    fun setPending(context: Context, kind: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(key(kind), System.currentTimeMillis()).apply()
+    }
+
+    /** True (once) if a [kind] is waiting to come off the glasses — expires after a day. */
+    fun takePending(context: Context, kind: String): Boolean {
+        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = sp.getLong(key(kind), 0L)
+        if (at == 0L) return false
+        sp.edit().remove(key(kind)).apply()
+        return System.currentTimeMillis() - at < 86_400_000L
+    }
+
     fun label(seconds: Int): String = when {
         seconds >= 65535 -> "No limit"
         seconds < 60 -> "$seconds seconds"

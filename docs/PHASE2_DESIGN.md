@@ -227,7 +227,7 @@ create table public.recording_segments (     -- the transcript, speaker-labelled
 | M6 | ✅ built, tested (keep setting, delete audio-only/everything) | `meeting-retention` daily; keep 30/90/365/forever; phone frees audio 7 days after backup. |
 | M6b | 🟡 built, **inert** | Needs Law's Google setup incl. the Drive API; scope `drive.file`. |
 | M7 | 🟡 built | Switchboard + `llm_calls` + cost view + eval script. OpenRouter path untested (no key); routes still Claude-first. |
-| M8 | ⏳ not built | Needs the glasses test session — plan in `SESSION_LOG_2026-10-14.md` §8. |
+| M8 | ✅ built 2026-10-16 (needs the glasses test) | Glasses' own recorder: `02 01 08` start/stop (`GlassesBleManager.toggleAudioRecording`, reply `… 02 01 08 err work`), length `02 06 00 lo hi` set to 7200 s (stock choices 1800/3600/7200). Record → Meeting → **Glasses mic**, voice "record this meeting on the glasses", "stop recording", red bar. The synced `.opus` → `VideoIngest.ingestAudio` (Media3 → AAC `NNN.m4a` ≤ 5 min, built off to the side) → normal meeting pipeline (kind meeting, source glasses). Rule: the next glasses audio after an app-started glasses meeting, or any glasses audio ≥ 2 min, is a meeting (`VideoPrefs.takePending`); shorter = voice note as before. Unverified until the test: whether `02 01 08` again stops it, the reply bytes, opus decoding on the Pixel. |
 
 Deviations from the design above: status flow gained `uploaded` and `transcribed`; long work runs as one job per
 invocation of `meeting` (self-kick with a shared secret) plus a 5-minute pg_cron **sweep** that restarts anything

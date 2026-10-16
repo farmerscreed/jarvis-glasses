@@ -124,6 +124,7 @@ fun AppRoot() {
     }
 
     val glassesFilming by vm.glassesRecording.collectAsState()
+    val glassesMeeting by vm.glassesMeetingRecording.collectAsState()
     val fullScreen = devConsole || device || ask || research || meeting
     if (fullScreen) BackHandler { devConsole = false; device = false; ask = false; research = false; meeting = false }
     else if (tab != JarvisTab.Home) BackHandler { tab = JarvisTab.Home }
@@ -141,6 +142,7 @@ fun AppRoot() {
             if (!fullScreen) Column {
                 if (vm.meetingUi.active) RecordingBar(vm.meetingUi.elapsedMs) { meeting = true }
                 if (glassesFilming && !vm.meetingUi.active) GlassesFilmingBar(vm.walkActive) { vm.stopGlassesVideo() }
+                if (glassesMeeting && !vm.meetingUi.active) GlassesFilmingBar(walk = false, label = "Glasses recording the meeting") { vm.stopGlassesMeeting() }
                 if (vm.translateUi.active && tab != JarvisTab.Translate) TranslatingBar(vm.translateUi.theirLang) { tab = JarvisTab.Translate }
                 JarvisBottomBar(current = tab, onSelect = { tab = it })
             }
@@ -195,7 +197,7 @@ private fun TranslatingBar(lang: String, onOpen: () -> Unit) {
 
 /** Slim red bar while the GLASSES are filming (their heartbeat) — tap to stop. */
 @Composable
-private fun GlassesFilmingBar(walk: Boolean, onStop: () -> Unit) {
+private fun GlassesFilmingBar(walk: Boolean, label: String? = null, onStop: () -> Unit) {
     val red = androidx.compose.ui.graphics.Color(0xFFFF5C5C)
     Row(
         Modifier.fillMaxWidth().background(Neo.Bar).padding(horizontal = 16.dp, vertical = 8.dp)
@@ -204,7 +206,7 @@ private fun GlassesFilmingBar(walk: Boolean, onStop: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(Modifier.padding(2.dp).clip(RoundedCornerShape(50)).background(red).padding(4.dp))
-        Text((if (walk) "Site walk — glasses filming" else "Glasses filming") + " — tap to stop", style = Neo.body.copy(fontSize = 14.sp, color = Neo.Danger))
+        Text((label ?: if (walk) "Site walk — glasses filming" else "Glasses filming") + " — tap to stop", style = Neo.body.copy(fontSize = 14.sp, color = Neo.Danger))
     }
 }
 
