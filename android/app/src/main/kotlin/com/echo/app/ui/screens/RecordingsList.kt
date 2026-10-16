@@ -1,6 +1,10 @@
 package com.echo.app.ui.screens
 
 import android.content.Intent
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.material.icons.automirrored.outlined.DirectionsWalk
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Videocam
 import com.echo.app.ui.components.rememberRemoteImage
 import com.echo.app.ui.components.rememberVideoControl
 import com.echo.app.ui.components.VideoPlayer
@@ -157,6 +161,40 @@ fun LibraryStrip(info: LibraryInfo, offline: Boolean) {
     }
 }
 
+/** How each kind of recording looks in the list: label, icon, colour. */
+data class KindStyle(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val color: Color)
+
+fun kindStyle(kind: String) = when (kind) {
+    "video" -> KindStyle("VIDEO", Icons.Outlined.Videocam, Color(0xFFC59BFF))
+    "walk" -> KindStyle("SITE WALK", Icons.AutoMirrored.Outlined.DirectionsWalk, Color(0xFF7BE0A0))
+    else -> KindStyle("AUDIO", Icons.Outlined.Mic, Neo.Cyan)
+}
+
+/** AUDIO / VIDEO / SITE WALK — the first thing on every recording card. */
+@Composable
+fun KindBadge(kind: String) {
+    val k = kindStyle(kind)
+    Row(
+        Modifier.clip(RoundedCornerShape(8.dp)).background(k.color.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(k.icon, contentDescription = null, tint = k.color, modifier = Modifier.size(13.dp))
+        Text(k.label, style = Neo.mono.copy(fontSize = 11.sp, letterSpacing = 1.sp, color = k.color, fontWeight = FontWeight.SemiBold))
+    }
+}
+
+/** A small still from the start of a video (off the main thread), or null. */
+private suspend fun videoThumb(f: java.io.File?): androidx.compose.ui.graphics.ImageBitmap? = if (f == null) null else
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            android.media.MediaMetadataRetriever().use { r ->
+                r.setDataSource(f.absolutePath)
+                val b = r.getScaledFrameAtTime(1_000_000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 320, 180) ?: r.frameAtTime
+                b?.asImageBitmap()
+            }
+        }.getOrNull()
+    }
+
 /** One recording in the list: title, when/how long, where it's at, the gist, counts, and a star. */
 @Composable
 fun RecordingCard(item: LibraryItem, onOpen: () -> Unit, onStar: ((Boolean) -> Unit)?) {
@@ -167,10 +205,23 @@ fun RecordingCard(item: LibraryItem, onOpen: () -> Unit, onStar: ((Boolean) -> U
         Modifier.fillMaxWidth().clip(shape).background(Neo.Card).border(1.dp, Neo.Border, shape).clickable(onClick = onOpen).padding(14.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box(Modifier.size(48.dp).clip(CircleShape).background(Neo.Cyan.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Outlined.GraphicEq, contentDescription = null, tint = Neo.Cyan, modifier = Modifier.size(24.dp))
+        val kind = kindStyle(item.kind)
+        if (item.isVideo) {
+            // A video shows a still from it with a play mark, so it can't be mistaken for an audio recording.
+            val thumb by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, item.id) { value = videoThumb(item.videoFile) }
+            Box(Modifier.size(width = 84.dp, height = 56.dp).clip(RoundedCornerShape(12.dp)).background(kind.color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                thumb?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+                Box(Modifier.size(26.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+            }
+        } else {
+            Box(Modifier.size(48.dp).clip(CircleShape).background(kind.color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(kind.icon, contentDescription = null, tint = kind.color, modifier = Modifier.size(24.dp))
+            }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            KindBadge(item.kind)
             Text(item.title, style = Neo.body.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 whenText(item.startedAt) + " · " + minutes(item.durationS) + " · " + (c?.source ?: "phone"),
@@ -224,7 +275,7 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
         }
     }
     // Phase 3: a video plays its ORIGINAL (full quality, on this phone) at the top of the page, notes underneath.
-    val videoFile = remember(item.id) { videoOriginal(item) }
+    val videoFile = remember(item.id) { item.videoFile }
     val video = rememberVideoControl()
     // Audio: from the phone if it still has it, otherwise from the cloud (until the cloud's copy expires).
     val audioDeleted = detail?.rec?.audioDeleted ?: item.cloud?.audioDeleted ?: false

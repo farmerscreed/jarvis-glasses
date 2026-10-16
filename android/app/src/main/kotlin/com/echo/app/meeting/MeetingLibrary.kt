@@ -51,7 +51,20 @@ data class LibraryInfo(val keepDays: Int = 90, val starred: Int = 0, val audioBy
 
 /** A library entry: what's on this phone and/or in the cloud, matched by the recording id. */
 data class LibraryItem(val id: String, val local: SavedRecording?, val cloud: CloudRec?) {
-    val title: String get() = cloud?.title?.takeIf { it.isNotBlank() } ?: local?.title?.takeIf { it.isNotBlank() } ?: "Meeting"
+    /** meeting (audio) | video | walk — from the cloud, else the phone's meta.json. */
+    val kind: String by lazy {
+        cloud?.kind?.takeIf { it.isNotBlank() && it != "meeting" }
+            ?: local?.dir?.let { d -> runCatching { JSONObject(java.io.File(d, "meta.json").readText()).optString("kind") }.getOrNull() }?.takeIf { it.isNotBlank() }
+            ?: cloud?.kind ?: "meeting"
+    }
+    val isVideo: Boolean get() = kind == "video" || kind == "walk"
+    /** The full-quality glasses/phone video this came from, if it's still on the phone. */
+    val videoFile: java.io.File? by lazy {
+        local?.dir?.let { d -> runCatching { JSONObject(java.io.File(d, "meta.json").readText()).optString("original") }.getOrNull() }
+            ?.takeIf { it.isNotBlank() }?.let { java.io.File(it) }?.takeIf { it.exists() }
+    }
+    val title: String get() = cloud?.title?.takeIf { it.isNotBlank() } ?: local?.title?.takeIf { it.isNotBlank() }
+        ?: when (kind) { "video" -> "Video"; "walk" -> "Site walk"; else -> "Meeting" }
     val startedAt: Long get() = cloud?.startedAt?.takeIf { it > 0 } ?: local?.startedAt ?: 0
     val durationS: Int get() = cloud?.durationS?.takeIf { it > 0 } ?: local?.durationS ?: 0
     val hasLocalAudio: Boolean get() = (local?.chunks ?: 0) > 0

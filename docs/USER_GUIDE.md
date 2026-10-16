@@ -178,6 +178,8 @@ notifications when Android asks).
 3. **"Video notes ready"** a few minutes later. Tap it — or tap the video in Memories — and one page opens: **the video at
    the top**, **key-moment photos** under it (tap one to jump there), then **Notes** (what it shows and what was said) and
    **Seen & said** (everything seen and heard, by time — tap a line to jump the video there).
+4. **Memories → Recordings** lists audio and video together. Every card says what it is — **AUDIO** (microphone), **VIDEO**
+   (a still from the video with a ▶) or **SITE WALK** — and the **All / Audio / Video** chips show just one kind.
 
 ## Ask JARVIS — the deliberate lane (get things done)
 Tap **Ask** on Home (or, in photo mode, from a photo) to open **Ask JARVIS** — a patient,

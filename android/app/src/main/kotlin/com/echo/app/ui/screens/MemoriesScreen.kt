@@ -84,6 +84,7 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var selected by remember { mutableStateOf<Memory?>(null) }
     var openRec by rememberSaveable { mutableStateOf<String?>(null) }
+    var recKind by rememberSaveable { mutableStateOf("all") }
     LaunchedEffect(com.echo.app.meeting.MeetingNav.openRecording) {
         com.echo.app.meeting.MeetingNav.openRecording?.let { filter = "recordings"; openRec = it; com.echo.app.meeting.MeetingNav.openRecording = null }
     }
@@ -167,15 +168,22 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
         }
         if (filter == "recordings") {
             item(span = { GridItemSpan(3) }) { LibraryStrip(vm.libraryInfo, vm.libraryOffline) }
+            // Audio (meetings) and video (glasses/phone videos, site walks) side by side — filter to one kind.
+            if (vm.library.any { it.isVideo } && vm.library.any { !it.isVideo }) item(span = { GridItemSpan(3) }) {
+                com.echo.app.ui.components.FilterChips(
+                    listOf("all" to "All", "audio" to "Audio", "video" to "Video"), recKind, onSelect = { recKind = it },
+                )
+            }
+            val recs = vm.library.filter { r -> when (recKind) { "audio" -> !r.isVideo; "video" -> r.isVideo; else -> true } }
             if (vm.library.isEmpty()) item(span = { GridItemSpan(3) }) {
                 Text(
-                    "No recordings yet — tap Meeting on Home, or say “Jarvis, record this meeting”. Finished recordings land here.",
+                    "No recordings yet — tap Meeting on Home, or say “Jarvis, record this meeting” (audio) or “Jarvis, record a video”. Finished recordings land here.",
                     style = Neo.body.copy(fontSize = 15.sp, lineHeight = 22.sp, color = Neo.Muted),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(top = 30.dp),
                 )
             }
-            items(vm.library, key = { "rec-" + it.id }, span = { GridItemSpan(3) }) { r ->
+            items(recs, key = { "rec-" + it.id }, span = { GridItemSpan(3) }) { r ->
                 RecordingCard(r, onOpen = { openRec = r.id }, onStar = { starred -> vm.starRecording(r.id, starred) })
             }
         } else if (shown.isEmpty()) {
