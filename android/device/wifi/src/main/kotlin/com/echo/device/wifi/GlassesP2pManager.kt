@@ -44,11 +44,21 @@ class GlassesP2pManager(private val context: Context) {
             addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION)
             addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION)
             addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION)
+            addAction(WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION)
         }
         receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
                 when (intent.action) {
                     WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION -> requestPeers()
+                    // Android stops a search after a while; keep looking until the glasses show up
+                    // (stop() unregisters this, so it ends with the sync).
+                    WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION -> {
+                        val st = intent.getIntExtra(WifiP2pManager.EXTRA_DISCOVERY_STATE, -1)
+                        if (st == WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED && !connecting) {
+                            Log.i(TAG, "search stopped before the glasses were seen — searching again")
+                            manager?.discoverPeers(channel, listener("rediscover"))
+                        }
+                    }
                     WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
                         @Suppress("DEPRECATION")
                         val net = intent.getParcelableExtra<NetworkInfo>(WifiP2pManager.EXTRA_NETWORK_INFO)
@@ -74,10 +84,11 @@ class GlassesP2pManager(private val context: Context) {
         val mgr = manager ?: return
         mgr.requestPeers(channel) { peers ->
             if (connecting) return@requestPeers
-            val dev = peers.deviceList.firstOrNull {
-                (it.deviceName ?: "").contains("AIMB", true) || (it.deviceName ?: "").contains("G2", true)
-            } ?: peers.deviceList.firstOrNull()
+            // ONLY the glasses (their Wi-Fi Direct name is "AIMB-G2_…"). Never fall back to "any peer":
+            // at home that picked an HP printer, the connection hung and the sync timed out with 0 files.
+            val dev = peers.deviceList.firstOrNull { isGlasses(it.deviceName) }
             if (dev != null) { connecting = true; connect(dev) }
+            else if (peers.deviceList.isNotEmpty()) Log.i(TAG, "peers seen, glasses not among them yet: ${peers.deviceList.size}")
         }
     }
 
@@ -114,8 +125,12 @@ class GlassesP2pManager(private val context: Context) {
         val mgr = manager
         receiver?.let { runCatching { context.unregisterReceiver(it) } }
         receiver = null
+        runCatching { mgr?.cancelConnect(channel, null) } // a half-made connection would block the next try
         runCatching { mgr?.removeGroup(channel, null) }
         connecting = false
         _connected.value = false
     }
 }
+
+/** True for the glasses' Wi-Fi Direct name ("AIMB-G2_6393…"); printers, TVs etc. are ignored. */
+fun isGlasses(deviceName: String?): Boolean = (deviceName ?: "").startsWith("AIMB", ignoreCase = true)
