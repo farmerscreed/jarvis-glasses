@@ -1,6 +1,15 @@
 package com.echo.app.ui.screens
 
 import android.content.Intent
+import com.echo.app.ui.components.rememberRemoteImage
+import com.echo.app.ui.components.rememberVideoControl
+import com.echo.app.ui.components.VideoPlayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.runtime.produceState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -214,9 +223,13 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
             delay(10_000)
         }
     }
+    // Phase 3: a video plays its ORIGINAL (full quality, on this phone) at the top of the page, notes underneath.
+    val videoFile = remember(item.id) { videoOriginal(item) }
+    val video = rememberVideoControl()
     // Audio: from the phone if it still has it, otherwise from the cloud (until the cloud's copy expires).
     val audioDeleted = detail?.rec?.audioDeleted ?: item.cloud?.audioDeleted ?: false
     LaunchedEffect(item.id, item.hasLocalAudio, audioDeleted) {
+        if (videoFile != null) return@LaunchedEffect // the video player does the playing
         val local = item.local
         if (local != null && item.hasLocalAudio) vm.player.loadLocal(item.id, local.files())
         else if (item.cloud != null && !audioDeleted) runCatching { vm.meetingLib.audioUrls(item.id) }.getOrNull()?.let { vm.player.loadCloud(item.id, it) }
@@ -227,8 +240,13 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
     val title = rec?.title?.takeIf { it.isNotBlank() } ?: item.title
     val speakers = rec?.speakers.orEmpty()
     val lines = detail?.lines.orEmpty()
-    val playable = p.recordingId == item.id && p.durationMs > 0
-    val seek: (Double) -> Unit = { sec -> if (playable) vm.player.seekTo((sec * 1000).toLong(), andPlay = true) }
+    val playable = videoFile != null || (p.recordingId == item.id && p.durationMs > 0)
+    val positionMs = if (videoFile != null) video.positionMs else p.positionMs
+    val seek: (Double) -> Unit = { sec ->
+        if (videoFile != null) video.seekTo((sec * 1000).toLong())
+        else if (playable) vm.player.seekTo((sec * 1000).toLong(), andPlay = true)
+    }
+    val isVideo = videoFile != null || rec?.kind in setOf("video", "walk")
 
     Column(Modifier.fillMaxSize().background(Neo.Ground)) {
         // Header
@@ -260,15 +278,25 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
                     (if (nSpeakers > 0) " · $nSpeakers speaker" + (if (nSpeakers == 1) "" else "s") else ""),
                 style = Neo.mono.copy(fontSize = 12.sp, letterSpacing = 0.sp), modifier = Modifier.padding(horizontal = 8.dp),
             )
-            FilterChips(listOf("summary" to "Summary", "transcript" to "Transcript"), tab, onSelect = { tab = it }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+            if (videoFile != null) {
+                VideoPlayer(
+                    videoFile, control = video, autoPlay = false,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(16.dp)).background(Color.Black),
+                )
+            }
+            if (isVideo) KeyMoments(vm, rec, detail?.moments.orEmpty(), onSeek = seek)
+            FilterChips(
+                if (isVideo) listOf("summary" to "Notes", "transcript" to "Seen & said") else listOf("summary" to "Summary", "transcript" to "Transcript"),
+                tab, onSelect = { tab = it }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
         }
 
         Box(Modifier.weight(1f)) {
             if (tab == "summary") SummaryTab(vm, item, rec, loadError, onSeek = seek)
-            else TranscriptTab(lines, rec, speakers, p.positionMs, playable, onSeek = seek, onRename = { renameSpeaker = it })
+            else TranscriptTab(lines, rec, speakers, positionMs, playable, onSeek = seek, onRename = { renameSpeaker = it })
         }
 
-        PlayerBar(vm, item, rec, audioDeleted)
+        if (videoFile == null) PlayerBar(vm, item, rec, audioDeleted)
     }
 
     if (renameTitle && rec != null) {
@@ -311,6 +339,39 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Keep it", color = Neo.Text) } },
         )
+    }
+}
+
+/** The glasses video this recording was made from, if it's still on the phone. */
+private fun videoOriginal(item: LibraryItem): java.io.File? = item.local?.dir?.let { d ->
+    runCatching { org.json.JSONObject(java.io.File(d, "meta.json").readText()).optString("original") }.getOrNull()
+}?.takeIf { it.isNotBlank() }?.let { java.io.File(it) }?.takeIf { it.exists() }
+
+/** Photos JARVIS took at a video's key moments (or, before they're ready, the moments themselves) — tap to jump there. */
+@Composable
+private fun KeyMoments(vm: HomeViewModel, rec: CloudRec?, moments: List<Pair<Double, String>>, onSeek: (Double) -> Unit) {
+    val frames = rec?.frames.orEmpty()
+    if (frames.isEmpty() && moments.isEmpty()) return
+    Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        MonoLabel("Key moments — tap to watch")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (frames.isNotEmpty()) items(frames) { f ->
+                val url by produceState<String?>(null, f.path) { value = vm.signedMediaUrl(f.path) }
+                val img = rememberRemoteImage(url)
+                Column(Modifier.width(120.dp).clip(RoundedCornerShape(12.dp)).clickable { onSeek(f.t) }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(Neo.Card), contentAlignment = Alignment.Center) {
+                        if (img != null) Image(img, contentDescription = f.why, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        else CircularProgressIndicator(strokeWidth = 2.dp, color = Neo.Cyan, modifier = Modifier.size(18.dp))
+                    }
+                    Text(clockS(f.t) + " · " + f.why, style = Neo.body.copy(fontSize = 12.sp, lineHeight = 16.sp, color = Neo.TextSoft), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            } else items(moments) { (t, why) ->
+                Text(
+                    clockS(t) + " · " + why, style = Neo.body.copy(fontSize = 13.sp, color = Neo.Text), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 220.dp).clip(RoundedCornerShape(16.dp)).background(Neo.Card).clickable { onSeek(t) }.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
+        }
     }
 }
 
@@ -527,7 +588,7 @@ private fun TranscriptTab(
             } else {
                 val l = row as TLine
                 val isNow = current >= 0 && lines.getOrNull(current) === l
-                val media = l.speaker == "Media"
+                val media = l.speaker == "Media" || l.speaker == "Seen"
                 val color = if (media) Neo.Faint else SPEAKER_COLORS[labels.indexOf(l.speaker).coerceAtLeast(0) % SPEAKER_COLORS.size]
                 Column(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (isNow) Neo.Cyan.copy(alpha = 0.08f) else Color.Transparent)

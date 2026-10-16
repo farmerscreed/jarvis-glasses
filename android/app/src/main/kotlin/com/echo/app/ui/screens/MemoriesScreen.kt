@@ -98,6 +98,16 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
         RecordingDetail(vm, rec, onBack = { openRec = null })
         return
     }
+    // A glasses video opens straight on its page (video on top, notes underneath) once it has notes.
+    LaunchedEffect(selected) {
+        val path = selected?.metadata?.get("localMediaPath")?.takeIf { it.endsWith(".mp4", true) } ?: return@LaunchedEffect
+        val id = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.recordingIdForVideo(path) } ?: return@LaunchedEffect
+        vm.refreshRecordings()
+        repeat(25) {
+            if (vm.library.any { it.id == id }) { openRec = id; selected = null; return@LaunchedEffect }
+            kotlinx.coroutines.delay(200)
+        }
+    }
     selected?.let { mem ->
         BackHandler { selected = null }
         PhotoDetailScreen(vm, mem, onBack = { selected = null }, onAskAboutPhoto = { onAskAboutPhoto(mem) }, onOpenNotes = { openRec = it })

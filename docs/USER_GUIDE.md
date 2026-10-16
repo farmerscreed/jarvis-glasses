@@ -169,6 +169,16 @@ notifications when Android asks).
 | **Front — double-click** | Start/stop video |
 | Right double-click / slide | Media play-pause / volume (native) |
 
+## Videos from the glasses
+1. **Film:** double-click the FRONT button, or say *"Jarvis, record a video"* (the light shows while it films). Stop with
+   another double-click or *"stop the video"*. Default length 3 min (Glasses screen → Video length). Needs > 15 % battery,
+   off the charger. *"Start a site walk"* films with no time limit until *"stop the walk"*.
+2. **It comes to the phone by itself** (keep the glasses near it). The full video stays on the phone; a small copy goes to
+   the cloud, where JARVIS watches it.
+3. **"Video notes ready"** a few minutes later. Tap it — or tap the video in Memories — and one page opens: **the video at
+   the top**, **key-moment photos** under it (tap one to jump there), then **Notes** (what it shows and what was said) and
+   **Seen & said** (everything seen and heard, by time — tap a line to jump the video there).
+
 ## Ask JARVIS — the deliberate lane (get things done)
 Tap **Ask** on Home (or, in photo mode, from a photo) to open **Ask JARVIS** — a patient,
 reviewable surface for heavier, tool-using tasks. Type or tap the **mic** to dictate. Answers come back

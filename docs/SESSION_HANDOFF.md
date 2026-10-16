@@ -2,10 +2,17 @@
 
 *The single-source handover between sessions. A new session should be able to read only this and
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
-*Last updated: 2026-10-14. Keep this current at the end of every working session.*
+*Last updated: 2026-10-16. Keep this current at the end of every working session.*
 
 ---
-### ▶ LATEST (2026-10-14) — start here next session
+### ▶ LATEST (2026-10-16) — video works end to end
+Glasses video → phone → 480p copy → Gemini (said + seen + moments) → notes + push + key-moment photos: **tested with real clips**.
+Fixed today: Wi-Fi Direct connected to a printer (any-peer fallback), uploader racing the transcoder, glasses clock 4 months off,
+streamed downloads; V4 first cut = one page per video (player on top, key moments, Notes / Seen & said). Details:
+`docs/PHASE3_VIDEO_DESIGN.md` §10a. Open: 2 clips still on the glasses (Wi-Fi dropped mid-file), Law to delete "Empty recording",
+V4 polish (Record tile chooser, Ask), then V5–V7. Unpushed: everything after `8520efa`.
+
+### ▶ 2026-10-14
 Full record: **`docs/SESSION_LOG_2026-10-14.md`** (architecture, every op, bugs, cloud reference, SQL checks).
 Law's test steps: **`docs/TEST_PLAN_PHASE2.md`**. Design + milestone status: **`docs/PHASE2_DESIGN.md`**.
 

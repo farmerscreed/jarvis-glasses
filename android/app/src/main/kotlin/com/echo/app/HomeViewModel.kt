@@ -2107,6 +2107,9 @@ class HomeViewModel @Inject constructor(
     fun clearSearch() { searchHits = null }
 
     /** Read-only: a short-lived signed URL for a synced photo's stored media (null if not synced). */
+    /** A short-lived link to a file in the media bucket (e.g. a video's key-moment photo). */
+    suspend fun signedMediaUrl(path: String): String? = runCatching { backend.signedMediaUrl(path) }.getOrNull()
+
     suspend fun signedUrlFor(memory: Memory): String? =
         memory.mediaPath?.let { runCatching { backend.signedMediaUrl(it) }.getOrNull() }
 
