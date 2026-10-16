@@ -63,7 +63,7 @@ private val DETAIL_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm").wit
  * capture file if present, else a signed URL for the synced copy.
  */
 @Composable
-fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit, onAskAboutPhoto: () -> Unit = {}) {
+fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit, onAskAboutPhoto: () -> Unit = {}, onOpenNotes: (String) -> Unit = {}) {
     val localPath = memory.metadata["localMediaPath"]
     val localFile = remember(localPath) { localPath?.let { File(it) }?.takeIf { it.exists() } }
     val isVideo = (localFile?.extension ?: memory.mediaPath?.substringAfterLast('.', ""))
@@ -141,7 +141,37 @@ fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit, onA
                 )
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
+            // A glasses video: its notes live on its recording page (what was seen + said, key-moment photos).
+            if (isVideo && localFile != null) {
+                val recId by produceState<String?>(initialValue = null, localFile) {
+                    value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.recordingIdForVideo(localFile.absolutePath) }
+                    if (value != null) vm.refreshRecordings()
+                }
+                val item = vm.library.firstOrNull { it.id == recId }
+                val c = item?.cloud
+                Column(verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
+                    SectionLabel("Video notes")
+                    Text(
+                        when {
+                            recId == null -> "No notes for this video. Videos filmed from now on get notes automatically."
+                            c?.status == "ready" && c.inShort.isNotBlank() -> c.inShort
+                            c?.status == "failed" -> "Couldn't make the notes for this video."
+                            else -> "JARVIS is watching this video — the notes appear here in a few minutes."
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (recId != null && item != null) {
+                        com.echo.app.ui.components.JarvisPrimaryButton(
+                            text = "Open full notes",
+                            onClick = { onOpenNotes(recId!!) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+
+            if (!isVideo) Column(verticalArrangement = Arrangement.spacedBy(JarvisSpacing.sm)) {
                 SectionLabel("AI Observation")
                 Text(
                     memory.text?.takeIf { it.isNotBlank() } ?: "No description yet.",
@@ -162,7 +192,7 @@ fun PhotoDetailScreen(vm: HomeViewModel, memory: Memory, onBack: () -> Unit, onA
 
             Spacer(Modifier.height(JarvisSpacing.sm))
             // Drill down on this photo in the deliberate lane (count things, read text, etc.).
-            com.echo.app.ui.components.JarvisPrimaryButton(
+            if (!isVideo) com.echo.app.ui.components.JarvisPrimaryButton(
                 text = "Ask about this photo",
                 onClick = onAskAboutPhoto,
                 modifier = Modifier.fillMaxWidth(),

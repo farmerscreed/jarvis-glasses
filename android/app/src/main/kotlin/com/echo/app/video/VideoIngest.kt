@@ -19,6 +19,7 @@ import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
 import com.echo.app.meeting.MeetingRecorder
 import com.echo.app.meeting.MeetingUploadWorker
+import com.echo.app.meeting.MeetingUploader
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -62,8 +63,11 @@ class VideoIngest @Inject constructor(
         recorder.saved().firstOrNull { runCatching { JSONObject(File(it.dir, "meta.json").readText()).optString("original") }.getOrNull() == original.absolutePath }
             ?.let { return it.id }
         val id = "rec-$startedAt-" + UUID.randomUUID().toString().take(6)
-        val dir = File(recorder.root(), id).apply { mkdirs() }
-        writeMeta(dir, id, title, source, kind, startedAt, (durationMs / 1000).toInt(), original)
+        // Build it in a hidden folder (no meta.json → the uploader ignores it) and move it into place only when
+        // every piece is written. Built in place, the uploader once sent a half-written piece (107 KB of 943 KB)
+        // — and could even mark a recording with no pieces yet as finished.
+        recorder.root().listFiles { f -> f.name.startsWith(".ingest-") }?.forEach { it.deleteRecursively() }
+        val dir = File(recorder.root(), ".ingest-$id").apply { mkdirs() }
         val pieces = ((durationMs + PIECE_MS - 1) / PIECE_MS).toInt().coerceAtLeast(1)
         Log.i(TAG, "ingest $id: ${original.name} ${durationMs / 1000}s, ${original.length() / 1_000_000} MB → $pieces piece(s)")
         for (i in 0 until pieces) {
@@ -75,8 +79,33 @@ class VideoIngest @Inject constructor(
         }
         val made = dir.listFiles { f -> f.extension == "mp4" && f.length() > 0 }?.size ?: 0
         Log.i(TAG, "ingest $id: $made/$pieces piece(s) ready, ${dir.listFiles()?.filter { it.extension == "mp4" }?.sumOf { it.length() }?.div(1000)} KB")
+        if (made == 0) { dir.deleteRecursively(); return null }
+        writeMeta(dir, id, title, source, kind, startedAt, (durationMs / 1000).toInt(), original)
+        if (!dir.renameTo(File(recorder.root(), id))) { Log.e(TAG, "ingest $id: couldn't move into place"); dir.deleteRecursively(); return null }
         MeetingUploadWorker.enqueue(context)
         id
+    }
+
+    /**
+     * Ingest glasses videos from the last [days] days that have no recording yet (or only a broken one: marked
+     * finished in the cloud with no piece uploaded). Older videos are left alone — they predate the video pipeline.
+     */
+    suspend fun catchUp(media: List<File>, days: Int = 3) {
+        val cutoff = System.currentTimeMillis() - days * 86_400_000L
+        val byOriginal = withContext(Dispatchers.IO) { // file reads: never on the main thread (it runs at app start)
+            recorder.saved().associateBy { runCatching { JSONObject(File(it.dir, "meta.json").readText()).optString("original") }.getOrDefault("") }
+        }
+        for (f in media.filter { it.extension.lowercase() == "mp4" && it.lastModified() >= cutoff }.sortedBy { it.lastModified() }) {
+            val rec = byOriginal[f.absolutePath]
+            if (rec != null) {
+                val up = runCatching { JSONObject(File(rec.dir, MeetingUploader.STATE).readText()) }.getOrNull()
+                val broken = up != null && up.optBoolean("finished") && (up.optJSONArray("uploaded")?.length() ?: 0) == 0
+                if (!broken) continue
+                Log.i(TAG, "catch-up: ${rec.id} was finished with nothing uploaded — making it again")
+                rec.dir.deleteRecursively()
+            }
+            ingest(f, source = "glasses")
+        }
     }
 
     @OptIn(UnstableApi::class)
@@ -132,10 +161,17 @@ class VideoIngest @Inject constructor(
             }
         }.getOrDefault(0L)
 
-        /** Glasses files are named `yyyyMMddHHmmssSSS.mp4` (local time); otherwise the file's modified time. */
-        fun startedAtOf(f: File): Long {
-            val m = Regex("""(\d{17})""").find(f.nameWithoutExtension)?.value
-            return m?.let { runCatching { SimpleDateFormat("yyyyMMddHHmmssSSS", Locale.US).parse(it)?.time }.getOrNull() } ?: f.lastModified()
+        /**
+         * When it was filmed. Glasses files are named `yyyyMMddHHmmssSSS.mp4`, but the glasses' clock can be months
+         * off (seen: June while it was October) — so the name is only trusted if it's within 2 days before the file
+         * reached the phone ([File.lastModified] = download time); otherwise the download time is used.
+         */
+        fun startedAtOf(f: File): Long = startedAt(f.nameWithoutExtension, f.lastModified())
+
+        fun startedAt(name: String, arrivedAt: Long): Long {
+            val m = Regex("""(\d{17})""").find(name)?.value
+            val named = m?.let { runCatching { SimpleDateFormat("yyyyMMddHHmmssSSS", Locale.US).parse(it)?.time }.getOrNull() }
+            return if (named != null && named <= arrivedAt + 3_600_000L && arrivedAt - named <= 2 * 86_400_000L) named else arrivedAt
         }
     }
 }

@@ -100,7 +100,7 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
     }
     selected?.let { mem ->
         BackHandler { selected = null }
-        PhotoDetailScreen(vm, mem, onBack = { selected = null }, onAskAboutPhoto = { onAskAboutPhoto(mem) })
+        PhotoDetailScreen(vm, mem, onBack = { selected = null }, onAskAboutPhoto = { onAskAboutPhoto(mem) }, onOpenNotes = { openRec = it })
         return
     }
 

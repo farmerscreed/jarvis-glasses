@@ -83,6 +83,9 @@ class GlassesCaptureReactor @Inject constructor(
             // the glasses are only connected after a manual sync, so a fresh app never sees a
             // double-click-BACK (Look & Ask) or a capture press. Safe to call repeatedly.
             runCatching { ble.connectGlasses() }
+            // A glasses video that reached the phone but never got its analysis copy (app killed mid-way, or
+            // the 2026-10-16 ingest race) is picked up again here.
+            scope.launch { runCatching { videoIngest.catchUp(transfer.mediaFiles()) }.onFailure { android.util.Log.e("EchoVideo", "catch-up", it) } }
             collectJob = scope.launch {
                 ble.notifications.collect { n ->
                     when (val e = GlassesEvent.parse(n.bytes)) {

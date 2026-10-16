@@ -71,18 +71,19 @@ class MediaTransferClient(
             val saved = mutableListOf<File>()
             fresh.forEachIndexed { i, name ->
                 onProgress(i + 1, fresh.size)
-                val body = rawGet(network, ip, MediaProtocol.FILES_PREFIX + name, 1)
-                if (body != null && body.isNotEmpty()) {
-                    val out = File(outDir, name)
-                    val tmp = File(outDir, "$name.part")
-                    runCatching {
-                        tmp.writeBytes(body)
-                        if (tmp.renameTo(out)) saved += out
-                    }.onFailure { Log.e(TAG, "save $name failed: ${it.message}") }
-                    tmp.delete()
-                } else {
-                    Log.w(TAG, "download $name returned no body")
+                val out = File(outDir, name)
+                val tmp = File(outDir, "$name.part")
+                // Streamed to disk (a 3-min glasses video is ~250 MB — far too big to hold in memory); one retry,
+                // since the Wi-Fi Direct link sometimes drops mid-file.
+                var ok = false
+                for (attempt in 1..2) {
+                    ok = rawGetToFile(network, ip, MediaProtocol.FILES_PREFIX + name, tmp, attempt)
+                    if (ok) break
+                    delay(2000)
                 }
+                if (ok && tmp.renameTo(out)) saved += out
+                else Log.w(TAG, "download $name failed")
+                tmp.delete()
             }
             Log.i(TAG, "pulled ${saved.size}/${fresh.size} new file(s)")
             saved
@@ -111,6 +112,42 @@ class MediaTransferClient(
         } catch (e: Exception) {
             Log.w(TAG, "$path raw GET failed (try $attempt): ${e.javaClass.simpleName}: ${e.message}")
             null
+        } finally {
+            runCatching { socket.close() }
+        }
+    }
+
+    /** Like [rawGet] but writes the body to [dest] as it arrives. True on a 200 with a non-empty body. */
+    private fun rawGetToFile(network: Network?, ip: String, path: String, dest: File, attempt: Int): Boolean {
+        val socket = (network?.socketFactory ?: SocketFactory.getDefault()).createSocket()
+        return try {
+            socket.soTimeout = READ_TIMEOUT_MS
+            socket.connect(InetSocketAddress(ip, MediaProtocol.PORT), CONNECT_TIMEOUT_MS)
+            socket.getOutputStream().apply {
+                write("GET $path HTTP/1.0\r\n\r\n".toByteArray(Charsets.US_ASCII))
+                flush()
+            }
+            val input = java.io.BufferedInputStream(socket.getInputStream(), 64 * 1024)
+            // Header: read byte by byte up to CRLFCRLF (it's short).
+            val head = java.io.ByteArrayOutputStream()
+            var last4 = 0
+            while (true) {
+                val b = input.read()
+                if (b < 0) { Log.w(TAG, "no header terminator for $path (try $attempt)"); return false }
+                head.write(b)
+                last4 = (last4 shl 8) or b
+                if (last4 == 0x0D0A0D0A) break
+                if (head.size() > 16 * 1024) { Log.w(TAG, "header too long for $path"); return false }
+            }
+            val statusLine = head.toString(Charsets.ISO_8859_1.name()).substringBefore("\r\n")
+            if (!statusLine.contains(" 200")) { Log.w(TAG, "$path -> '$statusLine' (try $attempt)"); return false }
+            val n = dest.outputStream().use { input.copyTo(it, 64 * 1024) }
+            if (n <= 0) { Log.w(TAG, "$path: empty body (try $attempt)"); return false }
+            Log.i(TAG, "$path: ${n / 1000} KB")
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "$path download failed (try $attempt): ${e.javaClass.simpleName}: ${e.message}")
+            false
         } finally {
             runCatching { socket.close() }
         }

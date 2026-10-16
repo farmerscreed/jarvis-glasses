@@ -1304,6 +1304,11 @@ class HomeViewModel @Inject constructor(
 
     // ── Glasses video (Phase 3 · V1, docs/PHASE3_VIDEO_DESIGN.md) ─────────────────────────────────────
 
+    /** The recording (its notes) made from this glasses video file, or null if there isn't one (yet). Call off the main thread. */
+    fun recordingIdForVideo(path: String): String? = meetings.saved().firstOrNull { r ->
+        runCatching { org.json.JSONObject(java.io.File(r.dir, "meta.json").readText()).optString("original") }.getOrNull() == path
+    }?.id
+
     /** The glasses are recording (their ~3 s heartbeat) — shown as a bar so it's always visible in the app. */
     val glassesRecording get() = ble.recording
     /** A site walk is running (video length set to "no limit" until it stops). */
