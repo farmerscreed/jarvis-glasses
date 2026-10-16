@@ -5,7 +5,16 @@ know exactly where we are, how to run/verify, what not to relitigate, and what t
 *Last updated: 2026-10-16. Keep this current at the end of every working session.*
 
 ---
-### ▶ LATEST (2026-10-16) — video works end to end
+### ▶ LATEST (2026-10-16, evening) — Phase 3 V1–V7 + M8 BUILT; next = Law runs `docs/TEST_PLAN_PHASE3.md`
+Built and installed (19:32): Home **Record** chooser (Meeting: phone/glasses mic · Video · Site walk × glasses/phone
+camera), phone camera recorder (CameraX), site-walk **report** (cloud `report` object, page, photos per problem, PDF),
+**sharing** (PDF / full / small 480p / text), Ask about this video, Recordings badges AUDIO/VIDEO/SITE WALK + filter,
+**M8 glasses meetings** (`02 01 08`, synced .opus → AAC pieces → meeting pipeline). Fixed: videos marked "not a meeting"
+lost their memory (`meeting` v17+). Status tables: `PHASE3_VIDEO_DESIGN.md` §10a, `PHASE2_DESIGN.md` (M8).
+**Unverified until the test:** `02 01 08`/`02 01 02` as stop toggles, glasses .opus decoding, walk detection by
+"next file", CameraX on the Pixel, the PDF on paper. Unpushed: commits after `42ae9cc`.
+
+### ▶ 2026-10-16 (afternoon) — video works end to end
 Glasses video → phone → 480p copy → Gemini (said + seen + moments) → notes + push + key-moment photos: **tested with real clips**.
 Fixed today: Wi-Fi Direct connected to a printer (any-peer fallback), uploader racing the transcoder, glasses clock 4 months off,
 streamed downloads; V4 first cut = one page per video (player on top, key moments, Notes / Seen & said). Details:
