@@ -4,7 +4,11 @@
 Order matters: **P0 must be fixed, tested on the phone with Law, and signed off before any P1+ work
 starts.** Update this file as items close (move them to "Done" with the date and evidence).*
 
-Context: `CLAUDE.md` → `docs/SESSION_HANDOFF.md` (LATEST block) → `docs/SESSION_LOG_2026-10-10.md`.
+Context: `CLAUDE.md` → `docs/SESSION_HANDOFF.md` (LATEST block) → the newest `docs/SESSION_LOG_*.md`.
+
+> **NOW (2026-10-17):** Phase 2 (meetings) tested ✅; Phase 3 (video V1–V7) + M8 (glasses meetings) BUILT, audited and
+> deployed — **next = Law runs `docs/TEST_PLAN_PHASE3.md`** (Claude watches logs + cloud), then fix what it finds.
+> Waiting on Law: Google setup, OpenRouter key, `STT_VOCAB`, Firebase admin key file decision.
 
 ---
 
@@ -153,14 +157,15 @@ Build `docs/UI_REDESIGN.md` in its build order: theme + shared components → Tr
 Settings → Memories → Research (+ `headline` from the research function) → Ask/Device/Help/onboarding.
 Install + screenshot each step for Law. Nothing removed, only moved.
 
-## P4 — Phase 2: Meetings — BUILT 2026-10-14 (M1–M7 + M6b); Law's phone test next
+## P4 — Phase 2: Meetings — BUILT 2026-10-14 (M1–M7 + M6b); TESTED A–C ✅ 2026-10-15; M8 built 2026-10-16
 Build `docs/PHASE2_DESIGN.md` milestone by milestone: M1 recording engine → M2 upload/storage → M3 chunk
 transcription → M4 summary + memory + push → M5 library UI → M6 retention (M6b Drive after Google) → M7 model
 router + eval → M8 glasses test session. Each ends on the phone with Law (acceptance table in the doc).
-**Now:** run `docs/TEST_PLAN_PHASE2.md` with Law (M5–M7 screens not yet seen on the device), fix findings, push.
-Then: Google setup → M6b check; OpenRouter key → eval → cheaper `meeting_summary` route; glasses session → M8.
+Law's test parts A–C passed 2026-10-15 (`SESSION_LOG_2026-10-14.md` §12–13). M8 (meetings recorded by the glasses)
+built 2026-10-16 — tested in `TEST_PLAN_PHASE3.md` session 5. Still open: Google setup → M6b check; OpenRouter key →
+eval → cheaper `meeting_summary` route.
 
-## P5 — Phase 3: Video — DESIGNED 2026-10-15, awaiting Law's approval
+## P5 — Phase 3: Video — APPROVED 2026-10-15; V1–V7 BUILT 2026-10-16; Law's test next (`TEST_PLAN_PHASE3.md`)
 `docs/PHASE3_VIDEO_DESIGN.md`: V0 test session (charged glasses) → V1 glasses video control + voice → V2 analysis copy + upload →
 V3 video understanding → V4 notes/memory/video page → V5 phone camera → V6 site walk report + PDF → V7 sharing.
 

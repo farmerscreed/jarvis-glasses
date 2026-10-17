@@ -103,7 +103,7 @@ fun CameraRecorderScreen(vm: HomeViewModel, walk: Boolean, onClose: () -> Unit) 
     // (Re)bind the camera when permissions arrive or the user flips it — never while recording.
     LaunchedEffect(hasPerms, back) {
         if (!hasPerms) return@LaunchedEffect
-        val provider = ProcessCameraProvider.getInstance(ctx).get()
+        val provider = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { ProcessCameraProvider.getInstance(ctx).get() } // off the main thread
         val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
         runCatching {
             provider.unbindAll()
@@ -111,7 +111,9 @@ fun CameraRecorderScreen(vm: HomeViewModel, walk: Boolean, onClose: () -> Unit) 
         }.onFailure { error = "The camera couldn't start: ${it.message}" }
     }
     DisposableEffect(Unit) {
+        vm.cameraOpened() // the recording needs the phone mic (wake word off; back on when this closes)
         onDispose {
+            vm.cameraClosed()
             recording?.stop()
             runCatching { ProcessCameraProvider.getInstance(ctx).get().unbindAll() }
         }

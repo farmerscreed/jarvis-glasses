@@ -65,7 +65,7 @@ class VideoIngest @Inject constructor(
         val startedAt = if (startedAt == original.lastModified()) original.lastModified() - durationMs else startedAt
         // A glasses video filmed during a site walk becomes a walk: the walk's time window, or "a walk was filmed on
         // the glasses and this is the next glasses video" (the glasses' clock can be months off).
-        val kind = kind ?: if (VideoPrefs.inWalk(context, startedAt) || (source == "glasses" && VideoPrefs.takePending(context, "walk"))) "walk" else "video"
+        val kind = kind ?: if (VideoPrefs.inWalk(context, startedAt) || (source == "glasses" && isNewestPending(original, "walk", setOf("mp4")))) "walk" else "video"
         val id = "rec-$startedAt-" + UUID.randomUUID().toString().take(6)
         // Build it in a hidden folder (no meta.json → the uploader ignores it) and move it into place only when
         // every piece is written. Built in place, the uploader once sent a half-written piece (107 KB of 943 KB)
@@ -115,7 +115,19 @@ class VideoIngest @Inject constructor(
 
     /** M8: is this glasses audio file a meeting? (One started from the app, or anything 2 minutes or longer.) */
     fun isGlassesMeeting(f: File): Boolean =
-        VideoPrefs.takePending(context, "meeting") || durationOf(f) >= MEETING_MIN_MS
+        isNewestPending(f, "meeting", AUDIO_EXT) || durationOf(f) >= MEETING_MIN_MS
+
+    /**
+     * "A walk/meeting was recorded on the glasses" belongs to the NEWEST file of that type that came off the glasses
+     * (names sort by the glasses' own clock — wrong date, right order). An older backlog clip synced in the same
+     * download must not take it. The flag is used up by the file it belongs to.
+     */
+    private fun isNewestPending(f: File, kind: String, exts: Set<String>): Boolean {
+        if (!VideoPrefs.hasPending(context, kind)) return false
+        val newest = f.parentFile?.listFiles { x -> x.extension.lowercase() in exts }?.maxByOrNull { it.name }
+        if (newest != null && newest.name != f.name) return false
+        return VideoPrefs.takePending(context, kind)
+    }
 
     /**
      * M8: a MEETING recorded by the glasses (their own audio recorder: hold BACK, or Record → Meeting → Glasses mic).
@@ -227,6 +239,7 @@ class VideoIngest @Inject constructor(
         const val AUDIO_PIECE_MS = 300_000L
         /** A glasses audio recording this long (or longer) is treated as a meeting, not a voice note. */
         const val MEETING_MIN_MS = 120_000L
+        val AUDIO_EXT = setOf("wav", "mp3", "aac", "m4a", "amr", "ogg", "opus")
         const val HEIGHT = 480
         const val VIDEO_BPS = 700_000
 

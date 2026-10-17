@@ -7,7 +7,7 @@
 > **Phase 2 (meetings):** design + milestone status `docs/PHASE2_DESIGN.md`; built 2026-10-14 (M1–M7 + M6b),
 > record in `docs/SESSION_LOG_2026-10-14.md`; Law's phone test steps `docs/TEST_PLAN_PHASE2.md`.
 > **Phase 3 (video, site walks) + M8 (glasses meetings):** `docs/PHASE3_VIDEO_DESIGN.md` (§10a status); built 2026-10-16;
-> full test plan (all features) `docs/TEST_PLAN_PHASE3.md`.
+> record `docs/SESSION_LOG_2026-10-16.md` (incl. the 10-17 audit); full test plan (all features) `docs/TEST_PLAN_PHASE3.md`.
 
 **Then read `docs/SESSION_HANDOFF.md`** (the "LATEST" block at the top), then the
 newest `docs/SESSION_LOG_*.md`. They hold the current state, settled decisions, verified API facts and

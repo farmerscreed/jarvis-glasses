@@ -145,7 +145,9 @@ class MemoryStore(
             val file = File(row.localMediaPath)
             // Long glasses videos exceed the media bucket's 50 MB limit (and would be read into memory whole):
             // they stay on the phone; Phase 3 sends a small analysis copy instead (docs/PHASE3_VIDEO_DESIGN.md).
-            if (file.exists() && file.length() <= MAX_MEDIA_UPLOAD_BYTES) {
+            // 2026-10-17: and NO video original goes to the media bucket at all (Law's approved design: the full video
+            // stays on the phone; only the small 480p copy goes to the cloud, kept 90 days, through the recordings pipeline).
+            if (file.exists() && file.extension.lowercase() != "mp4" && file.length() <= MAX_MEDIA_UPLOAD_BYTES) {
                 mediaPath = backend.uploadMedia(file.readBytes(), file.name, bucket = row.bucket)
                 dao.setMediaPath(row.clientId, mediaPath, System.currentTimeMillis())
             }

@@ -30,11 +30,13 @@ see (Part A). You do the real-world steps (Part B) — they need hands, glasses,
 | ✅ | Site-walk report on a sample walk: problems with times + severity, counts marked said/estimate, safety, next steps | good; push "3 problems, 3 things done" |
 | ✅ | "Ask about this video" on a real video; refuses to invent ("The recording doesn't say.") | pass |
 | ✅ | Videos no longer lose their searchable memory ("not a meeting" bug) | fixed; both 10-16 videos re-done |
+| ✅ | Full audit 10-17: live cloud code = repo (9 stale functions redeployed), database, docs | see `SESSION_LOG_2026-10-16.md` §3 |
 
 **During your test, for every step Claude watches and reports:**
 - the glasses' replies (did they really start/stop, battery), each download (time, size, retries);
 - the small copy, each upload (size check), the cloud status (Transcribing → Summarising → Ready), the alert sent;
 - the cloud result itself: transcript lines, "Seen" notes, key moments, photos, the report, the memory saved, the cost;
+- that **full videos stay on the phone** (only the small copy and the key-moment photos go to the cloud);
 - **the PDF**: Claude copies it off the phone and reads it page by page (photos in the right places, nothing cut off);
 - the things nobody has seen work yet: **does the same command stop a glasses recording**, the glasses' **audio file
   format** decoding on the Pixel, **how long** sync takes per minute of video, battery used per minute of filming.
@@ -78,8 +80,9 @@ see (Part A). You do the real-world steps (Part B) — they need hands, glasses,
 13. [ ] Tap **red** → timer runs. Flip is disabled while filming. Film ~1 minute, talking. Tap the **square** to stop
         → *"Done — back to JARVIS"*.
 14. [ ] It appears in Recordings as **VIDEO · phone**; a few minutes later **"Video notes ready"**.
-15. [ ] Fallback: switch the glasses **off** (or move far away) and say *"Jarvis, record a video"* → JARVIS says the
-        glasses aren't connected and **opens the phone camera**. Close it.
+15. [ ] Fallback: switch the glasses **off** (or move far away), keep **JARVIS open on the phone**, and say *"Jarvis, record
+        a video"* → after a few seconds JARVIS says the glasses aren't connected and **opens the phone camera**. Close it.
+        (With JARVIS in the background it only says so — it never pops the camera up later.)
 
 ### Session 4 — SITE WALK (the important one, 20 min, on a real site or around the house/farm)
 16. [ ] Glasses on, connected. Say **"Jarvis, start a site walk"** → *"Site walk started…"*, light on, bar
@@ -115,7 +118,8 @@ see (Part A). You do the real-world steps (Part B) — they need hands, glasses,
 30. [ ] **Translate** → a few sentences → works.
 31. [ ] **Research** → one question → answer with sources.
 32. [ ] *"Jarvis, what's the time?"* / a normal chat question → answers.
-33. [ ] Delete one test recording → **Audio only** keeps the notes; **Everything** removes it.
+33. [ ] Delete one test recording → **Audio only** keeps the notes; **Everything** removes it (for a video, also its
+        key-moment photos in the cloud — Claude checks).
 
 ---
 

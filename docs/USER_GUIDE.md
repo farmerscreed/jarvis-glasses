@@ -19,7 +19,7 @@ truthfully (it says "I don't know" rather than guess). It runs offline-first and
 - **Home** — the glowing **orb is the talk button** (tap it, or say "Jarvis"). Under it, one status
   line (glasses battery · online · memories waiting to sync — tap it for the glasses screen). Then
   **Do something**: **Look** (photo + "what am I looking at"), **Translate**, **Ask** (Ask JARVIS),
-  **Research**, **Remember** (a person) and **Meeting** (record a meeting; *Find glasses* is in the status line and Settings). Your conversation or last answer shows below.
+  **Research**, **Remember** (a person) and **Record** (a meeting, a video or a site walk; *Find glasses* is in the status line and Settings). Your conversation or last answer shows below.
 - **Translate** — one big **Listen** button, plus **Talk** (two-way), **Read** (signs & menus) and
   **Say** (a phrase for them). While a translation runs, a slim "Translating — tap to open" bar
   follows you on the other tabs.
@@ -112,7 +112,7 @@ and remembers it for next time. Translation needs internet. For privacy, your gl
 connected for sound; if not, the app warns you and your English plays from the phone.
 
 ## Record a meeting
-- **Start:** Home → **Meeting** → **Start recording**, or say *"Jarvis, record this meeting (with Mr Ade)"*.
+- **Start:** Home → **Record** → **Meeting** → **Phone mic** → **Start recording**, or say *"Jarvis, record this meeting (with Mr Ade)"*.
   Start it while the phone is unlocked; after that you can lock the phone and put it on the table — it keeps
   recording (a "JARVIS is recording" notification with **Mark** and **Stop** stays up). Tell everyone you're recording.
 - It uses the **phone's microphone** (it hears the whole room; the glasses mic only hears you well).

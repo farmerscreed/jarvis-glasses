@@ -1333,12 +1333,23 @@ class HomeViewModel @Inject constructor(
     suspend fun startGlassesVideo(walk: Boolean = false): String {
         val battery = ble.battery.value
         if (battery != null && battery <= GlassesBleManager.MIN_VIDEO_BATTERY) {
-            cameraRequest = if (walk) "walk" else "video"
-            return "The glasses' battery is too low to record video — $battery percent. I've opened the phone camera instead: tap the red button to start."
+            if (appVisible) {
+                cameraRequest = if (walk) "walk" else "video"
+                return "The glasses' battery is too low to record video — $battery percent. I've opened the phone camera instead: tap the red button to start."
+            }
+            return "The glasses' battery is too low to record video — $battery percent. Charge them, or use the phone camera: open JARVIS, Record."
         }
         if (!ble.isConnected()) {
-            cameraRequest = if (walk) "walk" else "video"
-            return "The glasses aren't connected, so I've opened the phone camera. Tap the red button to start."
+            // The link often drops for a moment (e.g. after a download) — try to get it back before giving up.
+            runCatching { ble.connectGlasses() }
+            withTimeoutOrNull(5_000) { while (!ble.isConnected()) delay(250) }
+        }
+        if (!ble.isConnected()) {
+            if (appVisible) {
+                cameraRequest = if (walk) "walk" else "video"
+                return "The glasses aren't connected, so I've opened the phone camera. Tap the red button to start."
+            }
+            return "The glasses aren't connected. Open JARVIS and use Record, Phone camera — or check the glasses are on."
         }
         if (ble.recording.value) return "The glasses are already recording."
         ble.setVideoLength(if (walk) GlassesBleManager.VIDEO_UNLIMITED else com.echo.app.video.VideoPrefs.length(appContext))
@@ -1361,6 +1372,21 @@ class HomeViewModel @Inject constructor(
 
     /** "video" | "walk" while the phone camera recorder should be open (Home → Record, or voice when the glasses can't). */
     var cameraRequest by mutableStateOf<String?>(null)
+
+    /** The phone camera recorder opened: it needs the phone mic, so the wake word / a conversation / translation let go. */
+    fun cameraOpened() {
+        if (inConversation) endConversation()
+        if (translator.isActive) viewModelScope.launch { translator.stop(save = true) }
+        wake.stop()
+    }
+
+    /** The camera recorder closed: listen for "Jarvis" again if hands-free was on. */
+    fun cameraClosed() {
+        if (handsFree && !meetings.isActive) micActive = startWake()
+    }
+
+    /** JARVIS is on screen (set by AppRoot). Voice only opens the phone camera then — never as a surprise later. */
+    @Volatile var appVisible = false
 
     /** True when the glasses can film right now (connected and above the battery floor). */
     val glassesCanFilm: Boolean get() {
@@ -1399,6 +1425,10 @@ class HomeViewModel @Inject constructor(
 
     suspend fun startGlassesMeeting(): String {
         val battery = ble.battery.value
+        if (!ble.isConnected()) {
+            runCatching { ble.connectGlasses() }
+            withTimeoutOrNull(5_000) { while (!ble.isConnected()) delay(250) }
+        }
         if (!ble.isConnected()) return "The glasses aren't connected. Use the phone's microphone instead: Home, Record, Meeting."
         if (battery != null && battery <= GlassesBleManager.MIN_VIDEO_BATTERY)
             return "The glasses' battery is too low to record — $battery percent. Use the phone's microphone instead."

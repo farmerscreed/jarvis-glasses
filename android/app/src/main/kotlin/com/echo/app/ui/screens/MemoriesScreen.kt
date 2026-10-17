@@ -121,7 +121,7 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
             "photos" -> (if (vm.searchHits != null) source else vm.gallery).filter { it.type == MemoryType.PHOTO }
             "people" -> source.filter { it.type == MemoryType.PERSON }
             "research" -> source.filter { "research" in it.tags }
-            "notes" -> source.filter { it.type in setOf(MemoryType.NOTE, MemoryType.VOICE_NOTE, MemoryType.QA, MemoryType.JOURNAL, MemoryType.MEETING) && "research" !in it.tags }
+            "notes" -> source.filter { it.type in setOf(MemoryType.NOTE, MemoryType.VOICE_NOTE, MemoryType.QA, MemoryType.JOURNAL, MemoryType.MEETING, MemoryType.VIDEO) && "research" !in it.tags }
             else -> source
         }
     }
@@ -177,7 +177,7 @@ fun MemoriesScreen(vm: HomeViewModel, onAskAboutPhoto: (Memory) -> Unit) {
             val recs = vm.library.filter { r -> when (recKind) { "audio" -> !r.isVideo; "video" -> r.isVideo; else -> true } }
             if (vm.library.isEmpty()) item(span = { GridItemSpan(3) }) {
                 Text(
-                    "No recordings yet — tap Meeting on Home, or say “Jarvis, record this meeting” (audio) or “Jarvis, record a video”. Finished recordings land here.",
+                    "No recordings yet — tap Record on Home, or say “Jarvis, record this meeting” (audio) or “Jarvis, record a video”. Finished recordings land here.",
                     style = Neo.body.copy(fontSize = 15.sp, lineHeight = 22.sp, color = Neo.Muted),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(top = 30.dp),
@@ -292,11 +292,14 @@ private fun MemoryRow(m: Memory, onOpenPhoto: () -> Unit, onOpenMeeting: (String
             }
         }
         else -> {
-            val meetingId = if (m.type != MemoryType.MEETING) null
+            // A meeting / video / site-walk memory opens its recording page (by id, else by its title).
+            val heading = listOf("Meeting:", "Video:", "Site walk:").firstOrNull { body.startsWith(it) }
+            val meetingId = if (m.type != MemoryType.MEETING && m.type != MemoryType.VIDEO) null
             else m.metadata["client_id"]?.takeIf { it.startsWith("rec-") }
-                ?: body.removePrefix("Meeting:").substringBefore(" — ").trim().takeIf { body.startsWith("Meeting:") && it.isNotBlank() }
+                ?: heading?.let { h -> body.removePrefix(h).substringBefore(" — ").trim().takeIf { it.isNotBlank() } }
             val tag = when {
                 m.type == MemoryType.MEETING -> "Meeting"
+                m.type == MemoryType.VIDEO -> if ("walk" in m.tags || body.startsWith("Site walk:")) "Site walk" else "Video"
                 m.type == MemoryType.VOICE_NOTE -> "Voice note"
                 m.type == MemoryType.QA -> "Answer"
                 "translation" in m.tags -> "Translation"

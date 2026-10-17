@@ -90,6 +90,17 @@ fun AppRoot() {
         if (com.echo.app.meeting.MeetingNav.openRecording != null) { tab = JarvisTab.Memories; meeting = false; ask = false; research = false; device = false }
     }
 
+    // Tell the view model when JARVIS is on screen (voice may then open the phone camera; never in the background).
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_START) vm.appVisible = true
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) vm.appVisible = false
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+
     // Phase 3 · V5: the phone camera recorder (Home → Record, or voice when the glasses can't film).
     vm.cameraRequest?.let { mode ->
         CameraRecorderScreen(vm, walk = mode == "walk", onClose = { vm.cameraRequest = null })

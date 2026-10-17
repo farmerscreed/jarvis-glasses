@@ -44,6 +44,12 @@ object VideoPrefs {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(key(kind), System.currentTimeMillis()).apply()
     }
 
+    /** A [kind] is waiting to come off the glasses (not consumed). */
+    fun hasPending(context: Context, kind: String): Boolean {
+        val at = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(key(kind), 0L)
+        return at != 0L && System.currentTimeMillis() - at < 86_400_000L
+    }
+
     /** True (once) if a [kind] is waiting to come off the glasses — expires after a day. */
     fun takePending(context: Context, kind: String): Boolean {
         val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

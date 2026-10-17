@@ -304,8 +304,11 @@ private fun AiCostsPage(vm: HomeViewModel, onBack: () -> Unit) {
         if (c == null) { Explain("Loading… (you need to be online)"); return@SubPage }
         val jobs = c.optJSONObject("jobs") ?: org.json.JSONObject()
         Text("$" + "%.2f".format(c.optDouble("total_usd", 0.0)) + " this month", style = Neo.display.copy(fontSize = 28.sp))
-        Explain("Estimated from the tokens each call used (meetings so far; other features join later). Bills come from each provider.")
-        val names = mapOf("meeting_stt" to "Meeting transcripts", "meeting_summary" to "Meeting summaries", "meeting_ask" to "Questions about meetings")
+        Explain("Estimated from the tokens each call used (meetings and videos so far; other features join later). Bills come from each provider.")
+        val names = mapOf(
+            "meeting_stt" to "Meeting transcripts", "meeting_summary" to "Meeting summaries", "meeting_ask" to "Questions about meetings & videos",
+            "video_stt" to "Watching videos", "video_summary" to "Video notes", "walk_report" to "Site walk reports",
+        )
         SettingsGroup("This month") {
             val keys = jobs.keys().asSequence().toList()
             if (keys.isEmpty()) SettingsRow(null, "No AI calls logged yet this month", divider = false)

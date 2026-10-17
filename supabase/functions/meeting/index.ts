@@ -656,8 +656,11 @@ Deno.serve(async (req) => {
       }
 
       case "delete": {
-        const { data: rec } = await db.from("recordings").select("id,memory_id").eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
+        const { data: rec } = await db.from("recordings").select("id,memory_id,frames").eq("user_id", user.id).eq("client_id", clientId).maybeSingle();
         await deleteAudio(db, user.id, clientId);
+        // "Everything" includes a video's key-moment photos (media bucket; only this user's own paths).
+        const framePaths = ((rec?.frames ?? []) as { path?: string }[]).map((f) => String(f.path ?? "")).filter((p) => p.startsWith(`${user.id}/`));
+        if (framePaths.length) await db.storage.from("media").remove(framePaths);
         if (rec?.memory_id) await db.from("memories").delete().eq("id", rec.memory_id).eq("user_id", user.id);
         await db.from("recordings").delete().eq("user_id", user.id).eq("client_id", clientId);
         return json({ ok: true });

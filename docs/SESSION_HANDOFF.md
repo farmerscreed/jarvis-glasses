@@ -2,10 +2,15 @@
 
 *The single-source handover between sessions. A new session should be able to read only this and
 know exactly where we are, how to run/verify, what not to relitigate, and what to do next.*
-*Last updated: 2026-10-16. Keep this current at the end of every working session.*
+*Last updated: 2026-10-17. Keep this current at the end of every working session.*
 
 ---
-### ▶ LATEST (2026-10-16, evening) — Phase 3 V1–V7 + M8 BUILT; next = Law runs `docs/TEST_PLAN_PHASE3.md`
+### ▶ LATEST (2026-10-17) — full audit done; next = Law runs `docs/TEST_PLAN_PHASE3.md`
+Record: **`docs/SESSION_LOG_2026-10-16.md`** (Phase 3 + M8 + the 10-17 audit: deployed code = repo, 9 stale functions
+redeployed, 7 fixes incl. "full video originals were being uploaded" and "camera popping up later"). Law decides: the 6
+video originals (78 MB) already in the media bucket. Everything committed + pushed.
+
+### ▶ 2026-10-16 (evening) — Phase 3 V1–V7 + M8 BUILT; next = Law runs `docs/TEST_PLAN_PHASE3.md`
 Built and installed (19:32): Home **Record** chooser (Meeting: phone/glasses mic · Video · Site walk × glasses/phone
 camera), phone camera recorder (CameraX), site-walk **report** (cloud `report` object, page, photos per problem, PDF),
 **sharing** (PDF / full / small 480p / text), Ask about this video, Recordings badges AUDIO/VIDEO/SITE WALK + filter,
