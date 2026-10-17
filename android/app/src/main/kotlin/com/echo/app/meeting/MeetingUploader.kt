@@ -87,7 +87,7 @@ class MeetingUploader @Inject constructor(
             val body = JSONObject()
                 .put("op", "chunk").put("client_id", id).put("name", f.name).put("bytes", bytes.size).put("sha256", sha)
                 .put("duration_s", durationS(f)).put("title", meta.optString("title")).put("started_at", meta.optLong("started_at"))
-                .put("kind", meta.optString("kind", "meeting")).toString()
+                .put("kind", meta.optString("kind", "meeting")).put("source", meta.optString("source", "phone")).toString()
             var ok = false
             for (attempt in 1..2) {                    // 409 = the server saw different bytes → send again
                 backend.uploadRecordingChunk(id, f.name, bytes)

@@ -230,7 +230,11 @@ fun RecordingCard(item: LibraryItem, onOpen: () -> Unit, onStar: ((Boolean) -> U
             MonoLabel(status, color = statusColor)
             if (c != null && c.status == "ready" && c.inShort.isNotBlank() && c.isMeeting) {
                 Text(c.inShort, style = Neo.body.copy(fontSize = 13.sp, lineHeight = 19.sp, color = Neo.TextSoft), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                val counts = listOfNotNull(
+                val report = c.summary?.optJSONObject("report")
+                val counts = if (report != null) listOfNotNull(
+                    (report.optJSONArray("problems")?.length() ?: 0).takeIf { it > 0 }?.let { "$it problem" + if (it == 1) "" else "s" },
+                    (report.optJSONArray("progress")?.length() ?: 0).takeIf { it > 0 }?.let { "$it done / under way" },
+                ).joinToString(" · ") else listOfNotNull(
                     c.actionCount.takeIf { it > 0 }?.let { "$it action item" + if (it == 1) "" else "s" },
                     c.decisionCount.takeIf { it > 0 }?.let { "$it decision" + if (it == 1) "" else "s" },
                 ).joinToString(" · ")
@@ -301,6 +305,20 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
     }
     val isVideo = videoFile != null || rec?.kind in setOf("video", "walk")
 
+    // The video (paused at the start) + its key moments. On "Notes" it scrolls away with the report so the report gets the
+    // whole screen (Law, 10-17: with large text the report had a quarter of the screen); on "Seen & said" it's pinned.
+    val videoTop: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (videoFile != null) {
+                VideoPlayer(
+                    videoFile, control = video, autoPlay = false,
+                    modifier = Modifier.fillMaxWidth().height(210.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black),
+                )
+            }
+            if (isVideo) KeyMoments(vm, rec, detail?.moments.orEmpty(), onSeek = seek)
+        }
+    }
+
     Column(Modifier.fillMaxSize().background(Neo.Ground)) {
         // Header
         Column(Modifier.statusBarsPadding().padding(start = 12.dp, end = 12.dp, top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -332,21 +350,16 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
                     (if (nSpeakers > 0) " · $nSpeakers speaker" + (if (nSpeakers == 1) "" else "s") else ""),
                 style = Neo.mono.copy(fontSize = 12.sp, letterSpacing = 0.sp), modifier = Modifier.padding(horizontal = 8.dp),
             )
-            if (videoFile != null) {
-                VideoPlayer(
-                    videoFile, control = video, autoPlay = false,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(16.dp)).background(Color.Black),
-                )
-            }
-            if (isVideo) KeyMoments(vm, rec, detail?.moments.orEmpty(), onSeek = seek)
             FilterChips(
                 if (isVideo) listOf("summary" to "Notes", "transcript" to "Seen & said") else listOf("summary" to "Summary", "transcript" to "Transcript"),
                 tab, onSelect = { tab = it }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
+            // "Seen & said": the video stays pinned so you can watch while reading. ("Notes" scrolls it away — below.)
+            if (tab == "transcript") videoTop()
         }
 
         Box(Modifier.weight(1f)) {
-            if (tab == "summary") SummaryTab(vm, item, rec, loadError, onSeek = seek, video = isVideo)
+            if (tab == "summary") SummaryTab(vm, item, rec, loadError, onSeek = seek, video = isVideo, top = { videoTop() })
             else TranscriptTab(lines, rec, speakers, positionMs, playable, onSeek = seek, onRename = { renameSpeaker = it })
         }
 
@@ -431,14 +444,18 @@ fun RecordingDetail(vm: HomeViewModel, item: LibraryItem, onBack: () -> Unit) {
             title = { Text("Delete this recording?", style = Neo.display.copy(fontSize = 20.sp)) },
             text = {
                 Text(
-                    if (rec != null) "“Audio only” keeps the summary, transcript and memory. “Everything” removes it all, from this phone and the cloud."
-                    else "The audio is removed from this phone for good.",
+                    when {
+                        rec != null && isVideo -> "“Cloud copy only” removes the small copy in the cloud and keeps the notes, photos and the full video on this phone. “Everything” removes it all — the full video too — from this phone and the cloud."
+                        rec != null -> "“Audio only” keeps the summary, transcript and memory. “Everything” removes it all, from this phone and the cloud."
+                        isVideo -> "The video is removed from this phone for good."
+                        else -> "The audio is removed from this phone for good."
+                    },
                     style = Neo.body.copy(color = Neo.TextSoft),
                 )
             },
             confirmButton = {
                 Column(horizontalAlignment = Alignment.End) {
-                    if (rec != null && !audioDeleted) TextButton(onClick = { confirmDelete = false; vm.deleteRecording(item.id, audioOnly = true); reload++ }) { Text("Audio only", color = Neo.Amber) }
+                    if (rec != null && !audioDeleted) TextButton(onClick = { confirmDelete = false; vm.deleteRecording(item.id, audioOnly = true); reload++ }) { Text(if (isVideo) "Cloud copy only" else "Audio only", color = Neo.Amber) }
                     TextButton(onClick = { confirmDelete = false; vm.deleteRecording(item.id); onBack() }) { Text("Everything", color = Neo.Danger) }
                 }
             },
@@ -463,12 +480,12 @@ private fun KeyMoments(vm: HomeViewModel, rec: CloudRec?, moments: List<Pair<Dou
             if (frames.isNotEmpty()) items(frames) { f ->
                 val url by produceState<String?>(null, f.path) { value = vm.signedMediaUrl(f.path) }
                 val img = rememberRemoteImage(url)
-                Column(Modifier.width(120.dp).clip(RoundedCornerShape(12.dp)).clickable { onSeek(f.t) }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.width(96.dp).clip(RoundedCornerShape(12.dp)).clickable { onSeek(f.t) }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(Neo.Card), contentAlignment = Alignment.Center) {
                         if (img != null) Image(img, contentDescription = f.why, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         else CircularProgressIndicator(strokeWidth = 2.dp, color = Neo.Cyan, modifier = Modifier.size(18.dp))
                     }
-                    Text(clockS(f.t) + " · " + f.why, style = Neo.body.copy(fontSize = 12.sp, lineHeight = 16.sp, color = Neo.TextSoft), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(clockS(f.t) + " · " + f.why.removePrefix("Problem: "), style = Neo.body.copy(fontSize = 11.sp, lineHeight = 14.sp, color = if (f.why.startsWith("Problem:")) Color(0xFFFF8A80) else Neo.TextSoft), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             } else items(moments) { (t, why) ->
                 Text(
@@ -481,13 +498,17 @@ private fun KeyMoments(vm: HomeViewModel, rec: CloudRec?, moments: List<Pair<Dou
 }
 
 @Composable
-private fun SummaryTab(vm: HomeViewModel, item: LibraryItem, rec: CloudRec?, loadError: String, onSeek: (Double) -> Unit, video: Boolean = false) {
+private fun SummaryTab(
+    vm: HomeViewModel, item: LibraryItem, rec: CloudRec?, loadError: String, onSeek: (Double) -> Unit, video: Boolean = false,
+    top: @Composable () -> Unit = {},
+) {
     val scope = rememberCoroutineScope()
     var done by remember(rec?.clientId, rec?.actionDone) { mutableStateOf(rec?.actionDone.orEmpty()) }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        top()
         val summary = rec?.summary
         if (rec == null || rec.status != "ready" || summary == null) {
             val (label, _) = statusOf(item.copy(cloud = rec))

@@ -43,11 +43,37 @@ see (Part A). You do the real-world steps (Part B) — they need hands, glasses,
 
 ---
 
-## Part B — what you do
+**Tested by Claude on the phone, 2026-10-17 (screens driven over adb, logs + cloud checked):**
+| ✓ | What | Result |
+|---|---|---|
+| ✅ | Record chooser, Recordings badges + Audio/Video filter, video page, key moment → video jumps there | works (label wrap fixed) |
+| ✅ | Glasses video started/stopped from the app — **the same command stops it** (open question answered) | saved 0.5 s after stop |
+| ✅ | Glasses download speed | 21 MB in 10 s (~2 MB/s); glasses film ~10 Mbps ≈ 75 MB/min |
+| ✅ | Glasses audio started/stopped from the app — **the same command stops it** | saved instantly |
+| ✅ | Glasses audio format — **was NOT readable** (bare Opus packets) → fixed (`GlassesAudio`, wrapped as Ogg) | transcribes; voice notes too |
+| ✅ | Phone camera recorder (preview, timer, stop) → notes + photos | works |
+| ✅ | **Site walk** (85 s of real building-site footage + spoken site-manager narration, fed in as a glasses walk) | recognised as a walk; 4/4 problems with right times + severity; counts exact; dates resolved; report page + **PDF** (2 pages, photos) |
+| ✅ | **Glasses meeting** (2-min two-voice supplier meeting in the glasses' own audio format) | ≥ 2 min rule → meeting; every price, quantity, decision, owner and date correct |
+| ✅ | Ask about this video ("who must fix the wiring and by when") | "Emeka must cover the exposed wires before Monday 19 Oct" |
+| ✅ | Share → PDF (video notes + walk report), share sheet opens | works |
+| ✅ | Delete → Everything (cloud row + copy + key-moment photos) | works; **bug fixed**: the full video stayed on the phone and would have come back |
+| ✅ | Look, Research, Research what I'm looking at | work |
+| ✅ | Found + fixed: app showed "Off-grid" for ~1 min after a glasses download while online | ignores blips < 5 s now |
+| ⚠️ | Names/places misheard ("Rumuola" → "Romola", "Mr Ade" → "Mr Aid" from the PC voice) | needs your `STT_VOCAB` list |
+
+## Part B — what only you can do (≈ 20 minutes — the rest above is done)
+1. [ ] **A real site walk** on one of your sites (Session 4 below, steps 16–21): is the report something you'd send? What's missing?
+2. [ ] **A real meeting on the glasses with a person** (Session 5, steps 23–26): did it stop when you said "stop recording"?
+3. [ ] **Voice through the glasses:** "Jarvis, record a video" / "stop the video" / "start a site walk" / "stop the walk".
+4. [ ] Look at the demo **site walk** and the **supplier meeting** in Recordings (made by Claude from stock footage and
+       computer voices) — delete them when you've seen them (open → 🗑 → Everything).
+5. [ ] Send Claude your **`STT_VOCAB`** list: site names (Rumuola …), people (Mr Ade, Emeka, Chika …), local words.
+
+## Part B (full list, for reference)
 
 ### Session 1 — new screens with the videos you already have (10 min, sitting down)
 1. [ ] **Home → Record** (the red tile, was "Meeting"). A box asks *What do you want to record?* with **Meeting
-       (audio)** · **Video** · **Site walk**, and buttons **Phone mic / Glasses mic** and **Glasses / Phone camera**.
+       (audio)** · **Video** · **Site walk**, and buttons **Phone / Glasses** under each.
        If the glasses aren't connected, the Glasses buttons are grey with the reason underneath. → **Cancel**.
 2. [ ] **Memories → Recordings**: every card starts with **AUDIO** (blue, microphone), **VIDEO** (purple, a still from
        the video with ▶) or **SITE WALK** (green). Chips **All / Audio / Video** filter the list.
@@ -76,7 +102,7 @@ see (Part A). You do the real-world steps (Part B) — they need hands, glasses,
 11. [ ] Ask JARVIS (voice or Ask): *"What did I film today?"* → it knows about these videos.
 
 ### Session 3 — phone camera (5 min)
-12. [ ] **Home → Record → Video → Phone camera** → camera screen: big red button, flip button. Allow camera/mic if asked.
+12. [ ] **Home → Record → Video → Phone** → camera screen: big red button, flip button. Allow camera/mic if asked.
 13. [ ] Tap **red** → timer runs. Flip is disabled while filming. Film ~1 minute, talking. Tap the **square** to stop
         → *"Done — back to JARVIS"*.
 14. [ ] It appears in Recordings as **VIDEO · phone**; a few minutes later **"Video notes ready"**.
@@ -99,10 +125,10 @@ see (Part A). You do the real-world steps (Part B) — they need hands, glasses,
         - [ ] The problems match what you showed/said; nothing invented. Note anything wrong — **most important check**.
 21. [ ] **Share ↗ → The report (PDF with photos)** → send to yourself on WhatsApp → open it. Would you send this to
         someone? Note what you'd change.
-22. [ ] Short **site walk with the phone camera** (Record → Site walk → Phone camera, ~2 min) → also gets a report.
+22. [ ] Short **site walk with the phone camera** (Record → Site walk → Phone, ~2 min) → also gets a report.
 
 ### Session 5 — meeting recorded by the glasses (15 min, with another person)
-23. [ ] **Home → Record → Meeting → Glasses mic** (or say *"Jarvis, record this meeting on the glasses"*) → JARVIS
+23. [ ] **Home → Record → Meeting → Glasses** (or say *"Jarvis, record this meeting on the glasses"*) → JARVIS
         says it's recording on the glasses; red bar *"Glasses recording the meeting — tap to stop"*.
 24. [ ] Talk with someone for **3–5 minutes**: a price, a decision, who does what by when, a name.
 25. [ ] Say **"Jarvis, stop recording"** (or tap the bar). *(Tell Claude whether the glasses actually stopped — if
@@ -113,7 +139,7 @@ see (Part A). You do the real-world steps (Part B) — they need hands, glasses,
         note** as before (not a meeting).
 
 ### Session 6 — quick check that nothing else broke (10 min)
-28. [ ] Phone meeting: Record → Meeting → **Phone mic** → 1 minute → Stop → summary arrives.
+28. [ ] Phone meeting: Record → Meeting → **Phone** → 1 minute → Stop → summary arrives.
 29. [ ] **Look** tile (or FRONT single-click photo) → photo + description.
 30. [ ] **Translate** → a few sentences → works.
 31. [ ] **Research** → one question → answer with sources.

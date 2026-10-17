@@ -45,7 +45,7 @@ object ReportPdf {
             val meta = listOfNotNull(
                 report?.optString("place")?.takeIf { it.isNotBlank() },
                 if (rec.startedAt > 0) WHEN.format(Instant.ofEpochMilli(rec.startedAt)) else null,
-                if (rec.durationS > 0) "${maxOf(1, rec.durationS / 60)} min ${if (walk) "walk" else "video"}" else null,
+                if (rec.durationS > 0) (if (rec.durationS < 60) "${rec.durationS} s" else "${rec.durationS / 60} min") + if (walk) " walk" else " video" else null,
             ).joinToString(" · ")
             if (meta.isNotBlank()) w.small(meta)
             w.gap(6f)
@@ -118,7 +118,7 @@ object ReportPdf {
     private class PhotoSource(original: File?, private val frames: List<Frame>, private val remote: suspend (String) -> ByteArray?) {
         private val r: MediaMetadataRetriever? = original?.takeIf { it.exists() }?.let { f -> runCatching { MediaMetadataRetriever().apply { setDataSource(f.absolutePath) } }.getOrNull() }
         suspend fun at(t: Double): Bitmap? {
-            r?.let { m -> runCatching { m.getScaledFrameAtTime((t * 1_000_000).toLong(), MediaMetadataRetriever.OPTION_CLOSEST, 960, 960) }.getOrNull()?.let { return it } }
+            r?.let { m -> runCatching { m.getScaledFrameAtTime((t * 1_000_000).toLong(), MediaMetadataRetriever.OPTION_CLOSEST, 640, 640) }.getOrNull()?.let { return it } }
             val f = frames.minByOrNull { kotlin.math.abs(it.t - t) }?.takeIf { kotlin.math.abs(it.t - t) <= 8 } ?: return null
             return remote(f.path)?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
         }

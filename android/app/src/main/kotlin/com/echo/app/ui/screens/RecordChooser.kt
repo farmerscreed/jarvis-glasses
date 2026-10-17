@@ -53,20 +53,20 @@ fun RecordChooser(
                     kindStyle("meeting"), "Meeting (audio)",
                     "You get notes, decisions and action items. The phone's mic hears the whole room best; the glasses' mic is best for what you and the person in front of you say.",
                 ) {
-                    Choice(Icons.Outlined.PhoneAndroid, "Phone mic", enabled = true) { onMeeting(false) }
-                    Choice(Icons.Outlined.Visibility, "Glasses mic", enabled = glassesReady) { onMeeting(true) }
+                    Choice(Icons.Outlined.PhoneAndroid, "Phone", enabled = true) { onMeeting(false) }
+                    Choice(Icons.Outlined.Visibility, "Glasses", enabled = glassesReady) { onMeeting(true) }
                 }
                 Option(
                     kindStyle("video"), "Video", "Film something. JARVIS watches it and writes what was seen and said.",
                 ) {
                     Choice(Icons.Outlined.Visibility, "Glasses", enabled = glassesReady) { onGlasses(false) }
-                    Choice(Icons.Outlined.PhoneAndroid, "Phone camera", enabled = true) { onPhone(false) }
+                    Choice(Icons.Outlined.PhoneAndroid, "Phone", enabled = true) { onPhone(false) }
                 }
                 Option(
                     kindStyle("walk"), "Site walk", "Walk a site and talk. You get a report: progress, problems with photos, counts, safety — as a PDF to send.",
                 ) {
                     Choice(Icons.Outlined.Visibility, "Glasses", enabled = glassesReady) { onGlasses(true) }
-                    Choice(Icons.Outlined.PhoneAndroid, "Phone camera", enabled = true) { onPhone(true) }
+                    Choice(Icons.Outlined.PhoneAndroid, "Phone", enabled = true) { onPhone(true) }
                 }
                 if (!glassesReady) Text(glassesWhyNot, style = Neo.body.copy(fontSize = 13.sp, lineHeight = 18.sp, color = Neo.Muted))
             }
@@ -103,6 +103,6 @@ private fun Choice(icon: ImageVector, label: String, enabled: Boolean, onClick: 
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(icon, contentDescription = null, tint = c, modifier = Modifier.size(16.dp))
-        Text(label, style = Neo.body.copy(fontSize = 14.sp, color = c, fontWeight = FontWeight.SemiBold))
+        Text(label, style = Neo.body.copy(fontSize = 14.sp, color = c, fontWeight = FontWeight.SemiBold), maxLines = 1, softWrap = false)
     }
 }

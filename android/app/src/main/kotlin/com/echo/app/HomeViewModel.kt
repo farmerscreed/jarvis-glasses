@@ -269,7 +269,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val known = runCatching { store.knownLocalPaths() }.getOrDefault(emptySet())
             val all = transfer.mediaFiles()
-            val orphans = all.filter { it.absolutePath !in known }
+            // A glasses recording that became a meeting (M8) has its recording instead of a memory — not an orphan.
+            val recorded = meetings.saved().mapNotNull { r ->
+                runCatching { org.json.JSONObject(java.io.File(r.dir, "meta.json").readText()).optString("original") }.getOrNull()?.takeIf { it.isNotBlank() }
+            }.toSet()
+            val orphans = all.filter { it.absolutePath !in known && it.absolutePath !in recorded }
             android.util.Log.i("EchoReconcile", "media=${all.size} known=${known.size} orphans=${orphans.size}")
             if (orphans.isEmpty()) return@launch
             status = "Importing ${orphans.size} earlier capture(s)…"
@@ -1307,9 +1311,21 @@ class HomeViewModel @Inject constructor(
                 refreshRecordings()
             }
         } else {
+            // A video's full-quality ORIGINAL goes too ("Everything"), and the old photo-grid entry for it — otherwise
+            // the start-up catch-up would find a video with no recording and make it again (10-17 test).
+            val original = runCatching {
+                org.json.JSONObject(java.io.File(meetings.root(), "$id/meta.json").readText()).optString("original")
+            }.getOrNull()?.takeIf { it.isNotBlank() }
             meetings.delete(id)
             uploader.queueCloudDelete(id) // removes the cloud copy too (now, or when back online)
             library = library.filterNot { it.id == id }
+            if (original != null) viewModelScope.launch {
+                runCatching {
+                    store.recent(1000).filter { it.metadata["localMediaPath"] == original }.forEach { store.delete(it) }
+                }
+                withContext(Dispatchers.IO) { java.io.File(original).delete() }
+                refreshLibrary()
+            }
             refreshRecordings()
         }
     }

@@ -492,7 +492,7 @@ Deno.serve(async (req) => {
           const startedAt = iso(body.started_at) ?? now();
           const { data, error } = await db.from("recordings").upsert({
             user_id: user.id, client_id: clientId, title: String(body.title ?? "").slice(0, 200),
-            kind: String(body.kind ?? "meeting"), source: "phone", started_at: startedAt, status: "uploading",
+            kind: String(body.kind ?? "meeting"), source: body.source === "glasses" ? "glasses" : "phone", started_at: startedAt, status: "uploading",
           }, { onConflict: "user_id,client_id" }).select("id,status,chunks_total").single();
           if (error) return json({ error: error.message }, 500);
           rec = data;

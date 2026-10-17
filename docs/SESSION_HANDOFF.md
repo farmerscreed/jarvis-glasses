@@ -5,7 +5,13 @@ know exactly where we are, how to run/verify, what not to relitigate, and what t
 *Last updated: 2026-10-17. Keep this current at the end of every working session.*
 
 ---
-### ▶ LATEST (2026-10-17) — full audit done; next = Law runs `docs/TEST_PLAN_PHASE3.md`
+### ▶ LATEST (2026-10-17, evening) — Claude ran most of the test on the phone; Law's part is ~20 min
+`docs/SESSION_LOG_2026-10-16.md` §3b: glasses video/audio stop commands confirmed, **glasses audio format decoded + fixed**
+(bare Opus packets → Ogg), simulated site walk + glasses meeting both accurate, 7 bugs fixed (incl. false Off-grid, Delete
+Everything leaving the video). Law's remaining part: `docs/TEST_PLAN_PHASE3.md` Part B (real walk, real glasses meeting,
+voice through the glasses, `STT_VOCAB`). The 6 full videos in the media bucket were deleted (Law, 10-17).
+
+### ▶ 2026-10-17 (morning) — full audit done
 Record: **`docs/SESSION_LOG_2026-10-16.md`** (Phase 3 + M8 + the 10-17 audit: deployed code = repo, 9 stale functions
 redeployed, 7 fixes incl. "full video originals were being uploaded" and "camera popping up later"). Law decides: the 6
 video originals (78 MB) already in the media bucket. Everything committed + pushed.

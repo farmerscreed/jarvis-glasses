@@ -112,7 +112,7 @@ and remembers it for next time. Translation needs internet. For privacy, your gl
 connected for sound; if not, the app warns you and your English plays from the phone.
 
 ## Record a meeting
-- **Start:** Home → **Record** → **Meeting** → **Phone mic** → **Start recording**, or say *"Jarvis, record this meeting (with Mr Ade)"*.
+- **Start:** Home → **Record** → **Meeting** → **Phone** → **Start recording**, or say *"Jarvis, record this meeting (with Mr Ade)"*.
   Start it while the phone is unlocked; after that you can lock the phone and put it on the table — it keeps
   recording (a "JARVIS is recording" notification with **Mark** and **Stop** stays up). Tell everyone you're recording.
 - It uses the **phone's microphone** (it hears the whole room; the glasses mic only hears you well).
@@ -170,7 +170,7 @@ notifications when Android asks).
 | Right double-click / slide | Media play-pause / volume (native) |
 
 ## Record a meeting with the glasses (M8)
-Home → **Record** → **Meeting** → **Glasses mic**, or say *"Jarvis, record this meeting on the glasses"*, or hold the
+Home → **Record** → **Meeting** → **Glasses**, or say *"Jarvis, record this meeting on the glasses"*, or hold the
 glasses' **BACK** button. The glasses record on their own (up to 2 hours) — a red bar shows *"Glasses recording the
 meeting — tap to stop"*. Stop with *"stop recording"*, the bar, or holding BACK again. Afterwards keep the glasses near the
 phone: the recording comes across over Wi-Fi, becomes ~5-minute pieces and goes through the meetings pipeline →
@@ -178,9 +178,9 @@ phone: the recording comes across over Wi-Fi, becomes ~5-minute pieces and goes 
 becomes a meeting; shorter ones stay voice notes. Phone mic = whole room; glasses mic = you and the person in front of you.
 
 Home → **Record** → choose **Meeting** (audio, the phone's microphone), **Video** or **Site walk**. Video and Site walk
-then ask **Glasses** or **Phone camera**:
+then ask **Glasses** or **Phone** (the phone camera):
 - **Glasses** — they start filming (light on). Stop with a FRONT double-click or *"stop the video"* / *"stop the walk"*.
-- **Phone camera** — big red button, flip camera, running time. Keep the screen on while it films (Android stops the
+- **Phone** (the phone camera) — big red button, flip camera, running time. Keep the screen on while it films (Android stops the
   camera when the screen goes off). Tap the button again to stop; it then goes through the same notes pipeline.
 - Said *"Jarvis, record a video"* but the glasses aren't connected or are below 16 %? JARVIS opens the phone camera.
 

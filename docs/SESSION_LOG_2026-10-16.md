@@ -56,6 +56,41 @@
     main thread.
   - Cost screen names the video jobs; old "Home → Meeting" instructions → "Home → Record".
 
+## 3b. Testing 2026-10-17 (Claude on the phone; Law asked "can't you perform most of them yourself?")
+Method: screens driven over adb (only while JARVIS had focus), live logcat, cloud DB checks. Simulations: a **site walk** =
+4 free Mixkit construction clips (85 s) + Windows-voice narration (ffmpeg, installed with `scoop install ffmpeg`), pushed into
+`glasses_media/` as the newest file with `pending_walk` set; a **glasses meeting** = 2-min two-voice supplier dialogue encoded
+with libopus 16 kbps CBR 20 ms 16 kHz mono → exactly the glasses' 40-byte packets, pushed as the newest `.opus`.
+(Git Bash rewrites `/data/...` paths for adb → use `MSYS_NO_PATHCONV=1`.)
+
+**Answered:** `02 01 02` and `02 01 08` sent again STOP the recording (reply work=2 / work=8, file saved at once). Glasses video
+≈ 10 Mbps (21 MB / 16 s); Wi-Fi Direct download ≈ 2 MB/s; a 16 s clip synced in 17.5 s.
+
+**Bugs found and fixed:**
+1. **Glasses audio wasn't readable** — `.opus` files are bare 40-byte Opus packets (Jieli `OpusManager`, `OpusOption{1 ch,
+   16 kHz, packetSize 40}`), not Ogg. `video/GlassesAudio.kt` wraps them as Ogg Opus (RFC 7845, own CRC) → Media3 → AAC
+   32 kbps (2 h ≈ 30 MB). Also fixes glasses **voice notes** (were sent to the cloud unreadable). Format check compares the
+   TOC's top 6 bits — real files mix 0x4B and 0x48 (first version missed a file starting with 0x48). Tests: `GlassesAudioTest`.
+2. A failed glasses meeting was lost (neither meeting nor voice note) → falls back to a voice note now.
+3. Orphan import turned a glasses meeting's audio into a duplicate voice note → recordings' originals are skipped.
+4. Cloud stored every recording's source as "phone" → the phone sends `source`, `meeting` stores it; 6 rows corrected.
+5. "Off-grid" shown ~1 min after a glasses download while online → `ConnectivityGovernor` ignores blips < 5 s and re-checks
+   every 30 s.
+6. Delete → Everything left the full video on the phone (and catch-up would have re-made it) → original + its photo-grid
+   memory deleted too; dialog says "Cloud copy only" for videos.
+7. Layout: video page Notes tab scrolls the video + key moments away (report was a quarter of the screen with large text);
+   Seen & said keeps it pinned. Chooser buttons "Phone / Glasses" (the "Glasses mic" label wrapped). Walk cards say
+   "N problems · M done / under way". PDF: "15 s" not "1 min", photos 640 px (was 960; 3.6 MB for 4 photos).
+
+**Quality:** walk report 4/4 problems at the right times (0:17/0:39/0:57) with sensible severity, counts exact and marked
+"said", "before Monday" → Mon 19 Oct, roof slab → Thu 22 Oct; it also described the footage (bricks, crane). Meeting summary:
+every number/decision/owner right; "next week Tuesday" (said on a Saturday) → 27 Oct is debatable; names/places misheard
+(needs `STT_VOCAB`).
+
+**Left on the phone/cloud for Law to look at:** the demo site walk (`rec-1792258015187-f33c2a`), the demo supplier meeting
+(`rec-1792258546864-6e490c`), Claude's 16 s glasses test video + 14 s glasses audio test (+ its voice note). The phone-camera
+test clip was deleted (that's how bug 6 was found).
+
 ## 4. Verified vs not yet verified
 **Verified:** voice video start (reply FF FF); video length read-back 180 s; glasses → phone download (fixed); 480p ingest
 (10 s/14 MB → ~960 KB); upload size + sha check; Gemini said/seen/moments; video notes + push + key-moment photos (4 videos);

@@ -425,7 +425,7 @@ class GlassesCaptureReactor @Inject constructor(
             }
             "mp4" -> {
                 _status.value = "Saving video ${f.name}…"
-                store.rememberLocal(Memory(type = MemoryType.PHOTO, text = "(video — ${f.name})", tags = listOf("video")), f, "media")
+                store.rememberLocal(Memory(type = MemoryType.PHOTO, text = "Video from the glasses — tap to watch it and read its notes", tags = listOf("video")), f, "media")
                 // Phase 3 · V2: the small analysis copy → the recordings pipeline (notes come back as a recording).
                 scope.launch { runCatching { videoIngest.ingest(f, source = "glasses") }.onFailure { android.util.Log.e("EchoVideo", "ingest ${f.name}", it) } }
             }
@@ -434,13 +434,19 @@ class GlassesCaptureReactor @Inject constructor(
                 // more, goes to the meetings pipeline (transcript + notes) instead of becoming a voice note.
                 if (kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { videoIngest.isGlassesMeeting(f) }) {
                     _status.value = "Saving the meeting from the glasses…"
-                    scope.launch { runCatching { videoIngest.ingestAudio(f) }.onFailure { android.util.Log.e("EchoVideo", "audio ingest ${f.name}", it) } }
-                    if (speak) tts.speak("Meeting saved from the glasses. The notes come in a few minutes.")
-                    return
+                    val id = runCatching { videoIngest.ingestAudio(f) }.onFailure { android.util.Log.e("EchoVideo", "audio ingest ${f.name}", it) }.getOrNull()
+                    if (id != null) {
+                        if (speak) tts.speak("Meeting saved from the glasses. The notes come in a few minutes.")
+                        return
+                    }
+                    // Couldn't make it a meeting — keep it as a voice note rather than lose it.
                 }
                 _status.value = "Transcribing ${f.name}…"
                 val transcript = runCatching {
-                    backend.transcribe(f.readBytes(), EchoBackend.mimeFor(f.name))
+                    // The glasses' .opus is bare Opus packets — wrap it as Ogg Opus so the cloud can hear it (GlassesAudio).
+                    val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { f.readBytes() }
+                    if (com.echo.app.video.GlassesAudio.isBarePackets(bytes)) backend.transcribe(com.echo.app.video.GlassesAudio.toOgg(bytes), "audio/ogg")
+                    else backend.transcribe(bytes, EchoBackend.mimeFor(f.name))
                 }.getOrNull()
                 val text = transcript?.takeIf { it.isNotBlank() } ?: "(voice clip — transcript pending)"
                 val tags = if (transcript.isNullOrBlank()) listOf("needs_transcribe") else emptyList()

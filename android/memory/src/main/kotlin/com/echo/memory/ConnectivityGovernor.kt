@@ -60,7 +60,7 @@ class ConnectivityGovernor(
         runCatching { cm.registerDefaultNetworkCallback(callback) }
         scope.launch { // periodic RTT probe to refine FULL vs LEAN
             while (true) {
-                refreshTier()
+                update() // also re-checks "online" so a missed callback can't leave it stuck
                 delay(PROBE_INTERVAL_MS)
             }
         }
@@ -69,6 +69,15 @@ class ConnectivityGovernor(
     private fun update() {
         val was = _online.value
         val now = hasValidatedNetwork()
+        if (!now && was) {
+            // The glasses' Wi-Fi Direct link coming up/down makes Android report "no validated network" for a moment
+            // (10-17: the app showed Off-grid for ~1 min while the phone was online). Only believe it if it lasts 5 s.
+            scope.launch {
+                delay(5_000)
+                if (!hasValidatedNetwork()) { _online.value = false; _tier.value = Tier.OFF_GRID }
+            }
+            return
+        }
         _online.value = now
         if (!now) _tier.value = Tier.OFF_GRID
         scope.launch { refreshTier() } // re-probe on every network change

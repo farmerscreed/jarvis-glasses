@@ -99,6 +99,11 @@ class VideoIngest @Inject constructor(
         val byOriginal = withContext(Dispatchers.IO) { // file reads: never on the main thread (it runs at app start)
             recorder.saved().associateBy { runCatching { JSONObject(File(it.dir, "meta.json").readText()).optString("original") }.getOrDefault("") }
         }
+        // M8: glasses audio from the last few days that's a meeting (≥ 2 min, or the pending glasses meeting) with no recording.
+        for (f in media.filter { it.extension.lowercase() in AUDIO_EXT && it.lastModified() >= cutoff }.sortedBy { it.lastModified() }) {
+            if (byOriginal.containsKey(f.absolutePath)) continue
+            if (withContext(Dispatchers.IO) { isGlassesMeeting(f) }) ingestAudio(f)
+        }
         val phone = File(context.filesDir, "videos").listFiles()?.toList().orEmpty() // the phone camera's videos (V5)
         for (f in (media + phone).filter { it.extension.lowercase() == "mp4" && it.lastModified() >= cutoff }.sortedBy { it.lastModified() }) {
             val rec = byOriginal[f.absolutePath]
@@ -147,13 +152,16 @@ class VideoIngest @Inject constructor(
         val dir = File(recorder.root(), ".ingest-$id").apply { mkdirs() }
         val pieces = ((durationMs + AUDIO_PIECE_MS - 1) / AUDIO_PIECE_MS).toInt().coerceAtLeast(1)
         Log.i(TAG, "ingest audio $id: ${original.name} ${durationMs / 1000}s → $pieces piece(s)")
+        // The glasses' bare Opus packets → a standard Ogg Opus copy Android can read (GlassesAudio).
+        val input = withContext(Dispatchers.IO) { GlassesAudio.playable(original, File(context.cacheDir, "glasses_audio")) }
         for (i in 0 until pieces) {
             val out = File(dir, "%03d.m4a".format(i))
             val startMs = i * AUDIO_PIECE_MS
-            runCatching { transcodeAudio(original, out, startMs, minOf(durationMs, startMs + AUDIO_PIECE_MS)) }
+            runCatching { transcodeAudio(input, out, startMs, minOf(durationMs, startMs + AUDIO_PIECE_MS)) }
                 .onFailure { Log.e(TAG, "audio piece $i of $id failed", it); out.delete() }
         }
         val made = dir.listFiles { f -> f.extension == "m4a" && f.length() > 0 }?.size ?: 0
+        if (input != original) input.delete()
         Log.i(TAG, "ingest audio $id: $made/$pieces piece(s), ${dir.listFiles()?.sumOf { it.length() }?.div(1000)} KB")
         if (made == 0) { dir.deleteRecursively(); return null }
         writeMeta(dir, id, title, "glasses", "meeting", startedAt, (durationMs / 1000).toInt(), original)
@@ -172,6 +180,12 @@ class VideoIngest @Inject constructor(
             val edited = EditedMediaItem.Builder(item).setRemoveVideo(true).build()
             val transformer = Transformer.Builder(context)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                // Speech: 32 kbps like a phone meeting (the default ~140 kbps would make 2 h ≈ 126 MB to upload).
+                .setEncoderFactory(
+                    DefaultEncoderFactory.Builder(context)
+                        .setRequestedAudioEncoderSettings(androidx.media3.transformer.AudioEncoderSettings.Builder().setBitrate(32_000).build())
+                        .build(),
+                )
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) { if (cont.isActive) cont.resume(Unit) }
                     override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
@@ -243,7 +257,7 @@ class VideoIngest @Inject constructor(
         const val HEIGHT = 480
         const val VIDEO_BPS = 700_000
 
-        fun durationOf(f: File): Long = runCatching {
+        fun durationOf(f: File): Long = GlassesAudio.durationMs(f).takeIf { it > 0 } ?: runCatching {
             MediaMetadataRetriever().use { r ->
                 r.setDataSource(f.absolutePath)
                 r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
